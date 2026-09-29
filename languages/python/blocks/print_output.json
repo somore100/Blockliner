@@ -1,0 +1,20 @@
+{
+  "concept_id": "output",
+  "display_name": "Print",
+  "category": "Basic",
+  "description": "Prints a value to the console.",
+  "template": "print([[value]])\n",
+  "params": [
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "\"Hello, World!\""
+    }
+  ],
+  "match": {
+    "node_kind": "call",
+    "slot_map": {
+      "value": "arguments"
+    }
+  }
+}

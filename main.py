@@ -25,7 +25,7 @@ def get_bundle_path():
     """
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(os.path.realpath(__file__))
 
 
 def get_persistent_data_path():
@@ -44,13 +44,25 @@ def get_persistent_data_path():
     read-only-filesystem error. The AppImage runtime sets the APPIMAGE
     env var to the actual file's real path before launching, so that's
     checked first.
+
+    Bug fixed 2026-09: APPIMAGE is only ever trusted when this build is
+    actually frozen/running as an AppImage. It's just an environment
+    variable - if ANY AppImage (this one or a completely unrelated
+    app) was ever launched in a shell, or a terminal was opened from
+    inside one, every child process (including `python3 main.py` run
+    from source, hours later, in an unrelated project) inherits it.
+    Checking it unconditionally meant a stray AppImage from a totally
+    different app could silently hijack where Blockliner looks for its
+    languages/ folder. Guarding on `frozen` first, and requiring the
+    path to actually exist, makes this immune to whatever else the
+    shell happens to have lying around in its environment.
     """
-    appimage_path = os.environ.get("APPIMAGE")
-    if appimage_path:
-        return os.path.dirname(os.path.abspath(appimage_path))
     if getattr(sys, "frozen", False):
-        return os.path.dirname(os.path.abspath(sys.executable))
-    return os.path.dirname(os.path.abspath(__file__))
+        appimage_path = os.environ.get("APPIMAGE")
+        if appimage_path and os.path.isfile(appimage_path):
+            return os.path.dirname(os.path.realpath(appimage_path))
+        return os.path.dirname(os.path.realpath(sys.executable))
+    return os.path.dirname(os.path.realpath(__file__))
 
 
 def ensure_languages_available():
@@ -60,13 +72,28 @@ def ensure_languages_available():
     exe/AppImage. After that, always use the persistent copy - usable
     immediately (ships with Python etc. packs) and safe to edit or add
     to, since edits there survive restarts.
+
+    Checks for an EMPTY directory too, not just its existence: an
+    empty persistent_languages folder left over from get_persistent_
+    data_path() once resolving to the wrong location (see that
+    function's docstring) would otherwise pass the plain isdir() check
+    forever and never get repopulated, even after the path itself is
+    fixed.
     """
     persistent_languages = os.path.join(get_persistent_data_path(), "languages")
 
-    if not os.path.isdir(persistent_languages):
+    if not os.path.isdir(persistent_languages) or not os.listdir(persistent_languages):
         bundled_languages = os.path.join(get_bundle_path(), "languages")
         if os.path.isdir(bundled_languages):
-            shutil.copytree(bundled_languages, persistent_languages)
+            os.makedirs(persistent_languages, exist_ok=True)
+            for entry in os.listdir(bundled_languages):
+                src = os.path.join(bundled_languages, entry)
+                dst = os.path.join(persistent_languages, entry)
+                if not os.path.exists(dst):
+                    if os.path.isdir(src):
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
             print(f"First run: copied default languages to {persistent_languages}")
 
     return persistent_languages

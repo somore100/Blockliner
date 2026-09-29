@@ -1,0 +1,15 @@
+{
+  "display_name": "Else If",
+  "category": "Control",
+  "is_container": true,
+  "empty_body": "",
+  "description": "Runs its body when the earlier If/Else If conditions were false and this one is true. Place it right after an If.",
+  "template": "else if ([[condition]]) {\n[[body]]\n}\n",
+  "params": [
+    {
+      "name": "condition",
+      "type": "boolean",
+      "default": "1"
+    }
+  ]
+}

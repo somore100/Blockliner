@@ -31,23 +31,65 @@ def indent_block(code, spaces=4):
     return "\n".join(pad + line if line.strip() else "" for line in code.split("\n"))
 
 
-def render_block(block_def, params, children=None):
+def _is_nested_block_value(value):
+    """True for a Phase F chip value: {"_nested_block": id, "_nested_params": {...}}."""
+    return isinstance(value, dict) and "_nested_block" in value
+
+
+def _resolve_nested_slots(params, block_registry):
+    """
+    Replace any Phase F chip value in `params` with the plain string
+    its nested block renders to, recursing as needed (a chip's own
+    params could themselves hold a chip, though the UI only ever
+    builds one level deep for now). Non-chip values pass through
+    untouched. block_registry is required to resolve a chip's block_id
+    to its definition - if it's missing (an older call site that
+    hasn't been updated), chip values are left as-is rather than
+    crashing, which will render as Python's dict repr - visibly wrong,
+    matching the project's "honest incompleteness over fake
+    completeness" rule rather than silently guessing at a string.
+    """
+    if not block_registry:
+        return params
+    resolved = dict(params or {})
+    for key, value in resolved.items():
+        if _is_nested_block_value(value):
+            nested_def = block_registry.get(value["_nested_block"])
+            if nested_def is None:
+                continue
+            rendered = render_block(
+                nested_def, value.get("_nested_params", {}), block_registry=block_registry
+            )
+            resolved[key] = rendered.rstrip("\n")
+    return resolved
+
+
+def render_block(block_def, params, children=None, block_registry=None):
     """
     Render one block into source code.
 
-    block_def : dict loaded from a language pack's per-block JSON file
-                (languages/<lang>/blocks/<block_id>.json),
-                e.g. {"template": "print([[value]])\\n", ...}
-    params    : dict of this block's own slot values
-    children  : list of already-rendered code strings for nested
-                blocks (only used when block_def["is_container"] is
-                True - mirrors the old generate_code(params, children, lang)
-                contract so container blocks like `if` keep working
-                the same way, just driven by a template instead of an
-                indentation loop written in Python).
+    block_def      : dict loaded from a language pack's per-block JSON
+                      file (languages/<lang>/blocks/<block_id>.json),
+                      e.g. {"template": "print([[value]])\\n", ...}
+    params         : dict of this block's own slot values. A value can
+                      be a Phase F chip ({"_nested_block": ...,
+                      "_nested_params": {...}}) instead of a plain
+                      string - see engine/slot_match.py - and gets
+                      rendered recursively before substitution.
+    children       : list of already-rendered code strings for nested
+                      blocks (only used when block_def["is_container"]
+                      is True - mirrors the old
+                      generate_code(params, children, lang) contract
+                      so container blocks like `if` keep working the
+                      same way, just driven by a template instead of
+                      an indentation loop written in Python).
+    block_registry : dict of block_id -> block_def, needed only to
+                      resolve chip values in params. Both real call
+                      sites (with_generate_code's closure, and
+                      _render_recursive below) always pass it.
     """
     children = children or []
-    slot_values = dict(params or {})
+    slot_values = _resolve_nested_slots(params, block_registry)
 
     if block_def.get("is_container"):
         child_lines = [c.rstrip("\n") for c in children]
@@ -84,8 +126,8 @@ def with_generate_code(blocks):
             "category": bd.get("category", "Basic"),
         })
 
-        def _generate_code(params, children, lang="python", _bd=bd):
-            return render_block(_bd, params, children)
+        def _generate_code(params, children, lang="python", _bd=bd, _registry=blocks):
+            return render_block(_bd, params, children, block_registry=_registry)
 
         bd["generate_code"] = _generate_code
         result[block_id] = bd
@@ -108,7 +150,7 @@ def _render_recursive(block, block_registry):
         return f"# \u26a0 Unknown block: {block.block_id}\n"
 
     children_code = [_render_recursive(child, block_registry) for child in block.children]
-    return render_block(block_def, block.params, children_code)
+    return render_block(block_def, block.params, children_code, block_registry=block_registry)
 
 
 # --- Phase A3: marker-comment round-trip -----------------------------------

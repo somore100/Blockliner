@@ -6,5 +6,10 @@
 
 Pillow>=10.0.0
 
+# Phase F: recognizing raw-typed code in an expression slot (Python only
+# for now - see engine/slot_match.py)
+tree-sitter>=0.21.0
+tree-sitter-python>=0.21.0
+
 # --- build-time only (not needed to just run the app) ---
 pyinstaller>=6.0.0

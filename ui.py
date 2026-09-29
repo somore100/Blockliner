@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog, colorchooser
+import contextlib
 import itertools
 import os
 import re
@@ -10,6 +11,7 @@ import uuid
 import subprocess
 import sys
 from PIL import Image, ImageTk  # For logo support
+from panels import PanelManager, PanelSpec
 
 
 def make_node(name, node_id=None, blocks=None, category=None,
@@ -32,8 +34,10 @@ def make_node(name, node_id=None, blocks=None, category=None,
 
     Phase B3 adds `kind`: "function" (default, has `blocks`) or
     "class" (has `child_nodes` instead - other nodes, not blocks).
-    Category (Phase D, not yet built) will be a pure visual folder
-    with zero codegen effect; class is the opposite - a real
+    Phase D adds a third kind, "category": a pure visual folder with
+    zero codegen effect (also has `child_nodes`, `blocks` always
+    empty) - it's just a canvas organizational grouping, invisible to
+    generated code. Class is the opposite of category - a real
     code-generation construct whose children render wrapped in
     `class Foo { ... }`. The two are deliberately kept separate:
     category changes editor organization, class changes generated
@@ -259,7 +263,9 @@ _SENTINEL_RE = re.compile(r"@@(\w+)@@")
 _PARAM_CAPTURE_PATTERNS = {
     "number": r"-?\d+(?:\.\d+)?",
     "variable": r"[A-Za-z_]\w*",
-    "boolean": r"[A-Za-z_]\w*",
+    # Conditions are free-form expressions ("x > 3", "a and not b"),
+    # not just bare identifiers.
+    "boolean": r".+?",
 }
 
 
@@ -280,6 +286,30 @@ def get_choice_combos(params_meta):
     for values in itertools.product(*choice_lists):
         combos.append({p["name"]: v for p, v in zip(choice_params, values)})
     return combos
+
+
+def _net_braces(line):
+    """Net { minus } on one line, ignoring braces inside string
+    literals and after a // comment. Deliberately simple: good enough
+    to find where a brace-style body ends without a real tokenizer."""
+    net, quote, i = 0, None, 0
+    while i < len(line):
+        ch = line[i]
+        if quote:
+            if ch == "\\":
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in ("\"", "'", "`"):
+            quote = ch
+        elif ch == "/" and line[i + 1:i + 2] == "/":
+            break
+        elif ch == "{":
+            net += 1
+        elif ch == "}":
+            net -= 1
+        i += 1
+    return net
 
 
 def _pattern_from_rendered(rendered, param_type_by_name, combo):
@@ -765,6 +795,129 @@ class BlockWidget(tk.Frame):
     def on_leave(self, event):
         self.configure(bg=BLOCK_BG, highlightbackground=DARK_BORDER, highlightthickness=2)
 
+class ExpressionSlot(tk.Frame):
+    """
+    Phase F: the widget used for an "expression"-typed param field,
+    Python only (see edit_block_params, which decides whether to use
+    this or a plain tk.Entry per param). Exposes .get()/.focus_set()
+    matching tk.Entry's own contract, so on_save's blanket
+    `{name: w.get() for name, w in param_widgets.items()}` in
+    edit_block_params needs no changes at all to handle this widget
+    alongside plain Entries - the same "duck typing over duplication"
+    approach the project already uses for Node.blocks vs
+    Project.blocks (see engine/model.py).
+
+    On <FocusOut>, the typed text is run through
+    engine.slot_match.try_match_expression(); a clean match swaps the
+    Entry for a small "chip" showing the recognized func_call instead
+    of raw text, with Edit/Revert-to-text actions. An unrecognized or
+    still-incomplete parse (a normal state while someone is mid-typing)
+    just leaves the field as an ordinary Entry - never an error.
+    """
+
+    def __init__(self, parent, initial_value, header_color, **entry_kwargs):
+        super().__init__(parent, bg=DARK_PANEL)
+        self._header_color = header_color
+        self._entry_kwargs = entry_kwargs
+        self._chip_value = None
+        self._entry = None
+
+        if isinstance(initial_value, dict) and "_nested_block" in initial_value:
+            self._show_chip(initial_value)
+        else:
+            self._show_entry("" if initial_value is None else str(initial_value))
+
+    def get(self):
+        if self._chip_value is not None:
+            return self._chip_value
+        return self._entry.get()
+
+    def focus_set(self):
+        if self._entry is not None:
+            self._entry.focus_set()
+        else:
+            super().focus_set()
+
+    def _clear(self):
+        for child in self.winfo_children():
+            child.destroy()
+
+    def _show_entry(self, text):
+        self._clear()
+        self._chip_value = None
+        self._entry = tk.Entry(self, **self._entry_kwargs)
+        self._entry.pack(fill=tk.X, pady=(3, 0), ipady=4)
+        self._entry.insert(0, text)
+        self._entry.bind("<FocusOut>", self._on_focus_out)
+
+    def _on_focus_out(self, event=None):
+        from engine.slot_match import try_match_expression
+        match = try_match_expression(self._entry.get(), lang="python")
+        if match:
+            self._show_chip(match)
+
+    @staticmethod
+    def _preview_text(chip_value):
+        p = chip_value.get("_nested_params", {})
+        return f"{p.get('name', '')}({p.get('args', '')})"
+
+    def _show_chip(self, chip_value):
+        self._clear()
+        self._entry = None
+        self._chip_value = chip_value
+
+        chip = tk.Frame(self, bg=DARK_BG, highlightthickness=1,
+                         highlightbackground=self._header_color)
+        chip.pack(fill=tk.X, pady=(3, 0))
+
+        tk.Label(chip, text="\u25c9 Call Function", bg=DARK_BG, fg=self._header_color,
+                 font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(8, 4), pady=6)
+        tk.Label(chip, text=self._preview_text(chip_value), bg=DARK_BG, fg=DARK_FG,
+                 font=("Consolas", 9)).pack(side=tk.LEFT, padx=4, pady=6)
+
+        ttk.Button(chip, text="Edit", width=5, command=self._edit_chip).pack(side=tk.RIGHT, padx=(0, 4), pady=4)
+        ttk.Button(chip, text="\u21a9 Text", width=6, command=self._revert_to_text).pack(side=tk.RIGHT, padx=4, pady=4)
+
+    def _edit_chip(self):
+        """A small two-field dialog for the nested call's name/args -
+        deliberately not a recursive call into edit_block_params
+        itself: func_call only has two fields, so a second dialog with
+        the parent's full header/description/nickname chrome would be
+        far more UI than the content warrants."""
+        p = dict(self._chip_value.get("_nested_params", {}))
+        win = tk.Toplevel(self)
+        win.title("Edit Function Call")
+        win.configure(bg=DARK_PANEL)
+        win.transient(self.winfo_toplevel())
+        safe_grab_set(win)
+
+        tk.Label(win, text="Function name:", bg=DARK_PANEL, fg=DARK_FG).pack(anchor="w", padx=12, pady=(12, 0))
+        name_entry = tk.Entry(win, bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
+        name_entry.pack(fill=tk.X, padx=12)
+        name_entry.insert(0, p.get("name", ""))
+
+        tk.Label(win, text="Arguments:", bg=DARK_PANEL, fg=DARK_FG).pack(anchor="w", padx=12, pady=(8, 0))
+        args_entry = tk.Entry(win, bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
+        args_entry.pack(fill=tk.X, padx=12)
+        args_entry.insert(0, p.get("args", ""))
+
+        def save():
+            self._show_chip({
+                "_nested_block": "func_call",
+                "_nested_params": {"name": name_entry.get(), "args": args_entry.get()},
+            })
+            win.destroy()
+
+        btns = tk.Frame(win, bg=DARK_PANEL)
+        btns.pack(fill=tk.X, padx=12, pady=12)
+        ttk.Button(btns, text="Save", command=save).pack(side=tk.LEFT)
+        ttk.Button(btns, text="Cancel", command=win.destroy).pack(side=tk.LEFT, padx=(6, 0))
+        name_entry.focus_set()
+
+    def _revert_to_text(self):
+        self._show_entry(self._preview_text(self._chip_value))
+
+
 class BlocklinerUI(tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
@@ -787,13 +940,35 @@ class BlocklinerUI(tk.Tk):
         self.project_blocks = []
         self.blocks_by_category = {}
         self.custom_blocks = []
-        self.view_mode = "node"  # or "file" - see refresh_workspace/render_file_view
+        self.view_mode = "node"  # "files", "file", or "node" - see refresh_workspace
+        # Files-layer "View Code" toggle - swaps the files-as-boxes
+        # canvas for a stacked, read-only concatenation of every open
+        # tab's code (one Text widget per file). Reset to False on
+        # entering the Files layer so it never persists confusingly
+        # across an unrelated navigation.
+        self.files_view_code_mode = False
+        # Nodes-layer "View Code" toggle (same idea, one level down) -
+        # swaps the current file's node/wire canvas for a single
+        # read-only Text widget of that file's generated code. Also
+        # reset to False on entering the Nodes layer.
+        self.file_view_code_mode = False
         # Phase C2: freeform file-view canvas state. Populated fresh by
         # render_file_view() every time it runs - node_id -> (canvas
         # window item id, box Frame widget) - and consulted by
         # draw_wires()/dragging while that view is on screen.
         self._fileview_boxes = {}
         self._fileview_selected_wire = None
+        # Files-layer: same shape as _fileview_boxes but keyed by tab
+        # index - int, not id, since tabs have no stable id today (only
+        # a position in self.tabs). Populated fresh by
+        # render_files_view() every time it runs.
+        self._filesview_boxes = {}
+        # Phase C3: manual wire-drag state. None when no drag is in
+        # progress; while dragging, holds the source node id so
+        # _port_motion/_port_release know what's being wired.
+        self._wire_drag_source = None
+        self._wire_drag_temp_id = None
+        self._wire_drag_hover_id = None
 
         # Multi-tab support: each tab holds its own language and its own
         # node list, fully independent and all kept in memory at once -
@@ -912,20 +1087,34 @@ class BlocklinerUI(tk.Tk):
         self.refresh_workspace()
         self.refresh_tab_bar()
 
-    def new_tab(self):
+    def _append_new_tab(self):
+        """Add a fresh Untitled tab WITHOUT switching to it; returns it."""
         self.sync_active_tab_state()
         title = f"Untitled {self._next_untitled_number}"
         self._next_untitled_number += 1
         new_nodes = self.build_initial_nodes_for_language(self.current_language)
-        self.tabs.append({
+        tab = {
             "title": title,
             "language": self.current_language,
             "nodes": new_nodes,
             "active_node_id": default_active_node_id(new_nodes),
             "filepath": None,
             "dirty": False,
-        })
+        }
+        self.tabs.append(tab)
+        return tab
+
+    def new_tab(self):
+        self._append_new_tab()
         self.switch_to_tab(len(self.tabs) - 1)
+
+    def create_file_at(self, pos):
+        """Files-layer right-click 'New file': add a tab as a box at the
+        cursor and stay on the Files layer (new_tab() would switch away)."""
+        tab = self._append_new_tab()
+        tab["canvas_x"], tab["canvas_y"] = pos
+        self.refresh_tab_bar()
+        self.refresh_workspace()
 
     def close_tab(self, index):
         if not (0 <= index < len(self.tabs)):
@@ -1012,7 +1201,19 @@ class BlocklinerUI(tk.Tk):
             width=2, command=self.new_tab
         ).pack(side=tk.LEFT, padx=(6, 0), pady=2)
 
-    def load_blocks_for_language(self, lang):
+        # Files-layer entry point: always visible regardless of which
+        # tab/view is currently active, since it's a level above any
+        # one tab rather than scoped to one.
+        is_files_view = (self.view_mode == "files")
+        tk.Button(
+            self.tab_bar_frame, text="\U0001F4C1 Files",
+            bg=(DARK_ACCENT if is_files_view else DARK_PANEL),
+            fg=("#ffffff" if is_files_view else DARK_FG),
+            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            command=self.switch_to_files_view
+        ).pack(side=tk.RIGHT, padx=(0, 6), pady=2)
+
+    def load_blocks_for_language(self, lang, verbose=True):
         """
         Load blocks for a language from its JSON language pack
         (languages/<lang>/manifest.json + languages/<lang>/blocks/*.json,
@@ -1021,7 +1222,7 @@ class BlocklinerUI(tk.Tk):
         from engine.loader import load_language_pack
         from engine.renderer import with_generate_code
 
-        manifest, blocks = load_language_pack(os.path.join(self.languages_path, lang), verbose=True)
+        manifest, blocks = load_language_pack(os.path.join(self.languages_path, lang), verbose=verbose)
         self.blocks = with_generate_code(blocks) if blocks else {}
         self.node_types = manifest.get("node_types", []) if manifest else []
 
@@ -1237,6 +1438,56 @@ class BlocklinerUI(tk.Tk):
         patterns.sort(key=lambda p: -p["literal_score"])
         return patterns
 
+    def build_container_header_patterns(self, lang):
+        """Header-line patterns for container blocks (if/for/while/def)
+        in indentation-style languages. Each container is rendered once
+        with a sentinel child; only blocks that come out as exactly
+        "header line + one indented body line" qualify (Python-style).
+        Brace-style containers ({ ... } with a closing line) don't fit
+        that shape and are skipped, so those languages keep the plain
+        raw-code fallback for their bodies. The header alone becomes the
+        regex - the body is parsed separately, by indentation."""
+        patterns = []
+        for block_id, module in self.blocks.items():
+            if self._is_raw_code_block(block_id, module):
+                continue
+            if not get_block_attr(module, "is_container", False):
+                continue
+            params_meta = get_block_attr(module, "params", [])
+            gen_func = get_block_attr(module, "generate_code")
+            if not callable(gen_func):
+                continue
+            type_by_name = {p["name"]: p.get("type", "text") for p in params_meta}
+            for combo in get_choice_combos(params_meta):
+                full = {
+                    p["name"]: (combo[p["name"]] if p["name"] in combo else f"@@{p['name']}@@")
+                    for p in params_meta
+                }
+                try:
+                    rendered = gen_func(full, ["@@BODY@@\n"], lang=lang)
+                except Exception:
+                    continue
+                lines = [l for l in (rendered or "").split("\n") if l.strip()]
+                style = None
+                indented_body = lambda l: l.strip() == "@@BODY@@" and l[:1] in (" ", "\t")
+                if len(lines) == 2 and indented_body(lines[1]):
+                    style = "indent"        # Python: header + indented body
+                elif (len(lines) == 3 and lines[0].rstrip().endswith("{")
+                        and indented_body(lines[1]) and lines[2].strip() == "}"):
+                    style = "knr"           # header { / body / }
+                elif (len(lines) == 4 and lines[1].strip() == "{"
+                        and indented_body(lines[2]) and lines[3].strip() == "}"):
+                    style = "allman"        # header / { / body / }
+                if style is None:
+                    continue
+                pat = _pattern_from_rendered(lines[0], type_by_name, combo)
+                if pat:
+                    pat["block_id"] = block_id
+                    pat["style"] = style
+                    patterns.append(pat)
+        patterns.sort(key=lambda p: -p["literal_score"])
+        return patterns
+
     def strip_cpp_boilerplate(self, lines):
         """
         Remove the #include/using/main()/return-0/closing-brace
@@ -1284,64 +1535,174 @@ class BlocklinerUI(tk.Tk):
         for pat in patterns:
             patterns_by_line_count.setdefault(pat["line_count"], []).append(pat)
         window_sizes = sorted(patterns_by_line_count.keys(), reverse=True)
+        container_patterns = self.build_container_header_patterns(lang)
+        # In a language whose containers are brace-delimited, indentation
+        # is cosmetic: structure comes from braces, and matching looks at
+        # each line stripped. (Python-style languages keep the
+        # indentation-driven behaviour.)
+        brace_mode = any(p["style"] != "indent" for p in container_patterns)
 
-        lines = code_text.split("\n")
+        from engine.formatter import normalize_line
+        all_lines = [normalize_line(l) for l in code_text.split("\n")]
         if lang == "cpp":
-            lines = self.strip_cpp_boilerplate(lines)
+            all_lines = self.strip_cpp_boilerplate(all_lines)
+        if brace_mode:
+            # "} else {" / "} else if (c) {" is really a closer followed
+            # by the next container's header. Splitting it lets the
+            # else/else-if blocks parse like any other container; the
+            # renderer joins them back onto one line.
+            split_lines = []
+            for l in all_lines:
+                m = re.match(r"^(\s*)\}\s*(else\b.*)$", l)
+                if m:
+                    split_lines.append(m.group(1) + "}")
+                    split_lines.append(m.group(1) + m.group(2))
+                else:
+                    split_lines.append(l)
+            all_lines = split_lines
+        counts = {"matched": 0, "raw": 0}
 
-        new_project_blocks = []
-        matched_count = 0
-        raw_count = 0
+        def indent_of(text):
+            return len(text) - len(text.lstrip(" "))
 
-        i = 0
-        n = len(lines)
-        while i < n:
-            line = lines[i]
-            if not line.strip():
-                i += 1
-                continue
+        def emit_raw(line, out):
+            if raw_block_id:
+                out.append((raw_block_id, {raw_param_name: line}))
+                counts["raw"] += 1
 
-            matched = False
-            for window in window_sizes:
-                if i + window > n:
+        def find_brace_body(lines, start):
+            """Given the index of the first body line, return the index
+            of the closing '}' line that ends this container, or None
+            if the braces don't form a clean container. A closer that
+            shares its line with other code ('} else {') or an
+            unbalanced/unclosed body is NOT clean: the caller falls back
+            to raw lines, which is always lossless."""
+            depth = 1
+            for j in range(start, len(lines)):
+                text = lines[j].strip()
+                if depth == 1 and text.startswith("}"):
+                    return j if text == "}" else None
+                depth += _net_braces(text)
+                if depth <= 0:
+                    return None
+            return None
+
+        def parse(lines, i, base):
+            """Parse lines from i at indentation `base`. Indent-style
+            containers end on a dedent; brace-style ones end on their
+            matching '}'. Returns (blocks, next_i). Anything no block
+            claims stays verbatim raw code (lossless)."""
+            n = len(lines)
+            out = []
+            while i < n:
+                line = lines[i]
+                if not line.strip():
+                    i += 1
                     continue
-                candidate = "\n".join(lines[i:i + window])
-                for pat in patterns_by_line_count[window]:
-                    m = pat["regex"].match(candidate)
+                ind = indent_of(line)
+                if not brace_mode:
+                    if ind < base:
+                        break
+                    if ind > base:
+                        emit_raw(line, out)
+                        i += 1
+                        continue
+                text = line.strip() if brace_mode else line[base:]
+
+                handled = False
+                for pat in container_patterns:
+                    m = pat["regex"].match(text)
                     if not m:
                         continue
+                    style = pat["style"]
+                    children, next_i = None, None
+                    if style == "indent":
+                        if brace_mode:
+                            continue
+                        j = i + 1
+                        while j < n and not lines[j].strip():
+                            j += 1
+                        if j >= n or indent_of(lines[j]) <= base:
+                            break  # header with no body yet (mid-typing)
+                        children, next_i = parse(lines, j, indent_of(lines[j]))
+                        if (len(children) == 1 and raw_block_id
+                                and children[0][0] == raw_block_id
+                                and children[0][1].get(raw_param_name, "").strip() == "pass"):
+                            children = []  # the container's own empty-body filler
+                            counts["raw"] -= 1
+                    else:
+                        if not brace_mode:
+                            continue
+                        body_start = i + 1
+                        if style == "allman":
+                            k = i + 1
+                            while k < n and not lines[k].strip():
+                                k += 1
+                            if k >= n or lines[k].strip() != "{":
+                                continue
+                            body_start = k + 1
+                        close = find_brace_body(lines, body_start)
+                        if close is None:
+                            continue
+                        body = [l.strip() for l in lines[body_start:close]]
+                        children, _ = parse(body, 0, 0)
+                        next_i = close + 1
                     params = {name: m.group(name) for name in pat["groups"]}
                     params.update(pat["combo"])
-                    new_project_blocks.append((pat["block_id"], params))
-                    matched_count += 1
-                    i += window
-                    matched = True
+                    params["_children"] = children
+                    out.append((pat["block_id"], params))
+                    counts["matched"] += 1
+                    i = next_i
+                    handled = True
                     break
-                if matched:
-                    break
+                if handled:
+                    continue
 
-            if not matched:
-                if raw_block_id:
-                    new_project_blocks.append((raw_block_id, {raw_param_name: line}))
-                    raw_count += 1
-                i += 1
+                matched = False
+                for window in window_sizes:
+                    if i + window > n:
+                        continue
+                    chunk = lines[i:i + window]
+                    if not brace_mode and any(l.strip() and indent_of(l) < base for l in chunk):
+                        continue
+                    candidate = "\n".join(
+                        (l.strip() if brace_mode else l[base:]) for l in chunk
+                    )
+                    for fpat in patterns_by_line_count[window]:
+                        m = fpat["regex"].match(candidate)
+                        if not m:
+                            continue
+                        params = {name: m.group(name) for name in fpat["groups"]}
+                        params.update(fpat["combo"])
+                        out.append((fpat["block_id"], params))
+                        counts["matched"] += 1
+                        i += window
+                        matched = True
+                        break
+                    if matched:
+                        break
 
-        return new_project_blocks, matched_count, raw_count
+                if not matched:
+                    emit_raw(line, out)
+                    i += 1
+            return out, i
 
-    def convert_code_to_blocks(self):
-        """Toolbar action: replace the workspace with blocks matched
-        from whatever's currently typed in the code pad."""
-        code = self.code_text.get(1.0, tk.END)
+        new_project_blocks, _ = parse(all_lines, 0, 0)
+        return new_project_blocks, counts["matched"], counts["raw"]
+
+    def _convert_code_string_to_blocks(self, code, dialog=None):
+        """Shared by the Code->Blocks dialog: match `code` (a plain
+        string, not read from any particular widget) against the
+        current language's reverse patterns and replace the workspace
+        blocks with the result. Closes `dialog` on success, if given,
+        so the paste/convert window doesn't linger after it's done its
+        job."""
         placeholder = "# No code generated yet\n# Add blocks from the palette!"
-        # Strip the placeholder header out before checking for emptiness -
-        # it can legitimately still be sitting above code you've typed in
-        # (nothing clears it automatically), so only block when there's
-        # truly nothing else there.
         remaining = code.strip()
         if remaining.startswith(placeholder):
             remaining = remaining[len(placeholder):].strip()
         if not remaining:
-            messagebox.showwarning("No Code", "Type or paste some code into the code pad first!")
+            messagebox.showwarning("No Code", "Type or paste some code into the box first!")
             return
 
         if self.project_blocks:
@@ -1366,7 +1727,9 @@ class BlocklinerUI(tk.Tk):
         self.set_project_blocks(new_blocks)
         self.mark_active_tab_dirty()
         self.refresh_workspace()
-        self.update_generated_code()
+
+        if dialog is not None:
+            dialog.destroy()
 
         self.maybe_notify(
             "Code Converted",
@@ -1374,6 +1737,117 @@ class BlocklinerUI(tk.Tk):
             f"  \u2713 {matched_count} matched to real blocks\n"
             f"  \u26A0 {raw_count} kept as Raw Code (no matching block found)"
         )
+
+    def _pick_code_file_content(self):
+        """File-picker + language-detection half of the old
+        load_code_file(): reads a source file from disk and, if its
+        extension implies a different language than the current one,
+        offers to switch so 'Code -> Blocks' matches against the right
+        block set. Returns the file's text, or None if the user
+        cancelled or the read failed - doesn't touch any widget, so
+        it's reusable from the Code->Blocks dialog regardless of
+        whether that dialog is showing on the Files, Nodes, or Blocks
+        layer."""
+        filetypes_pattern = " ".join(f"*{ext}" for ext in LANGUAGE_EXTENSIONS)
+        filename = filedialog.askopenfilename(
+            title="Open Code File",
+            filetypes=[("Code files", filetypes_pattern), ("All files", "*.*")]
+        )
+        if not filename:
+            return None
+
+        try:
+            with open(filename, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except Exception as e:
+            messagebox.showerror("Open Failed", f"Could not read file:\n{e}")
+            return None
+
+        ext = os.path.splitext(filename)[1].lower()
+        detected_lang = LANGUAGE_EXTENSIONS.get(ext)
+
+        if detected_lang and detected_lang != self.current_language:
+            available = self.get_available_languages()
+            if detected_lang in available:
+                switch = messagebox.askyesno(
+                    "Switch Language?",
+                    f"This looks like {detected_lang} code (.{ext.lstrip('.')} extension).\n\n"
+                    f"Switch Blockliner to '{detected_lang}' before converting it, so "
+                    f"'Code \u2192 Blocks' matches against the right block set?"
+                )
+                if switch:
+                    self.lang_var.set(detected_lang)
+                    self.on_language_change()
+            else:
+                messagebox.showinfo(
+                    "Language Not Set Up",
+                    f"This looks like {detected_lang} code, but that language isn't set up "
+                    f"in Blockliner yet. Loading the text in anyway - use '+ Lang' first if "
+                    f"you want proper block matching for it."
+                )
+
+        return content
+
+    def open_code_to_blocks_dialog(self, prefill_from_file=False):
+        """Standalone Code->Blocks paste/convert dialog - reachable from
+        the toolbar regardless of which layer (Files/Nodes/Blocks) is
+        currently on screen, and independent of self.code_text/the
+        right-hand panel's visibility. Splitting this out of that panel
+        is what let the panel itself become Blocks-layer-only (see
+        update_right_panel_visibility) without losing the 'Open Code
+        File' / 'Code -> Blocks' workflow at the other two layers."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Code \u2192 Blocks")
+        dialog.geometry("640x480")
+        dialog.configure(bg=DARK_BG)
+        dialog.transient(self)
+
+        header = tk.Frame(dialog, bg=DARK_BG)
+        header.pack(fill=tk.X, padx=10, pady=(10, 4))
+        tk.Label(
+            header, text="Paste or open code below, then Convert.",
+            bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)
+        ).pack(side=tk.LEFT)
+
+        text_widget = tk.Text(
+            dialog, bg=BLOCK_BG, fg=DARK_FG, insertbackground=DARK_FG,
+            relief=tk.FLAT, wrap=tk.NONE, font=("Consolas", 10)
+        )
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=4)
+
+        def _open_file():
+            content = self._pick_code_file_content()
+            if content is None:
+                return
+            text_widget.delete(1.0, tk.END)
+            text_widget.insert(1.0, content)
+
+        def _convert():
+            self._convert_code_string_to_blocks(text_widget.get(1.0, tk.END), dialog=dialog)
+
+        btn_row = tk.Frame(dialog, bg=DARK_BG)
+        btn_row.pack(fill=tk.X, padx=10, pady=(4, 10))
+        tk.Button(
+            btn_row, text="\U0001F4C4 Open File", bg="#3a3a3a", fg=DARK_FG,
+            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), command=_open_file
+        ).pack(side=tk.LEFT)
+        tk.Button(
+            btn_row, text="Cancel", bg="#3a3a3a", fg=DARK_FG,
+            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), command=dialog.destroy
+        ).pack(side=tk.RIGHT)
+        tk.Button(
+            btn_row, text="\U0001F504 Convert", bg=DARK_ACCENT, fg="#ffffff",
+            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9, "bold"), command=_convert
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
+        if prefill_from_file:
+            content = self._pick_code_file_content()
+            if content is None:
+                dialog.destroy()
+                return
+            text_widget.insert(1.0, content)
+
+        return dialog
 
     def load_and_merge_custom_blocks(self):
         """
@@ -1482,9 +1956,9 @@ class BlocklinerUI(tk.Tk):
         
         ttk.Button(toolbar, text="💾 Save", command=self.save_project, **btn_style).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="📂 Load", command=self.load_project, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="\U0001F4C4 Open Code File", command=self.load_code_file, **btn_style).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="\U0001F4C4 Open Code File", command=lambda: self.open_code_to_blocks_dialog(prefill_from_file=True), **btn_style).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="📤 Export", command=self.export_code, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="\U0001F504 Code \u2192 Blocks", command=self.convert_code_to_blocks, **btn_style).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="\U0001F504 Code \u2192 Blocks", command=lambda: self.open_code_to_blocks_dialog(prefill_from_file=False), **btn_style).pack(side=tk.LEFT, padx=3)
         
         tk.Frame(toolbar, bg=DARK_BORDER, width=2).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=8)
         
@@ -1530,14 +2004,35 @@ class BlocklinerUI(tk.Tk):
         self.tab_bar_frame.pack(side=tk.TOP, fill=tk.X)
         self.tab_bar_frame.pack_propagate(False)
 
-        # Main container
+        # Main container - hosts the PanelManager (panels.py), which owns
+        # where the palette / workspace / generated-code panels live.
+        # Each area below registers itself and builds into its frame.
         main_container = tk.Frame(self, bg=DARK_BG)
         main_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Edge strip for the left palette: lives OUTSIDE the paned window
+        # so it stays put while the palette itself is hidden. Its glyph
+        # follows the palette's state via the manager's listener hook.
+        self.palette_strip = tk.Frame(main_container, bg=DARK_PANEL, width=16,
+                                      cursor="hand2")
+        self.palette_strip.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 3))
+        self.palette_strip.pack_propagate(False)
+        self.palette_strip_glyph = tk.Label(
+            self.palette_strip, text="\u25c2", bg=DARK_PANEL, fg="#888888",
+            font=("Segoe UI", 10), cursor="hand2")
+        self.palette_strip_glyph.pack(pady=(10, 0))
+        for w in (self.palette_strip, self.palette_strip_glyph):
+            w.bind("<Button-1>", lambda e: self.toggle_palette())
+            w.bind("<Enter>", lambda e: self._palette_strip_hover(True))
+            w.bind("<Leave>", lambda e: self._palette_strip_hover(False))
+
+        self.panels = PanelManager(main_container, bg=DARK_BG)
+        self.panels.paned.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.panels.add_listener(self._on_panel_visibility_changed)
         
         # Left panel: Block Palette
-        left_panel = tk.Frame(main_container, bg=DARK_PANEL, width=280)
-        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 3))
-        left_panel.pack_propagate(False)
+        left_panel = self.panels.create_panel(
+            PanelSpec("palette", "Blocks", dock="left", width=280, min_width=180),
+            bg=DARK_PANEL)
         
         palette_header = tk.Frame(left_panel, bg=DARK_PANEL, height=50)
         palette_header.pack(fill=tk.X)
@@ -1618,8 +2113,10 @@ class BlocklinerUI(tk.Tk):
         self.build_palette()
         
         # Middle panel: Workspace
-        middle_panel = tk.Frame(main_container, bg=DARK_BG)
-        middle_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=3)
+        middle_panel = self.panels.create_panel(
+            PanelSpec("workspace", "Workspace", dock="center", width=400,
+                      min_width=200, stretch=True),
+            bg=DARK_BG)
         
         workspace_header = tk.Frame(middle_panel, bg=DARK_BG, height=50)
         workspace_header.pack(fill=tk.X)
@@ -1679,14 +2176,15 @@ class BlocklinerUI(tk.Tk):
         
         self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._bind_workspace_context_menu()
         
         # Empty state
         self.show_empty_state()
         
         # Right panel: Code Preview
-        right_panel = tk.Frame(main_container, bg=DARK_PANEL, width=400)
-        right_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(3, 0))
-        right_panel.pack_propagate(False)
+        self.right_panel = right_panel = self.panels.create_panel(
+            PanelSpec("code", "Generated Code", dock="right", width=400, min_width=250),
+            bg=DARK_PANEL)
         
         code_header = tk.Frame(right_panel, bg=DARK_PANEL, height=50)
         code_header.pack(fill=tk.X)
@@ -3446,8 +3944,8 @@ class BlocklinerUI(tk.Tk):
                 font=("Segoe UI", 8, "bold" if is_required else "normal")
             ).pack(side=tk.LEFT, padx=5)
             
-            entry = tk.Entry(
-                row_frame,
+            initial_value = current_params.get(name, param.get("default", ""))
+            entry_kwargs = dict(
                 bg=DARK_BG,
                 fg=DARK_FG,
                 insertbackground=DARK_FG,
@@ -3457,8 +3955,18 @@ class BlocklinerUI(tk.Tk):
                 highlightbackground=DARK_BORDER,
                 highlightcolor=header_color
             )
-            entry.pack(fill=tk.X, pady=(3, 0), ipady=4)
-            entry.insert(0, current_params.get(name, param.get("default", "")))
+
+            # Phase F: expression slots get the chip-capable widget,
+            # Python only - every other type/language keeps the plain
+            # Entry exactly as before. Both expose the same .get()
+            # contract, so on_save below needs no changes either way.
+            if param_type == "expression" and self.current_language == "python":
+                entry = ExpressionSlot(row_frame, initial_value, header_color, **entry_kwargs)
+                entry.pack(fill=tk.X)
+            else:
+                entry = tk.Entry(row_frame, **entry_kwargs)
+                entry.pack(fill=tk.X, pady=(3, 0), ipady=4)
+                entry.insert(0, initial_value)
             param_widgets[name] = entry
 
         if param_widgets:
@@ -3524,6 +4032,27 @@ class BlocklinerUI(tk.Tk):
 
         if not getattr(self, "tabs", None):
             return
+        if self.view_mode == "files":
+            tk.Label(
+                self.node_nav_frame, text="\U0001F4C1 All Files \u2014 choose a file",
+                bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            tk.Button(
+                self.node_nav_frame, text="+ New File", bg="#3a3a3a", fg=DARK_FG,
+                relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                command=self.new_tab
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            code_toggle_active = self.files_view_code_mode
+            tk.Button(
+                self.node_nav_frame,
+                text=("\U0001F5BC View Canvas" if code_toggle_active else "\U0001F4C4 View Code"),
+                bg=(DARK_ACCENT if code_toggle_active else "#3a3a3a"),
+                fg=("#ffffff" if code_toggle_active else DARK_FG),
+                relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                command=self.toggle_files_view_code_mode
+            ).pack(side=tk.LEFT)
+            return
+
         tab = self.tabs[self.active_tab_index]
         nodes = tab.get("nodes", [])
 
@@ -3541,6 +4070,12 @@ class BlocklinerUI(tk.Tk):
                     relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
                     command=self.file_view_go_back
                 ).pack(side=tk.LEFT, padx=(0, 10))
+            else:
+                tk.Button(
+                    self.node_nav_frame, text="\u2190 Files", bg="#3a3a3a", fg=DARK_FG,
+                    relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                    command=self.switch_to_files_view
+                ).pack(side=tk.LEFT, padx=(0, 10))
             tk.Label(
                 self.node_nav_frame, text=f"{crumb} \u2014 choose a node",
                 bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)
@@ -3549,6 +4084,20 @@ class BlocklinerUI(tk.Tk):
                 self.node_nav_frame, text="+ New Node", bg="#3a3a3a", fg=DARK_FG,
                 relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
                 command=self.create_node
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            tk.Button(
+                self.node_nav_frame, text="+ New Category", bg="#3a3a3a", fg=DARK_FG,
+                relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                command=self.create_category
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            code_toggle_active = self.file_view_code_mode
+            tk.Button(
+                self.node_nav_frame,
+                text=("\U0001F5BC View Canvas" if code_toggle_active else "\U0001F4C4 View Code"),
+                bg=(DARK_ACCENT if code_toggle_active else "#3a3a3a"),
+                fg=("#ffffff" if code_toggle_active else DARK_FG),
+                relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                command=self.toggle_file_view_code_mode
             ).pack(side=tk.LEFT)
         else:
             active_node = self.get_active_node(tab)
@@ -3559,10 +4108,10 @@ class BlocklinerUI(tk.Tk):
             ).pack(side=tk.LEFT, padx=(0, 10))
             # Only worth surfacing "view all nodes" once a file actually
             # has more than one top-level node, or that one node is a
-            # class with something inside it - otherwise it's a button
-            # to a screen that only ever shows the one thing you're
-            # already in.
-            if len(nodes) > 1 or (len(nodes) == 1 and nodes[0].get("kind") == "class"):
+            # class/category with something inside it - otherwise it's
+            # a button to a screen that only ever shows the one thing
+            # you're already in.
+            if len(nodes) > 1 or (len(nodes) == 1 and nodes[0].get("kind") in ("class", "category")):
                 tk.Button(
                     self.node_nav_frame, text="\U0001F5C2 Nodes",
                     bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
@@ -3582,7 +4131,65 @@ class BlocklinerUI(tk.Tk):
         tab = self.tabs[self.active_tab_index]
         tab["file_view_path"] = []
         self.view_mode = "file"
+        self.file_view_code_mode = False
         self.refresh_workspace()
+
+    def switch_to_files_view(self):
+        """Files layer (top of the three-layer nav model): shows every
+        open tab as a box on workspace_canvas, wired by import_module-
+        derived file_references. Doesn't touch which tab is "active" -
+        active_tab_index still matters for language/palette state - it
+        just changes what's drawn. Always resets to the canvas (not the
+        code view), mirroring switch_to_file_view()'s reset-to-top
+        behavior."""
+        self.view_mode = "files"
+        self.files_view_code_mode = False
+        self.refresh_workspace()
+        self.refresh_tab_bar()
+
+    def toggle_files_view_code_mode(self):
+        """The Files layer's 'View Code' toggle - swaps the file-boxes
+        canvas and the stacked code view, never shows both at once
+        ("separate, not split - both would be too messy")."""
+        self.files_view_code_mode = not self.files_view_code_mode
+        self.refresh_workspace()
+
+    def toggle_file_view_code_mode(self):
+        """The Nodes layer's 'View Code' toggle - same idea one level
+        down, swaps that file's node/wire canvas for its generated
+        code. This is what replaces the old always-visible right-hand
+        Generated Code panel at this layer (see
+        update_right_panel_visibility) - the panel itself stays
+        completely unchanged at the Blocks layer per the settled
+        design, and Export/Run/Code->Blocks keep working regardless of
+        which of the two is on screen, since they read generated code
+        straight from generate_code_for_tab()/self.code_text rather
+        than from whatever's currently drawn."""
+        self.file_view_code_mode = not self.file_view_code_mode
+        self.refresh_workspace()
+
+    def open_file_from_files_view(self, index):
+        """Enter a specific file from the Files layer, landing on its
+        Nodes layer (the per-tab node/wire canvas) - matches how
+        open_node() from the Nodes layer lands you in the Blocks layer.
+        Unlike switch_to_tab(), this must work even when index is
+        already the active tab (clicking "Open" on the current file
+        from the Files layer is a normal thing to do)."""
+        if not (0 <= index < len(self.tabs)):
+            return
+        self.sync_active_tab_state()
+        self.active_tab_index = index
+        tab = self.tabs[index]
+        self.current_language = tab["language"]
+        self.project_blocks = self.get_active_node(tab)["blocks"]
+        tab["file_view_path"] = []
+        self.view_mode = "file"
+        self.lang_var.set(self.current_language)
+        self.load_blocks_for_language(self.current_language)
+        self.load_and_merge_custom_blocks()
+        self.refresh_palette()
+        self.refresh_workspace()
+        self.refresh_tab_bar()
 
     def file_view_go_back(self):
         tab = self.tabs[self.active_tab_index]
@@ -3602,14 +4209,19 @@ class BlocklinerUI(tk.Tk):
 
     def open_node(self, node_id):
         """Enter a node. A function-kind node opens the B1 block editor
-        scoped to it. A class-kind node has no blocks of its own to
-        edit - it holds other nodes - so "opening" it instead navigates
-        the file view one level deeper into its child_nodes."""
+        scoped to it. A class-kind or category-kind node has no blocks
+        of its own to edit - it holds other nodes - so "opening" it
+        instead navigates the file view one level deeper into its
+        child_nodes. Category (Phase D) is a pure visual folder with
+        zero codegen effect; class actually wraps its children in
+        generated code - the two behave identically here since both
+        are just organizational containers from the navigation's point
+        of view."""
         tab = self.tabs[self.active_tab_index]
         node = find_node_by_id(tab["nodes"], node_id)
         if node is None:
             return
-        if node.get("kind") == "class":
+        if node.get("kind") in ("class", "category"):
             tab.setdefault("file_view_path", []).append(node_id)
             self.view_mode = "file"
             self.refresh_workspace()
@@ -3619,12 +4231,12 @@ class BlocklinerUI(tk.Tk):
         self.view_mode = "node"
         self.refresh_workspace()
 
-    def create_node(self):
+    def create_node(self, pos=None):
         """Add a new, empty function-kind node at the current file-view
-        depth (top-level, or inside whichever class is currently open)
-        and open it directly - naming/organizing several nodes is
-        easiest done from inside the one you just made, not by
-        round-tripping through the file view."""
+        depth (top-level, or inside whichever class/category is
+        currently open) and open it directly - naming/organizing
+        several nodes is easiest done from inside the one you just
+        made, not by round-tripping through the file view."""
         tab = self.tabs[self.active_tab_index]
         target_list = self.get_current_node_list(tab) if self.view_mode == "file" else tab["nodes"]
         name = simpledialog.askstring(
@@ -3636,7 +4248,859 @@ class BlocklinerUI(tk.Tk):
         new_node = make_node(name, node_id=str(uuid.uuid4())[:8], blocks=[])
         target_list.append(new_node)
         self.mark_active_tab_dirty()
+        if pos is not None:
+            # Right-click creation: drop it under the cursor and stay on
+            # the canvas so the placement is actually visible.
+            new_node["canvas_x"], new_node["canvas_y"] = pos
+            self.refresh_workspace()
+            return
         self.open_node(new_node["id"])
+
+    def create_category(self, pos=None):
+        """Phase D: add a new, empty category node (a pure visual
+        folder - zero codegen effect, see make_node's docstring) at the
+        current file-view depth, and navigate straight into it via
+        open_node so nodes can be added to it immediately. Only
+        available from file view - a category is an organizational
+        concept on the canvas, not something reachable from inside a
+        function's block editor."""
+        tab = self.tabs[self.active_tab_index]
+        target_list = self.get_current_node_list(tab)
+        name = simpledialog.askstring(
+            "New Category", "Category name:", initialvalue=f"Category {len(target_list) + 1}"
+        )
+        if name is None:
+            return
+        name = name.strip() or f"Category {len(target_list) + 1}"
+        new_category = make_node(
+            name, node_id=str(uuid.uuid4())[:8], kind="category", child_nodes=[]
+        )
+        target_list.append(new_category)
+        self.mark_active_tab_dirty()
+        if pos is not None:
+            new_category["canvas_x"], new_category["canvas_y"] = pos
+            self.refresh_workspace()
+            return
+        self.open_node(new_category["id"])
+
+    def render_files_view(self):
+        """Files layer: every open tab as a draggable box on
+        workspace_canvas, reusing C2's box/wire canvas mechanics one
+        level up - files as boxes instead of nodes, wires resolved
+        from import_module blocks (recompute_file_references) the same
+        way func_call resolves node-to-node in the Nodes layer. Shares
+        the "fileview" canvas tag with the Nodes layer's own boxes/
+        wires purely so _update_fileview_scrollregion's bbox lookup
+        works unchanged for either layer."""
+        self._filesview_boxes = {}
+        self.workspace_canvas.delete("wire_drag_temp")
+
+        if not self.tabs:
+            self.show_empty_state()
+            return
+
+        self.assign_default_tab_canvas_positions()
+
+        for index, tab in enumerate(self.tabs):
+            self.create_filesview_file_box(index, tab)
+
+        self.workspace_frame.update_idletasks()
+        self.draw_file_wires()
+        self._update_fileview_scrollregion()
+
+    def create_filesview_file_box(self, index, tab):
+        """Build one tab's draggable box and place it on
+        workspace_canvas at its stored (canvas_x, canvas_y). Visually
+        distinct from a Nodes-layer node box (blue accent, file icon)
+        so the two layers are never mistaken for each other in a
+        screenshot. No wire-drag port here - unlike func_call wires
+        (C3), an import wire is created by typing into an
+        import_module block's module field, not by dragging."""
+        box_color = "#2a5a8a"
+        box = tk.Frame(
+            self.workspace_canvas, bg=BLOCK_BG, highlightthickness=2,
+            highlightbackground=DARK_BORDER
+        )
+
+        def _open(_e=None, idx=index):
+            self.open_file_from_files_view(idx)
+
+        header = tk.Frame(box, bg=box_color, height=36, cursor="fleur")
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+        label_text = tab["title"] + (" \u25CF" if tab.get("dirty") else "")
+        name_label = tk.Label(
+            header, text=f"\U0001F4C4 {label_text}",
+            bg=box_color, fg="#ffffff",
+            font=("Segoe UI", 10, "bold"), anchor="w", cursor="fleur"
+        )
+        name_label.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
+
+        body = tk.Frame(box, bg=BLOCK_BG)
+        body.pack(fill=tk.X, padx=10, pady=8)
+        node_count = len(tab.get("nodes", []))
+        tk.Label(
+            body, text=f"{node_count} node{'s' if node_count != 1 else ''} \u2022 {tab['language']}",
+            bg=BLOCK_BG, fg="#888888", font=("Segoe UI", 9)
+        ).pack(side=tk.LEFT)
+        tk.Button(
+            body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
+            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            command=_open
+        ).pack(side=tk.RIGHT)
+
+        win_id = self.workspace_canvas.create_window(
+            tab["canvas_x"], tab["canvas_y"], anchor="nw", window=box,
+            tags=("fileview", "file_box")
+        )
+        self._filesview_boxes[index] = (win_id, box)
+        self._bind_context_recursive(
+            box, lambda e, idx=index: self._on_file_box_right_click(e, idx))
+
+        # Same press/motion/release-with-threshold drag pattern as
+        # create_fileview_node_box(), operating on the tab's canvas_x/
+        # canvas_y instead of a node's.
+        drag_state = {"dragging": False, "start_x": 0, "start_y": 0,
+                      "tab_x0": 0, "tab_y0": 0}
+
+        def _press(e, idx=index):
+            drag_state["dragging"] = False
+            drag_state["start_x"] = e.x_root
+            drag_state["start_y"] = e.y_root
+            if not (0 <= idx < len(self.tabs)):
+                return
+            t = self.tabs[idx]
+            drag_state["tab_x0"] = t["canvas_x"]
+            drag_state["tab_y0"] = t["canvas_y"]
+
+        def _motion(e, idx=index):
+            dx = e.x_root - drag_state["start_x"]
+            dy = e.y_root - drag_state["start_y"]
+            if not drag_state["dragging"] and (abs(dx) > 4 or abs(dy) > 4):
+                drag_state["dragging"] = True
+            if not drag_state["dragging"]:
+                return
+            if not (0 <= idx < len(self.tabs)):
+                return
+            t = self.tabs[idx]
+            new_x = drag_state["tab_x0"] + dx
+            new_y = drag_state["tab_y0"] + dy
+            t["canvas_x"], t["canvas_y"] = new_x, new_y
+            wid, _ = self._filesview_boxes.get(idx, (None, None))
+            if wid is not None:
+                self.workspace_canvas.coords(wid, new_x, new_y)
+            self.draw_file_wires()
+
+        def _release(e, idx=index):
+            drag_state["dragging"] = False
+            self._update_fileview_scrollregion()
+
+        for w in (header, name_label):
+            w.bind("<ButtonPress-1>", _press)
+            w.bind("<B1-Motion>", _motion)
+            w.bind("<ButtonRelease-1>", _release)
+            w.bind("<Double-Button-1>", _open)
+
+    def draw_file_wires(self):
+        """Files-layer equivalent of draw_wires(): redraw every derived
+        import edge (tab['file_references']) as a curved connector
+        between two file boxes. Pure rendering, never mutates."""
+        self.workspace_canvas.delete("wire")
+        for index, tab in enumerate(self.tabs):
+            if index not in self._filesview_boxes:
+                continue
+            for target_index in tab.get("file_references", []):
+                if target_index not in self._filesview_boxes:
+                    continue
+                self._draw_one_file_wire(index, target_index)
+
+    def _draw_one_file_wire(self, source_index, target_index):
+        _, src_widget = self._filesview_boxes[source_index]
+        _, dst_widget = self._filesview_boxes[target_index]
+        sw = src_widget.winfo_width() or 220
+        sh = src_widget.winfo_height() or 70
+        dh = dst_widget.winfo_height() or 70
+        src_tab = self.tabs[source_index]
+        dst_tab = self.tabs[target_index]
+
+        x0 = src_tab["canvas_x"] + sw
+        y0 = src_tab["canvas_y"] + sh / 2
+        x1 = dst_tab["canvas_x"]
+        y1 = dst_tab["canvas_y"] + dh / 2
+
+        pull = max(abs(x1 - x0) * 0.5, 40)
+        p0 = (x0, y0)
+        p1 = (x0 + pull, y0)
+        p2 = (x1 - pull, y1)
+        p3 = (x1, y1)
+
+        tag = f"file_wire_{source_index}_{target_index}"
+        self.workspace_canvas.create_line(
+            *self._bezier_points(p0, p1, p2, p3), smooth=True,
+            fill="#4a90d9", width=2, tags=("fileview", "wire", tag)
+        )
+        self.workspace_canvas.create_oval(
+            x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill="#4a90d9", outline="",
+            tags=("fileview", "wire", tag)
+        )
+
+    def render_files_code_view(self):
+        """Files layer 'View Code' toggle: every open tab, each as a
+        section of per-NODE editable Text widgets (all nodes, including
+        those nested in class/category nodes, labelled 'Parent > name').
+        Same node-granular design as the Nodes layer's toggle and for
+        the same reason: a tab's whole-file code concatenates every node
+        plus synthetic C++/C#/Java wrapper lines that no block backs, so
+        an edit there can't be attributed back to a node. Each tab is
+        rendered and matched under its OWN language pack
+        (_language_scope), so tabs in different languages are shown
+        correctly and edits never match against the wrong pack.
+        Class/category nodes hold no blocks of their own, so they get a
+        plain label instead of an empty box."""
+        for index, tab in enumerate(self.tabs):
+            if index > 0:
+                tk.Frame(self.workspace_frame, bg=DARK_BORDER, height=2).pack(fill=tk.X, pady=(10, 10))
+
+            header = tk.Frame(self.workspace_frame, bg=DARK_BG)
+            header.pack(fill=tk.X, padx=4, pady=(4, 4))
+            tk.Label(
+                header, text=f"\U0001F4C4 {tab['title']}", bg=DARK_BG, fg=DARK_FG,
+                font=("Segoe UI", 10, "bold"), anchor="w"
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                header, text=tab["language"], bg=DARK_BG, fg="#888888",
+                font=("Segoe UI", 9)
+            ).pack(side=tk.RIGHT)
+
+            with self._language_scope(tab["language"]):
+                for node, path in self.iter_tab_nodes(tab):
+                    kind = node.get("kind", "function")
+                    label = " \u203a ".join(path + [node["name"]])
+                    if kind in ("class", "category"):
+                        icon = "\U0001F4C1" if kind == "category" else "\U0001F3DB"
+                        tk.Label(
+                            self.workspace_frame, text=f"{icon} {label}", bg=DARK_BG,
+                            fg="#888888", font=("Segoe UI", 9), anchor="w"
+                        ).pack(fill=tk.X, padx=12, pady=(4, 0))
+                        continue
+
+                    tk.Label(
+                        self.workspace_frame, text=f"\U0001F9E9 {label}", bg=DARK_BG,
+                        fg=DARK_FG, font=("Segoe UI", 9, "bold"), anchor="w"
+                    ).pack(fill=tk.X, padx=12, pady=(6, 2))
+                    code = self.generate_code_for_node(node, tab["language"])
+                    text_widget = tk.Text(
+                        self.workspace_frame, bg=BLOCK_BG, fg=DARK_FG,
+                        insertbackground=DARK_FG, relief=tk.FLAT, wrap=tk.NONE,
+                        font=("Consolas", 10), height=max(3, min(30, code.count("\n") + 2))
+                    )
+                    text_widget.pack(fill=tk.X, padx=12, pady=(0, 4))
+                    if code:
+                        text_widget.insert("1.0", code)
+                    text_widget.bind(
+                        "<FocusOut>",
+                        lambda _e, t=tab, n=node, w=text_widget:
+                            self._on_files_node_code_focus_out(t, n, w)
+                    )
+
+    def render_file_code_view(self):
+        """Nodes layer 'View Code' toggle: one editable Text widget PER
+        NODE at the current file_view_path depth (the same set of boxes
+        render_file_view() would otherwise draw), replacing the
+        node/wire canvas entirely. This is deliberately node-granular,
+        not a single whole-tab blob - see generate_code_for_node's
+        docstring for why: the old whole-tab version (still used
+        read-only by the Files layer) concatenates every node plus
+        synthetic C++/C#/Java wrapper boilerplate that no block backs,
+        so there is no clean way to attribute an edit back to the node
+        it came from. Per-node keeps editing and attribution the same
+        thing: each widget's FocusOut re-matches only its own text and
+        replaces only that node's blocks (_on_node_code_focus_out),
+        exactly mirroring how the toolbar's Code->Blocks dialog already
+        treats self.project_blocks as the active node's blocks alone.
+        Class/category nodes have no blocks of their own by
+        construction, so they get a plain non-editable note instead of
+        an empty, meaningless Text widget - open them (Nodes-layer
+        canvas mode) to drill into their children instead."""
+        tab = self.tabs[self.active_tab_index]
+        nodes = self.get_current_node_list(tab)
+
+        if not nodes:
+            self.show_empty_state()
+            return
+
+        for index, node in enumerate(nodes):
+            if index > 0:
+                tk.Frame(self.workspace_frame, bg=DARK_BORDER, height=2).pack(fill=tk.X, pady=(10, 10))
+
+            kind = node.get("kind", "function")
+            icon = "\U0001F4C1" if kind == "category" else "\U0001F3DB" if kind == "class" else "\U0001F9E9"
+
+            header = tk.Frame(self.workspace_frame, bg=DARK_BG)
+            header.pack(fill=tk.X, padx=4, pady=(4, 4))
+            tk.Label(
+                header, text=f"{icon} {node['name']}", bg=DARK_BG, fg=DARK_FG,
+                font=("Segoe UI", 10, "bold"), anchor="w"
+            ).pack(side=tk.LEFT)
+            if node.get("locked"):
+                tk.Label(
+                    header, text="\U0001F512", bg=DARK_BG, fg="#888888"
+                ).pack(side=tk.RIGHT)
+
+            if kind in ("class", "category"):
+                tk.Label(
+                    self.workspace_frame,
+                    text="Holds other nodes, not code of its own - open it to view/edit them.",
+                    bg=DARK_BG, fg="#888888", font=("Segoe UI", 9), anchor="w"
+                ).pack(fill=tk.X, padx=4, pady=(0, 4))
+                continue
+
+            code = self.generate_code_for_node(node, tab["language"])
+            text_widget = tk.Text(
+                self.workspace_frame, bg=BLOCK_BG, fg=DARK_FG,
+                insertbackground=DARK_FG, relief=tk.FLAT, wrap=tk.NONE,
+                font=("Consolas", 10), height=max(3, min(30, code.count("\n") + 2))
+            )
+            text_widget.pack(fill=tk.X, padx=4, pady=(0, 4))
+            if code:
+                text_widget.insert("1.0", code)
+            text_widget.bind(
+                "<FocusOut>",
+                lambda _e, n=node, w=text_widget: self._on_node_code_focus_out(n, w)
+            )
+
+    @contextlib.contextmanager
+    def _language_scope(self, lang):
+        """Temporarily make `lang`'s block pack (and matching custom
+        blocks) the loaded one, then restore exactly what was there.
+        self.blocks only ever holds the ACTIVE tab's language, but the
+        Files layer shows and edits tabs in other languages too:
+        matching or rendering another tab's code against the wrong pack
+        would mis-match lines and could clobber its blocks. A no-op when
+        `lang` is already loaded."""
+        if lang == self.current_language:
+            yield
+            return
+        saved = (self.blocks, self.node_types, self.blocks_by_category,
+                 self.current_language, getattr(self, "custom_blocks", None))
+        try:
+            self.current_language = lang
+            self.load_blocks_for_language(lang, verbose=False)
+            self.load_and_merge_custom_blocks()
+            yield
+        finally:
+            (self.blocks, self.node_types, self.blocks_by_category,
+             self.current_language, self.custom_blocks) = saved
+
+    def iter_tab_nodes(self, tab):
+        """Depth-first (node, path_names) over every node in a tab,
+        including those inside class/category child_nodes. path_names
+        is the chain of ancestor names, for 'Category > method' labels."""
+        def walk(nodes, path):
+            for node in nodes:
+                yield node, path
+                yield from walk(node.get("child_nodes", []), path + [node["name"]])
+        return walk(tab.get("nodes", []), [])
+
+    def _replace_node_blocks(self, tab, node, new_blocks):
+        """The one way code-view edits replace a node's blocks. Besides
+        storing them on the node, if that node is the ACTIVE tab's
+        ACTIVE node, self.project_blocks must be re-pointed too:
+        sync_active_tab_state() (run on every tab switch and save)
+        writes project_blocks back into the active node, so a stale
+        pointer would silently revert the edit."""
+        node["blocks"] = new_blocks
+        if (getattr(self, "tabs", None) and tab is self.tabs[self.active_tab_index]
+                and self.get_active_node(tab) is node):
+            self.project_blocks = new_blocks
+        tab["dirty"] = True
+        self.refresh_tab_bar()
+
+    def _node_code_commit_guard_ok(self, tab, node, layer):
+        """Shared staleness guard for _commit_node_code, checked both
+        before matching and again right before the deferred rebuild
+        actually runs (state can change in between - see below)."""
+        if not getattr(self, "tabs", None) or not any(t is tab for t in self.tabs):
+            return False
+        if layer == "file":
+            if (self.view_mode != "file" or not self.file_view_code_mode
+                    or tab is not self.tabs[self.active_tab_index]):
+                return False
+        elif layer == "files":
+            if self.view_mode != "files" or not self.files_view_code_mode:
+                return False
+        else:
+            return False
+        return find_node_by_id(tab["nodes"], node["id"]) is not None
+
+    def _commit_node_code(self, tab, node, text_widget, layer):
+        """Shared code-view commit (Nodes layer 'file', Files layer
+        'files'): re-match this ONE node's text against ITS tab's
+        language pack and replace only that node's blocks, then
+        refresh_workspace() rebuilds every widget from the freshly
+        matched blocks - the same 'rebuild UI from canonical data on
+        commit' pattern Phase F's ExpressionSlot and Phase A3 use. The
+        guards make it a safe no-op when the widget is stale: a layer or
+        tab switch that blurred focus mid-teardown, a closed tab, a
+        deleted node, or a re-entrant commit.
+
+        The mutate-and-rebuild part is deferred to the next idle tick
+        (real-desktop caveat from Handoff #4): this handler fires as a
+        FocusOut, most commonly because the user clicked straight into
+        ANOTHER code box in the same view. Tk finishes placing that
+        click's cursor as part of the SAME synchronous dispatch that
+        delivers this FocusOut, and refresh_workspace() destroys every
+        widget in the view, including the box just clicked into - doing
+        that destruction before Tk is done with the click could swallow
+        it or drop the caret. Returning immediately and doing the
+        destructive part via after_idle lets the click land first."""
+        if getattr(self, "_node_code_committing", False):
+            return
+        if not self._node_code_commit_guard_ok(tab, node, layer):
+            return
+
+        code = text_widget.get("1.0", tk.END)
+        with self._language_scope(tab["language"]):
+            new_blocks, _matched, _raw = self.import_code_to_blocks(code)
+        if new_blocks == node.get("blocks", []):
+            return
+
+        def _apply():
+            if getattr(self, "_node_code_committing", False):
+                return
+            if not self._node_code_commit_guard_ok(tab, node, layer):
+                return
+            self._node_code_committing = True
+            try:
+                self._replace_node_blocks(tab, node, new_blocks)
+                self.refresh_workspace()
+            finally:
+                self._node_code_committing = False
+
+        self.after_idle(_apply)
+
+    def _on_node_code_focus_out(self, node, text_widget):
+        """Nodes-layer per-node commit (active tab)."""
+        tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
+        if tab is not None:
+            self._commit_node_code(tab, node, text_widget, "file")
+
+    def _on_files_node_code_focus_out(self, tab, node, text_widget):
+        """Files-layer per-node commit (any tab, any language)."""
+        self._commit_node_code(tab, node, text_widget, "files")
+
+    def toggle_palette(self):
+        """Collapse / expand the left block palette (edge-strip click)."""
+        self.panels.toggle("palette")
+
+    def _on_panel_visibility_changed(self, panel_id, visible):
+        if panel_id == "palette":
+            self.palette_strip_glyph.config(text="\u25c2" if visible else "\u25b8")
+
+    def _palette_strip_hover(self, on):
+        bg = DARK_BORDER if on else DARK_PANEL
+        self.palette_strip.config(bg=bg)
+        self.palette_strip_glyph.config(bg=bg, fg="#ffffff" if on else "#888888")
+
+    # ------------------------------------------------------------------
+    # Workspace right-click menu (ComfyUI-style): top entry adds
+    # something appropriate to the current layer, below it a Panels
+    # submenu shows/hides parts of the window.
+    # ------------------------------------------------------------------
+
+    def _bind_workspace_context_menu(self):
+        """Right-click on EMPTY workspace area (canvas or the block-editor
+        frame). Node/file boxes and blocks are child widgets, so a click on
+        them never reaches these bindings."""
+        if sys.platform == "darwin":
+            seqs = ("<Button-2>", "<Control-Button-1>")
+        else:
+            seqs = ("<Button-3>",)
+        for w in (self.workspace_canvas, self.workspace_frame):
+            for seq in seqs:
+                w.bind(seq, self._on_workspace_right_click)
+
+    def _on_workspace_right_click(self, event):
+        x, y = self._canvas_coords_from_event(event)
+        menu = self.build_workspace_menu((max(0, x), max(0, y)))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _new_menu(self, parent):
+        return tk.Menu(parent, tearoff=0, bg=DARK_PANEL, fg=DARK_FG,
+                       activebackground=DARK_HOVER, activeforeground=DARK_FG)
+
+    def build_workspace_menu(self, canvas_pos):
+        """Build (don't show) the right-click menu for the current layer.
+        canvas_pos is where the click landed, in canvas coordinates, used
+        to place new nodes/categories/files under the cursor."""
+        menu = self._new_menu(self)
+        menu._vars = []  # keep BooleanVars alive for the checkbuttons
+
+        in_code_view = (
+            (self.view_mode == "file" and self.file_view_code_mode)
+            or (self.view_mode == "files" and self.files_view_code_mode)
+        )
+        added = False
+        if not in_code_view:
+            if self.view_mode == "node":
+                self._add_block_cascade(menu)
+                added = True
+            elif self.view_mode == "file":
+                menu.add_command(label="\u2795 Add node",
+                                 command=lambda: self.create_node(pos=canvas_pos))
+                menu.add_command(label="\U0001F4C1 Add category",
+                                 command=lambda: self.create_category(pos=canvas_pos))
+                added = True
+            elif self.view_mode == "files":
+                menu.add_command(label="\u2795 New file",
+                                 command=lambda: self.create_file_at(canvas_pos))
+                added = True
+        if added:
+            menu.add_separator()
+
+        panels = self._new_menu(menu)
+        v = tk.BooleanVar(value=self.panels.is_visible("palette"))
+        menu._vars.append(v)
+        panels.add_checkbutton(label="Block Palette", variable=v,
+                               command=self.toggle_palette)
+        if self.view_mode == "node":  # the code panel only exists at Blocks layer
+            v2 = tk.BooleanVar(value=self.panels.is_visible("code"))
+            menu._vars.append(v2)
+            panels.add_checkbutton(label="Generated Code", variable=v2,
+                                   command=self.toggle_code_panel)
+        menu.add_cascade(label="\u25a4 Panels", menu=panels)
+        return menu
+
+    def _add_block_cascade(self, menu):
+        """'Add block' > category > block, same source/order as the palette."""
+        sub = self._new_menu(menu)
+        any_block = False
+        for category in self.get_ordered_categories():
+            blocks = self.blocks_by_category.get(category) or []
+            if not blocks:
+                continue
+            any_block = True
+            cat_menu = self._new_menu(sub)
+            for b in blocks:
+                cat_menu.add_command(
+                    label=get_block_attr(b, "display_name", "Unknown"),
+                    command=lambda b=b: self.add_block_to_workspace(b))
+            sub.add_cascade(label=category, menu=cat_menu,
+                            foreground=CATEGORY_COLORS.get(category, DARK_FG))
+        menu.add_cascade(label="\u2795 Add block", menu=sub,
+                         state=tk.NORMAL if any_block else tk.DISABLED)
+
+    # ------------------------------------------------------------------
+    # Node / file operations behind the box right-click menus. Each
+    # operation is a plain method returning (ok, message, count) so it
+    # can be tested without dialogs; the *_dialog wrappers add prompts.
+    # ------------------------------------------------------------------
+
+    def _find_node_container(self, nodes, node_id):
+        """(list_holding_node, node) searching nested child_nodes, or None."""
+        for n in nodes:
+            if n["id"] == node_id:
+                return nodes, n
+            if n.get("child_nodes"):
+                found = self._find_node_container(n["child_nodes"], node_id)
+                if found:
+                    return found
+        return None
+
+    def _subtree(self, node):
+        """The node plus every node nested under it."""
+        out = [node]
+        for child in node.get("child_nodes") or []:
+            out.extend(self._subtree(child))
+        return out
+
+    def _pop_by_identity(self, lst, node):
+        for i, n in enumerate(lst):
+            if n is node:
+                return lst.pop(i)
+        return None
+
+    def rename_node(self, tab, node, new_name):
+        """Rename a node AND rewrite every func_call in the tab that
+        called it by the old name, so wires survive. Refuses empty names,
+        locked nodes, and names another node already has (references
+        resolve by exact name, so a duplicate would silently rewire)."""
+        new_name = (new_name or "").strip()
+        old = node["name"]
+        if node.get("locked"):
+            return False, "This node is locked and can't be renamed.", 0
+        if not new_name:
+            return False, "The name can't be empty.", 0
+        if new_name == old:
+            return True, "", 0
+        if any(n is not node and n["name"] == new_name for n, _p in self.iter_tab_nodes(tab)):
+            return False, f"Another node in this file is already called '{new_name}'.", 0
+        updated = 0
+        if node.get("kind", "function") == "function":
+            with self._language_scope(tab["language"]):
+                for other in self.all_function_nodes(tab):
+                    for bid, params in self.iter_all_blocks_recursive(other["blocks"]):
+                        if bid == "func_call" and (params.get("name") or "").strip() == old:
+                            params["name"] = new_name
+                            updated += 1
+        node["name"] = new_name
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True, "", updated
+
+    def count_calls_to(self, tab, node):
+        """func_call blocks OUTSIDE node's own subtree that call it (or
+        anything nested in it) by name - what deleting would orphan."""
+        inside = {id(n) for n in self._subtree(node)}
+        names = {n["name"] for n in self._subtree(node) if n.get("kind", "function") == "function"}
+        count = 0
+        with self._language_scope(tab["language"]):
+            for other in self.all_function_nodes(tab):
+                if id(other) in inside:
+                    continue
+                for bid, params in self.iter_all_blocks_recursive(other["blocks"]):
+                    if bid == "func_call" and (params.get("name") or "").strip() in names:
+                        count += 1
+        return count
+
+    def delete_node(self, tab, node):
+        """Remove a node (and anything nested in it). Calls that pointed
+        at it stay in the code and simply become unresolved."""
+        subtree = self._subtree(node)
+        if any(n.get("locked") for n in subtree):
+            return False, "This node is locked and can't be deleted.", 0
+        gone = {id(n) for n in subtree}
+        if not any(id(n) not in gone for n in self.all_function_nodes(tab)):
+            return False, "A file needs at least one node - this is the last one.", 0
+        found = self._find_node_container(tab["nodes"], node["id"])
+        if not found:
+            return False, "That node no longer exists.", 0
+        self._pop_by_identity(found[0], node)
+        if tab.get("active_node_id") in {n["id"] for n in subtree}:
+            tab["active_node_id"] = default_active_node_id(tab["nodes"])
+            if tab is self.tabs[self.active_tab_index]:
+                self.project_blocks = self.get_active_node(tab)["blocks"]
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True, "", len(subtree)
+
+    def move_destinations(self, tab, node):
+        """[(label, target_list)] where this node may be moved: the top
+        level and every category, minus where it already is, minus its own
+        subtree (no moving a category into itself). Locked nodes: none."""
+        if node.get("locked"):
+            return []
+        found = self._find_node_container(tab["nodes"], node["id"])
+        if not found:
+            return []
+        cur_list = found[0]
+        banned = {id(n) for n in self._subtree(node)}
+        dests = []
+        if cur_list is not tab["nodes"]:
+            dests.append(("Top level", tab["nodes"]))
+
+        def walk(nodes, path):
+            for n in nodes:
+                if id(n) in banned or n.get("kind") != "category":
+                    continue
+                kids = n.setdefault("child_nodes", [])
+                if kids is not cur_list:
+                    dests.append((" > ".join(path + [n["name"]]), kids))
+                walk(kids, path + [n["name"]])
+
+        walk(tab["nodes"], [])
+        return dests
+
+    def move_node(self, tab, node, dest_list):
+        """Move a node into dest_list (must be one of move_destinations).
+        Its canvas position is dropped so it gets a free default slot in
+        its new home. Wires are unaffected (they resolve by name)."""
+        if not any(lst is dest_list for _lbl, lst in self.move_destinations(tab, node)):
+            return False, "That isn't a valid place to move this node.", 0
+        found = self._find_node_container(tab["nodes"], node["id"])
+        self._pop_by_identity(found[0], node)
+        dest_list.append(node)
+        node.pop("canvas_x", None)
+        node.pop("canvas_y", None)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True, "", 1
+
+    def rename_file(self, index, new_title):
+        """Rename an open file (tab) AND rewrite every import_module in
+        other files that resolved to it (same case-insensitive title match
+        the Files layer uses), so import wires survive. Renames the
+        in-app title only - never the file on disk."""
+        if not (0 <= index < len(self.tabs)):
+            return False, "That file no longer exists.", 0
+        tab = self.tabs[index]
+        old = tab["title"]
+        new_title = (new_title or "").strip()
+        if not new_title:
+            return False, "The name can't be empty.", 0
+        if new_title == old:
+            return True, "", 0
+        if any(i != index and t["title"].strip().lower() == new_title.lower()
+               for i, t in enumerate(self.tabs)):
+            return False, f"Another open file is already called '{new_title}'.", 0
+        updated = 0
+        for i, t in enumerate(self.tabs):
+            if i == index:
+                continue
+            changed = False
+            with self._language_scope(t["language"]):
+                for fn in self.all_function_nodes(t):
+                    for bid, params in self.iter_all_blocks_recursive(fn["blocks"]):
+                        if (bid == "import_module"
+                                and (params.get("module") or "").strip().lower() == old.strip().lower()):
+                            params["module"] = new_title
+                            updated += 1
+                            changed = True
+            if changed:
+                t["dirty"] = True
+        tab["title"] = new_title
+        tab["dirty"] = True
+        self.refresh_tab_bar()
+        self.refresh_workspace()
+        return True, "", updated
+
+    # --- dialog wrappers ---
+
+    def rename_node_dialog(self, node_id):
+        tab = self.tabs[self.active_tab_index]
+        node = find_node_by_id(tab["nodes"], node_id)
+        if node is None:
+            return
+        name = simpledialog.askstring("Rename", "New name:", initialvalue=node["name"])
+        if name is None:
+            return
+        ok, msg, _n = self.rename_node(tab, node, name)
+        if not ok:
+            messagebox.showwarning("Can't rename", msg)
+
+    def delete_node_dialog(self, node_id):
+        tab = self.tabs[self.active_tab_index]
+        node = find_node_by_id(tab["nodes"], node_id)
+        if node is None:
+            return
+        if node.get("locked"):
+            messagebox.showwarning("Can't delete", "This node is locked and can't be deleted.")
+            return
+        text = f"Delete '{node['name']}'?"
+        inner = len(self._subtree(node)) - 1
+        if inner:
+            text += f"\n\nThis also deletes the {inner} node{'s' if inner != 1 else ''} inside it."
+        calls = self.count_calls_to(tab, node)
+        if calls:
+            text += (f"\n\n{calls} call{'s' if calls != 1 else ''} in other nodes point at it. "
+                     "They stay in the code but become unresolved.")
+        if not messagebox.askyesno("Delete", text):
+            return
+        ok, msg, _n = self.delete_node(tab, node)
+        if not ok:
+            messagebox.showwarning("Can't delete", msg)
+
+    def rename_file_dialog(self, index):
+        if not (0 <= index < len(self.tabs)):
+            return
+        name = simpledialog.askstring("Rename file", "New name:",
+                                      initialvalue=self.tabs[index]["title"])
+        if name is None:
+            return
+        ok, msg, _n = self.rename_file(index, name)
+        if not ok:
+            messagebox.showwarning("Can't rename", msg)
+
+    def close_file_from_files_view(self, index):
+        """Close a file from its Files-layer box and stay on the Files
+        layer (close_tab alone would drop you into the Blocks layer)."""
+        if not (0 <= index < len(self.tabs)):
+            return
+        tab = self.tabs[index]
+        self.close_tab(index)
+        if not any(t is tab for t in self.tabs):  # not cancelled at the unsaved-changes prompt
+            self.view_mode = "files"
+            self.refresh_workspace()
+
+    # --- box menus ---
+
+    def _context_seqs(self):
+        return ("<Button-2>", "<Control-Button-1>") if sys.platform == "darwin" else ("<Button-3>",)
+
+    def _bind_context_recursive(self, widget, handler):
+        for seq in self._context_seqs():
+            widget.bind(seq, handler)
+        for child in widget.winfo_children():
+            self._bind_context_recursive(child, handler)
+
+    def _popup(self, menu, event):
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def build_node_menu(self, node_id):
+        tab = self.tabs[self.active_tab_index]
+        node = find_node_by_id(tab["nodes"], node_id)
+        menu = self._new_menu(self)
+        if node is None:
+            return menu
+        locked = bool(node.get("locked"))
+        off = tk.DISABLED if locked else tk.NORMAL
+        menu.add_command(label="Open", command=lambda: self.open_node(node_id))
+        menu.add_command(label="Rename\u2026", state=off,
+                         command=lambda: self.rename_node_dialog(node_id))
+        dests = self.move_destinations(tab, node)
+        move = self._new_menu(menu)
+        for label, lst in dests:
+            move.add_command(label=label,
+                             command=lambda lst=lst: self.move_node(tab, node, lst))
+        menu.add_cascade(label="Move to", menu=move,
+                         state=tk.NORMAL if dests else tk.DISABLED)
+        menu.add_separator()
+        menu.add_command(label="Delete\u2026", state=off,
+                         command=lambda: self.delete_node_dialog(node_id))
+        return menu
+
+    def build_file_menu(self, index):
+        menu = self._new_menu(self)
+        menu.add_command(label="Open", command=lambda: self.open_file_from_files_view(index))
+        menu.add_command(label="Rename\u2026", command=lambda: self.rename_file_dialog(index))
+        menu.add_separator()
+        menu.add_command(label="Close file", command=lambda: self.close_file_from_files_view(index))
+        return menu
+
+    def _on_node_box_right_click(self, event, node_id):
+        return self._popup(self.build_node_menu(node_id), event)
+
+    def _on_file_box_right_click(self, event, index):
+        return self._popup(self.build_file_menu(index), event)
+
+    def toggle_code_panel(self):
+        """User show/hide of the Generated Code panel (Blocks layer). Kept
+        as a flag because update_right_panel_visibility() runs on every
+        refresh and would otherwise force the panel back on."""
+        self._code_panel_user_hidden = not getattr(self, "_code_panel_user_hidden", False)
+        self.update_right_panel_visibility()
+
+    def update_right_panel_visibility(self):
+        """The always-visible right-hand Generated Code panel is now
+        exclusively a Blocks-layer (view_mode == "node") feature, per
+        the settled design - the Files and Nodes layers each got their
+        own in-canvas 'View Code' toggle instead (render_files_code_view/
+        render_file_code_view), so showing this panel at the same time
+        would be exactly the redundant split the toggle design was
+        chosen to avoid. Hiding it never affects Export/Run/Code->Blocks
+        - self.code_text is kept current regardless (update_generated_code()
+        now runs unconditionally in refresh_workspace), a Tk widget's
+        .get() works whether or not it's currently on screen."""
+        self.panels.set_visible(
+            "code",
+            self.view_mode == "node" and not getattr(self, "_code_panel_user_hidden", False))
 
     def render_file_view(self):
         """Phase C2: freeform ComfyUI-style canvas. Node boxes sit at
@@ -3654,6 +5118,14 @@ class BlocklinerUI(tk.Tk):
         nodes = self.get_current_node_list(tab)
 
         self._fileview_boxes = {}
+        # Defensive: a refresh mid wire-drag (e.g. triggered by something
+        # else while dragging) would otherwise leave a dangling temp line
+        # and stale hover state pointing at boxes that are about to be
+        # destroyed and recreated.
+        self.workspace_canvas.delete("wire_drag_temp")
+        self._wire_drag_source = None
+        self._wire_drag_temp_id = None
+        self._wire_drag_hover_id = None
 
         if not nodes:
             self.show_empty_state()
@@ -3691,9 +5163,23 @@ class BlocklinerUI(tk.Tk):
         """Build one node's draggable box and place it on
         workspace_canvas at its stored position. Visually identical to
         the pre-C2 B2/B3 box (same icon/lock/color scheme) - only how
-        it's placed and how it responds to the mouse has changed."""
-        is_class = node.get("kind") == "class"
-        box_color = "#5a4a8a" if is_class else CATEGORY_COLORS.get("Basic", "#4a4a4a")
+        it's placed and how it responds to the mouse has changed.
+
+        Phase D: a third kind, "category", joins "function"/"class" -
+        a pure visual folder (zero codegen effect, unlike class) that
+        can hold anything, styled distinctly (folder icon, gold) so
+        it's never mistaken for a class node at a glance."""
+        kind = node.get("kind", "function")
+        is_class = kind == "class"
+        is_category = kind == "category"
+        is_container = is_class or is_category
+        if is_category:
+            box_color = "#8a6a2a"
+        elif is_class:
+            box_color = "#5a4a8a"
+        else:
+            box_color = CATEGORY_COLORS.get("Basic", "#4a4a4a")
+        text_fg = "#ffffff" if is_container else "#000000"
         box = tk.Frame(
             self.workspace_canvas, bg=BLOCK_BG, highlightthickness=2,
             highlightbackground=DARK_BORDER
@@ -3702,24 +5188,45 @@ class BlocklinerUI(tk.Tk):
         def _open(_e=None, nid=node["id"]):
             self.open_node(nid)
 
-        icon = "\U0001F3DB" if is_class else "\U0001F9E9"  # classical building vs puzzle piece
+        if is_category:
+            icon = "\U0001F4C1"  # folder
+        elif is_class:
+            icon = "\U0001F3DB"  # classical building
+        else:
+            icon = "\U0001F9E9"  # puzzle piece
         header = tk.Frame(box, bg=box_color, height=36, cursor="fleur")
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
             header, text=f"{icon} {node['name']}",
-            bg=box_color, fg="#000000" if not is_class else "#ffffff",
+            bg=box_color, fg=text_fg,
             font=("Segoe UI", 10, "bold"), anchor="w", cursor="fleur"
         )
         name_label.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
+
+        # Phase C3: an output "port" handle, only on function-kind nodes
+        # in a language that actually has a func_call block (HTML has
+        # none, so wiring makes no sense there). Neither class nor
+        # category nodes wire directly - they hold other nodes, not
+        # blocks. Dragging from this handle to another node's box calls
+        # that node - see _port_press/_port_motion/_port_release below.
+        can_wire = (not is_container) and "func_call" in self.blocks
+        port = None
+        if can_wire:
+            port = tk.Label(
+                header, text="\u25cf", bg=box_color, fg=text_fg,
+                font=("Segoe UI", 12, "bold"), cursor="crosshair"
+            )
+            port.pack(side=tk.RIGHT, padx=(4, 8))
+
         if node.get("locked"):
             tk.Label(
-                header, text="\U0001F512", bg=box_color, fg="#000000" if not is_class else "#ffffff",
+                header, text="\U0001F512", bg=box_color, fg=text_fg,
             ).pack(side=tk.RIGHT, padx=8)
 
         body = tk.Frame(box, bg=BLOCK_BG)
         body.pack(fill=tk.X, padx=10, pady=8)
-        if is_class:
+        if is_container:
             count = len(node.get("child_nodes", []))
             label_text = f"{count} node{'s' if count != 1 else ''} inside"
         else:
@@ -3740,6 +5247,8 @@ class BlocklinerUI(tk.Tk):
             tags=("fileview", "node_box")
         )
         self._fileview_boxes[node["id"]] = (win_id, box)
+        self._bind_context_recursive(
+            box, lambda e, nid=node["id"]: self._on_node_box_right_click(e, nid))
 
         # Dragging is grabbed from the header only, so the Open button
         # and double-click-to-open both keep working undisturbed. A
@@ -3788,6 +5297,132 @@ class BlocklinerUI(tk.Tk):
             w.bind("<B1-Motion>", _motion)
             w.bind("<ButtonRelease-1>", _release)
             w.bind("<Double-Button-1>", _open)
+
+        if port is not None:
+            port.bind("<ButtonPress-1>", lambda e, nid=node["id"]: self._port_press(e, nid))
+            port.bind("<B1-Motion>", self._port_motion)
+            port.bind("<ButtonRelease-1>", self._port_release)
+
+    def _canvas_coords_from_event(self, e):
+        """Convert a mouse event fired on some widget nested inside
+        workspace_canvas (a port label several frames deep) into actual
+        canvas coordinates, accounting for scroll offset. canvasx/canvasy
+        expect a position relative to the canvas widget itself, not the
+        screen, so root coordinates are translated through the canvas's
+        own screen origin first."""
+        rel_x = e.x_root - self.workspace_canvas.winfo_rootx()
+        rel_y = e.y_root - self.workspace_canvas.winfo_rooty()
+        return self.workspace_canvas.canvasx(rel_x), self.workspace_canvas.canvasy(rel_y)
+
+    def _port_press(self, e, source_id):
+        """Phase C3: start dragging a wire from source_id's output port.
+        Draws a temporary dashed line that follows the mouse until
+        release; the real wire only gets created (as a func_call block
+        inserted into the source node) if release lands on a valid
+        target box - see _port_release."""
+        tab = self.tabs[self.active_tab_index]
+        src_node = find_node_by_id(tab["nodes"], source_id)
+        wid_pair = self._fileview_boxes.get(source_id)
+        if src_node is None or wid_pair is None:
+            return
+        _, src_widget = wid_pair
+        sw = src_widget.winfo_width() or 220
+        sh = src_widget.winfo_height() or 70
+        x0 = src_node["canvas_x"] + sw
+        y0 = src_node["canvas_y"] + sh / 2
+
+        self._wire_drag_source = source_id
+        self._wire_drag_start = (x0, y0)
+        self._wire_drag_temp_id = self.workspace_canvas.create_line(
+            x0, y0, x0, y0, fill="#e8a33d", width=2, dash=(5, 3),
+            tags=("wire_drag_temp",)
+        )
+
+    def _port_motion(self, e):
+        """Redraw the in-progress wire-drag line to follow the mouse,
+        and highlight whichever node box (if any) the cursor is
+        currently over, so it's clear where releasing would connect
+        to. Purely visual - no data changes until _port_release."""
+        if self._wire_drag_source is None or self._wire_drag_temp_id is None:
+            return
+        cx, cy = self._canvas_coords_from_event(e)
+        x0, y0 = self._wire_drag_start
+        self.workspace_canvas.coords(self._wire_drag_temp_id, x0, y0, cx, cy)
+
+        target_id = self._node_box_at(cx, cy, exclude_id=self._wire_drag_source)
+        if target_id != self._wire_drag_hover_id:
+            if self._wire_drag_hover_id is not None:
+                prev = self._fileview_boxes.get(self._wire_drag_hover_id)
+                if prev is not None:
+                    prev[1].configure(highlightbackground=DARK_BORDER)
+            if target_id is not None:
+                cur = self._fileview_boxes.get(target_id)
+                if cur is not None:
+                    cur[1].configure(highlightbackground="#e8a33d")
+            self._wire_drag_hover_id = target_id
+
+    def _port_release(self, e):
+        """Finish a wire-drag: if the mouse was released on top of a
+        valid, different function-kind node's box, insert a func_call
+        block (targeting that node's name) into the source node's
+        top-level blocks - the same underlying data change a user
+        adding that block by hand through the palette would produce.
+        Always cleans up the temp line/hover highlight regardless of
+        whether a connection was actually made."""
+        source_id = self._wire_drag_source
+        cx, cy = self._canvas_coords_from_event(e) if source_id is not None else (0, 0)
+
+        if self._wire_drag_temp_id is not None:
+            self.workspace_canvas.delete(self._wire_drag_temp_id)
+            self._wire_drag_temp_id = None
+        if self._wire_drag_hover_id is not None:
+            hovered = self._fileview_boxes.get(self._wire_drag_hover_id)
+            if hovered is not None:
+                hovered[1].configure(highlightbackground=DARK_BORDER)
+            self._wire_drag_hover_id = None
+
+        target_id = self._node_box_at(cx, cy, exclude_id=source_id) if source_id is not None else None
+        self._wire_drag_source = None
+        if target_id is not None:
+            self.add_wire_by_drag(source_id, target_id)
+
+    def _node_box_at(self, cx, cy, exclude_id=None):
+        """Return the id of whichever currently-drawn function-kind node
+        box contains canvas point (cx, cy), or None. Used both to
+        highlight a hover target mid-drag and to resolve the actual
+        drop target on release, so the two always agree on hit-testing."""
+        tab = self.tabs[self.active_tab_index]
+        for node in self.get_current_node_list(tab):
+            if node["id"] == exclude_id:
+                continue
+            if node.get("kind", "function") != "function":
+                continue
+            wid_pair = self._fileview_boxes.get(node["id"])
+            if wid_pair is None:
+                continue
+            _, widget = wid_pair
+            nx, ny = node["canvas_x"], node["canvas_y"]
+            nw = widget.winfo_width() or 220
+            nh = widget.winfo_height() or 70
+            if nx <= cx <= nx + nw and ny <= cy <= ny + nh:
+                return node["id"]
+        return None
+
+    def add_wire_by_drag(self, source_id, target_id):
+        """Insert a func_call block (targeting target_id's node name)
+        into source_id's top-level blocks. This is the one place a
+        wire gets created by drawing rather than by hand-adding a
+        func_call block through the palette - everything downstream
+        (references, the drawn wire itself) is still fully derived,
+        same as ever, so nothing else needs to know a drag caused it."""
+        tab = self.tabs[self.active_tab_index]
+        source = find_node_by_id(tab["nodes"], source_id)
+        target = find_node_by_id(tab["nodes"], target_id)
+        if source is None or target is None:
+            return
+        source["blocks"].append(("func_call", {"name": target["name"], "args": ""}))
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
 
     def draw_wires(self):
         """Redraw every wire (a derived call-graph edge between two
@@ -3976,12 +5611,64 @@ class BlocklinerUI(tk.Tk):
                         refs.append(target_id)
             node["references"] = refs
 
+    def recompute_file_references(self):
+        """Files-layer: after any edit, rescan every tab's blocks for
+        import_module instances and resolve the imported module name
+        against other tabs, recomputing tab['file_references']. Same
+        pure-derivation contract as recompute_references() (C1) - never
+        hand-authored, always fully recomputed from scratch.
+
+        Resolution is a hybrid match against each candidate tab's
+        title: a saved tab's title is already its filename stem (set
+        in save_tab_as()/open the same way), so matching title alone
+        covers both "saved filename stem" and "unsaved tab title" -
+        there's no separate saved/unsaved code path needed, just a
+        single case-insensitive title match. Self-imports never
+        resolve (a file can't import itself)."""
+        if not getattr(self, "tabs", None):
+            return
+        title_to_index = {}
+        for i, t in enumerate(self.tabs):
+            title_to_index.setdefault(t["title"].strip().lower(), i)
+
+        for i, tab in enumerate(self.tabs):
+            refs = []
+            for node in self.all_function_nodes(tab):
+                for block_id, params in self.iter_all_blocks_recursive(node["blocks"]):
+                    if block_id == "import_module":
+                        module_name = (params.get("module") or "").strip().lower()
+                        target_index = title_to_index.get(module_name)
+                        if target_index is not None and target_index != i and target_index not in refs:
+                            refs.append(target_index)
+            tab["file_references"] = refs
+
+    def assign_default_tab_canvas_positions(self):
+        """Files-layer equivalent of assign_default_canvas_positions():
+        give any tab without a stored canvas position a sensible
+        default grid slot (3 per row), never overwriting a position
+        the user has already dragged a file box to."""
+        col_width, row_height = 260, 150
+        start_x, start_y = 30, 20
+        per_row = 3
+        for idx, tab in enumerate(self.tabs):
+            if "canvas_x" not in tab or "canvas_y" not in tab:
+                row, col = divmod(idx, per_row)
+                tab["canvas_x"] = start_x + col * col_width
+                tab["canvas_y"] = start_y + row * row_height
+
     def refresh_workspace(self):
         """Refresh the visual workspace - either the file-level node
         boxes (view_mode == "file") or the block editor for whichever
         node is currently active (view_mode == "node", the default and
         today's exact original behavior when a tab has only one node)."""
         self.recompute_references()
+        self.recompute_file_references()
+        # Kept unconditional (not just for view_mode == "file"/"node")
+        # so self.code_text - the data Export/Run/Code->Blocks actually
+        # read - stays current for the active tab no matter which layer
+        # or toggle state is on screen; see update_right_panel_visibility.
+        self.update_generated_code()
+        self.update_right_panel_visibility()
 
         for widget in self.workspace_frame.winfo_children():
             widget.destroy()
@@ -4003,18 +5690,32 @@ class BlocklinerUI(tk.Tk):
         # workspace_frame (file view - the "Back" button lives in the
         # header nav instead, see refresh_node_nav) sidesteps the
         # problem entirely; reverting to "" lets it size normally again
-        # for the block editor.
-        if self.view_mode == "file":
+        # for the block editor or either layer's code view.
+        if self.view_mode == "files" and self.files_view_code_mode:
+            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
+        elif self.view_mode == "file" and self.file_view_code_mode:
+            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
+        elif self.view_mode in ("file", "files"):
             self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=1)
         else:
             self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
 
         self.refresh_node_nav()
 
-        if self.view_mode == "file":
-            self.render_file_view()
+        if self.view_mode == "files":
+            if self.files_view_code_mode:
+                self.render_files_code_view()
+            else:
+                self.render_files_view()
             self.block_count_label.config(text="")
-            self.update_generated_code()
+            return
+
+        if self.view_mode == "file":
+            if self.file_view_code_mode:
+                self.render_file_code_view()
+            else:
+                self.render_file_view()
+            self.block_count_label.config(text="")
             return
 
         if not self.project_blocks:
@@ -4041,12 +5742,24 @@ class BlocklinerUI(tk.Tk):
     def iter_all_blocks_recursive(self, block_list):
         """Yield every (block_id, params) at any nesting depth - used
         for whole-project checks like 'is there an #include already'
-        that shouldn't miss blocks tucked inside an if-block's body."""
+        that shouldn't miss blocks tucked inside an if-block's body,
+        or (Phase F) tucked inside another block's own param slot as a
+        recognized chip - e.g. a func_call typed directly into an
+        expression slot instead of dragged in from the palette (see
+        engine/slot_match.py). Those must surface here too, or
+        recompute_references would silently never wire them into the
+        C1/C2/C3 canvas graph, violating the "wires are always
+        derived, never missed" invariant."""
         for block_id, params in block_list:
             yield block_id, params
             module = self.blocks.get(block_id)
             if module and get_block_attr(module, "is_container", False):
                 yield from self.iter_all_blocks_recursive(params.get("_children", []))
+            for value in (params or {}).values():
+                if isinstance(value, dict) and "_nested_block" in value:
+                    yield from self.iter_all_blocks_recursive(
+                        [(value["_nested_block"], value.get("_nested_params", {}))]
+                    )
 
     def render_block_list(self, block_list, lang):
         """
@@ -4060,10 +5773,12 @@ class BlocklinerUI(tk.Tk):
         time instead of it always being an empty list.
         """
         rendered = []
+        prev_id = None
         for block_id, params in block_list:
             module = self.blocks.get(block_id)
             if not module:
                 rendered.append(f"// ERROR: Block '{block_id}' not found\n")
+                prev_id = block_id
                 continue
 
             gen_func = get_block_attr(module, "generate_code")
@@ -4081,8 +5796,45 @@ class BlocklinerUI(tk.Tk):
             except Exception as e:
                 code = f"// ERROR generating block '{block_id}': {e}\n"
 
-            rendered.append(code)
+            # else/else-if directly after an if/else-if in a K&R brace
+            # language: join onto the previous block's closing brace
+            # ("} else {") instead of starting a new line. Required in
+            # Go (a newline after '}' is a syntax error) and the
+            # conventional style everywhere K&R is used. Allman (C#)
+            # and indentation languages don't end their else header
+            # with '{' / never end a block with '}', so they're left
+            # exactly as generated.
+            if (block_id in ("else_statement", "elif_statement")
+                    and prev_id in ("if_statement", "elif_statement")
+                    and rendered and rendered[-1].endswith("}\n")
+                    and code.split("\n", 1)[0].rstrip().endswith("{")):
+                rendered[-1] = rendered[-1][:-1] + " " + code
+            else:
+                rendered.append(code)
+            prev_id = block_id
         return rendered
+
+    def collect_tab_blocks(self, tab):
+        """All blocks across every node in the given tab, concatenated
+        in node order - including blocks nested inside a class node's
+        child_nodes, since a class node's own `blocks` is always empty
+        by construction (see make_node/build_initial_nodes_for_language).
+        Pulled out of all_tab_blocks_concatenated() so the Files-layer
+        code view can generate code for a tab other than the active
+        one."""
+        nodes = tab.get("nodes")
+        if not nodes:
+            return None
+
+        def collect(node_list):
+            combined = []
+            for node in node_list:
+                combined.extend(node["blocks"])
+                if node.get("child_nodes"):
+                    combined.extend(collect(node["child_nodes"]))
+            return combined
+
+        return collect(nodes)
 
     def all_tab_blocks_concatenated(self):
         """All blocks across every node in the active tab, concatenated
@@ -4097,19 +5849,8 @@ class BlocklinerUI(tk.Tk):
         if not getattr(self, "tabs", None):
             return self.project_blocks
         tab = self.tabs[self.active_tab_index]
-        nodes = tab.get("nodes")
-        if not nodes:
-            return self.project_blocks
-
-        def collect(node_list):
-            combined = []
-            for node in node_list:
-                combined.extend(node["blocks"])
-                if node.get("child_nodes"):
-                    combined.extend(collect(node["child_nodes"]))
-            return combined
-
-        return collect(nodes)
+        blocks = self.collect_tab_blocks(tab)
+        return blocks if blocks is not None else self.project_blocks
 
     def get_wrapping_class_name(self, tab, lang):
         """The name of the active tab's top-level class node, if it has
@@ -4121,69 +5862,90 @@ class BlocklinerUI(tk.Tk):
                 return node["name"]
         return "Program" if lang == "csharp" else "Main"
 
-    def update_generated_code(self):
-        """Generate code from every node's blocks in the active tab,
-        concatenated in node order (see all_tab_blocks_concatenated).
-
-        C#/Java entry-point wrapping (Phase B3) follows the exact same
-        pattern C++'s int main(){...} wrapping already used: hardcoded
-        boilerplate in this one place, independent of node structure
-        (the class node's role is the file-view navigation experience,
-        not driving codegen) - deliberately not a general per-node
-        header-rendering system, which is a bigger, separate decision
-        this phase doesn't need to make.
-        """
-        lang = self.lang_var.get()
+    def generate_code_for_node(self, node, lang):
+        """Pure: generate code for just this one node's own blocks - no
+        concatenation with sibling nodes, and deliberately none of
+        generate_code_for_tab's C++/C#/Java wrapper boilerplate
+        (#include, class Program {, int main() {, closing braces),
+        since that wrapping is a tab-level concern with no block of
+        its own behind it. A node's own generated code is exactly its
+        blocks rendered flat - per the standing B1/C1 decision that a
+        top-level node IS the function, so nothing here wraps it in a
+        def/function header either. Used by the Nodes-layer per-node
+        'View Code' toggle so each node's view is genuinely just that
+        node's blocks, round-trippable through the reverse-matcher
+        without it ever seeing wrapper text it was never meant to
+        parse. Class/category nodes always have empty `blocks` by
+        construction (see make_node) so this naturally returns ''
+        for them - callers should skip rendering an editable widget
+        for those kinds rather than show a pointless empty box."""
         code = ""
-        all_blocks = self.all_tab_blocks_concatenated()
-        tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
-        
-        # Add C++ boilerplate if needed
+        for block_code in self.render_block_list(node.get("blocks", []), lang):
+            code += block_code
+        return code
+
+    def generate_code_for_tab(self, tab, lang=None):
+        """Pure: generate the full code string for a given tab,
+        independent of which tab is currently active. update_generated_code()
+        is a thin wrapper around this for the active tab (writing the
+        result into self.code_text); the Files-layer 'View Code' toggle
+        calls this directly per tab. `lang` defaults to the tab's own
+        stored language rather than self.lang_var, since a non-active
+        tab's language may differ from whatever the dropdown currently
+        shows."""
+        if lang is None:
+            lang = tab["language"]
+        code = ""
+        all_blocks = self.collect_tab_blocks(tab)
+        if all_blocks is None:
+            all_blocks = self.project_blocks if getattr(self, "tabs", None) and tab is self.tabs[self.active_tab_index] else []
+
         if lang == "cpp":
-            # Check if includes are present anywhere, including nested
-            # inside container blocks
             has_iostream = any(
                 get_block_attr(self.blocks.get(bid), "block_id") == "include_cpp"
                 for bid, _ in self.iter_all_blocks_recursive(all_blocks)
             )
-            
             if not has_iostream:
                 code += "#include <iostream>\n"
                 code += "using namespace std;\n\n"
-            
             code += "int main() {\n"
-        elif lang == "csharp" and tab is not None:
+        elif lang == "csharp":
             class_name = self.get_wrapping_class_name(tab, lang)
             code += f"class {class_name}\n{{\n    static void Main(string[] args)\n    {{\n"
-        elif lang == "java" and tab is not None:
+        elif lang == "java":
             class_name = self.get_wrapping_class_name(tab, lang)
             code += f"public class {class_name} {{\n    public static void main(String[] args) {{\n"
-        
+
         for block_code in self.render_block_list(all_blocks, lang):
-            # Indent code inside the entry point. Nested container output
-            # already carries its own internal indentation, so this simply
-            # adds one more level uniformly, which is exactly correct -
-            # each nesting level composes as another 4 spaces.
             if lang == "cpp":
                 block_code = "    " + block_code.replace("\n", "\n    ").rstrip() + "\n"
-            elif lang in ("csharp", "java") and tab is not None:
+            elif lang in ("csharp", "java"):
                 block_code = "        " + block_code.replace("\n", "\n        ").rstrip() + "\n"
             code += block_code
-        
-        # Close the entry point
+
         if lang == "cpp":
             code += "    return 0;\n}\n"
-        elif lang == "csharp" and tab is not None:
+        elif lang in ("csharp", "java"):
             code += "    }\n}\n"
-        elif lang == "java" and tab is not None:
-            code += "    }\n}\n"
-        
+
+        return code
+
+    def update_generated_code(self):
+        """Generate code from every node's blocks in the active tab,
+        concatenated in node order (see all_tab_blocks_concatenated),
+        and write it into the right-hand code panel. Delegates the
+        actual generation to generate_code_for_tab() (Files-layer code
+        view reuses that same logic for other tabs)."""
+        lang = self.lang_var.get()
+        tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
+        code = self.generate_code_for_tab(tab, lang) if tab is not None else self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
+
         self.code_text.delete(1.0, tk.END)
         if code:
             self.code_text.insert(tk.END, code)
         else:
             self.code_text.insert(tk.END, "# No code generated yet\n# Add blocks from the palette!")
-        
+
         line_count = len([l for l in code.split('\n') if l.strip()])
         self.line_count_label.config(text=f"{line_count} lines")
     
@@ -4299,64 +6061,6 @@ class BlocklinerUI(tk.Tk):
             messagebox.showerror("Save Error", f"Failed to save: {e}")
             return False
     
-    def load_code_file(self):
-        """
-        Open an existing source file (.py, .cpp, .cs, .js, etc.) directly
-        from disk and drop its contents into the code pad - separate
-        from 'Load', which loads a saved Blockliner project (.json).
-        Detects the language from the file extension and offers to
-        switch Blockliner to it, so 'Code -> Blocks' has the right block
-        set to match against.
-        """
-        filetypes_pattern = " ".join(f"*{ext}" for ext in LANGUAGE_EXTENSIONS)
-        filename = filedialog.askopenfilename(
-            title="Open Code File",
-            filetypes=[("Code files", filetypes_pattern), ("All files", "*.*")]
-        )
-        if not filename:
-            return
-
-        try:
-            with open(filename, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-        except Exception as e:
-            messagebox.showerror("Open Failed", f"Could not read file:\n{e}")
-            return
-
-        ext = os.path.splitext(filename)[1].lower()
-        detected_lang = LANGUAGE_EXTENSIONS.get(ext)
-
-        if detected_lang and detected_lang != self.current_language:
-            available = self.get_available_languages()
-            if detected_lang in available:
-                switch = messagebox.askyesno(
-                    "Switch Language?",
-                    f"This looks like {detected_lang} code (.{ext.lstrip('.')} extension).\n\n"
-                    f"Switch Blockliner to '{detected_lang}' before loading it in, so "
-                    f"'Code \u2192 Blocks' matches against the right block set?"
-                )
-                if switch:
-                    self.lang_var.set(detected_lang)
-                    self.on_language_change()
-            else:
-                messagebox.showinfo(
-                    "Language Not Set Up",
-                    f"This looks like {detected_lang} code, but that language isn't set up "
-                    f"in Blockliner yet. Loading the text in anyway - use '+ Lang' first if "
-                    f"you want proper block matching for it."
-                )
-
-        self.code_text.delete(1.0, tk.END)
-        self.code_text.insert(1.0, content)
-        line_count = len([l for l in content.split("\n") if l.strip()])
-        self.line_count_label.config(text=f"{line_count} lines")
-
-        self.maybe_notify(
-            "File Loaded",
-            f"Loaded {os.path.basename(filename)} into the code pad.\n\n"
-            f"Click 'Code \u2192 Blocks' to convert it into blocks."
-        )
-
     def load_project(self):
         """Load project from JSON - opens into a new tab, unless the
         current tab is both empty and unmodified, in which case it's

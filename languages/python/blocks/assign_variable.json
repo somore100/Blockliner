@@ -1,0 +1,26 @@
+{
+  "concept_id": "assign",
+  "display_name": "Set Variable",
+  "category": "Basic",
+  "description": "Assigns a value to a variable.",
+  "template": "[[variable]] = [[value]]\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "x"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "0"
+    }
+  ],
+  "match": {
+    "node_kind": "assignment",
+    "slot_map": {
+      "variable": "left",
+      "value": "right"
+    }
+  }
+}

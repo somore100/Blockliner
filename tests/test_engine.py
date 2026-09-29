@@ -34,14 +34,14 @@ def test_node_hierarchy(python_blocks):
         node_type="function",
         name="health",
         blocks=[
-            BlockInstance("assign", {"variable": "x", "value": "5"}),
+            BlockInstance("assign_variable", {"variable": "x", "value": "5"}),
             BlockInstance("raw_code", {"code": "print(x)"}),
         ],
     )
     node_code = render_project(node, python_blocks)
 
     equivalent_project = Project()
-    equivalent_project.add_block("assign", {"variable": "x", "value": "5"})
+    equivalent_project.add_block("assign_variable", {"variable": "x", "value": "5"})
     equivalent_project.add_block("raw_code", {"code": "print(x)"})
     project_code = render_project(equivalent_project, python_blocks)
 
@@ -92,7 +92,7 @@ def test_a2_warn_and_strip_contract():
         manifest["comment_token"] = 42  # wrong type
         json.dump(manifest, open(manifest_path, "w"))
 
-        assign_path = os.path.join(pack_dir, "blocks", "assign.json")
+        assign_path = os.path.join(pack_dir, "blocks", "assign_variable.json")
         assign_def = json.load(open(assign_path))
         assign_def["match"] = {"node_kind": 123}  # wrong type + missing slot_map
         json.dump(assign_def, open(assign_path, "w"))
@@ -112,9 +112,18 @@ def test_a2_warn_and_strip_contract():
 
         assert manifest_out is not None, "pack must still load despite the bad optional fields"
         assert "comment_token" not in manifest_out, "bad comment_token must be stripped, not left in place"
-        assert len(blocks_out) == 13, f"no block may be dropped over a bad match rule, got {len(blocks_out)}"
-        assert "match" not in blocks_out["assign"], "assign's broken match must be stripped"
-        assert "match" in blocks_out["print"], "print's valid match must survive untouched"
+        # Derived from the source pack, not a literal: a hardcoded count
+        # has gone stale twice already (rename leftovers, new blocks).
+        expected_blocks = len([
+            f for f in os.listdir(os.path.join(V2_ROOT, "languages", "python", "blocks"))
+            if f.endswith(".json")
+        ])
+        assert len(blocks_out) == expected_blocks, (
+            f"no block may be dropped over a bad match rule, "
+            f"got {len(blocks_out)} of {expected_blocks}"
+        )
+        assert "match" not in blocks_out["assign_variable"], "assign's broken match must be stripped"
+        assert "match" in blocks_out["print_output"], "print's valid match must survive untouched"
         assert manifest_out["node_types"] == [
             {"id": "function", "node_kind": "function_definition",
              "header_template": "def [[name]]([[params]]):", "is_entry_point": False}
@@ -136,11 +145,11 @@ def test_a3_marker_roundtrip(python_blocks):
 
     node_a = Node(
         node_id=800, node_type="function", name="health",
-        blocks=[BlockInstance("assign", {"variable": "x", "value": "5"})],
+        blocks=[BlockInstance("assign_variable", {"variable": "x", "value": "5"})],
     )
     node_b = Node(
         node_id=801, node_type="function", name="damage",
-        blocks=[BlockInstance("assign", {"variable": "y", "value": "10"})],
+        blocks=[BlockInstance("assign_variable", {"variable": "y", "value": "10"})],
     )
     original_file = BlocklinerFile(filename="game.py", language="python", nodes=[node_a, node_b])
 
@@ -178,7 +187,7 @@ def test_a3_malformed_markers_never_crash(python_blocks):
     Phase A3 robustness: garbled marker structure must degrade
     gracefully (diagnostics, best-effort segments) - never raise.
     """
-    node_a = Node(node_id=1, node_type="function", name="a", blocks=[BlockInstance("assign", {"variable": "x", "value": "1"})])
+    node_a = Node(node_id=1, node_type="function", name="a", blocks=[BlockInstance("assign_variable", {"variable": "x", "value": "1"})])
     original_file = BlocklinerFile(filename="f.py", language="python", nodes=[node_a])
 
     # Unclosed marker
@@ -212,13 +221,13 @@ def main():
     # Build a small project: assign x, an if-block containing a print
     # and a list_append, plus a raw_code escape-hatch block.
     project = Project()
-    project.add_block("assign", {"variable": "x", "value": "5"})
+    project.add_block("assign_variable", {"variable": "x", "value": "5"})
     project.add_block("list_create", {"variable": "my_list", "items": "1, 2, 3"})
     project.add_block(
         "if_statement",
         {"condition": "x > 3"},
         children=[
-            BlockInstance("print", {"value": "x", }),
+            BlockInstance("print_output", {"value": "x", }),
             BlockInstance("list_append", {"list": "my_list", "item": "x"}),
         ],
     )

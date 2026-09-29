@@ -1,0 +1,9 @@
+{
+  "display_name": "Else",
+  "category": "Control",
+  "is_container": true,
+  "empty_body": "",
+  "description": "Runs its body when every earlier If/Else If condition was false. Place it right after an If or Else If.",
+  "template": "else\n{\n[[body]]\n}\n",
+  "params": []
+}

@@ -208,25 +208,26 @@ def main():
         app.refresh_workspace(); app.update()
         m = app.build_node_menu("a1")
         e = entries(m)
-        check("node menu: Open, Rename, Move to, sep, Delete",
-              [x[0] for x in e] == ["Open", "Rename\u2026", "Move to", "-", "Delete\u2026"])
+        check("node menu: Open, Rename, Set order, Move to, sep, Delete",
+              [x[0] for x in e] == ["Open", "Rename\u2026", "Set order\u2026", "Move to", "-", "Delete\u2026"])
         check("normal node: all enabled", all(s == "normal" for l, s in e if l != "-"))
-        ml = entries(m.nametowidget(m.entrycget(2, "menu")))
+        ml = entries(m.nametowidget(m.entrycget(3, "menu")))
         check("Move to lists the category", [l for l, _ in ml] == ["Folder"])
         lm = entries(app.build_node_menu("L3"))
         d = dict(lm)
-        check("locked node: Open ok, Rename/Move/Delete disabled",
+        check("locked node: Open ok, Rename/Set order/Move/Delete disabled",
               d["Open"] == "normal" and d["Rename\u2026"] == "disabled"
+              and d["Set order\u2026"] == "disabled"
               and d["Move to"] == "disabled" and d["Delete\u2026"] == "disabled")
         check("stale node id gives an empty menu, no crash", entries(app.build_node_menu("zzz")) == [])
 
         stub_ask("Zed")
         m.invoke(1)
         check("menu Rename entry runs the rename", alpha["name"] == "Zed")
-        m.nametowidget(m.entrycget(2, "menu")).invoke(0)
+        m.nametowidget(m.entrycget(3, "menu")).invoke(0)
         check("menu Move-to entry moves the node", alpha in folder["child_nodes"])
         stub_yes(True)
-        app.build_node_menu("b1").invoke(4)
+        app.build_node_menu("b1").invoke(5)
         check("menu Delete entry deletes (after confirm)", find_node_by_id(tab["nodes"], "b1") is None)
         opened = []
         real_open = app.open_node

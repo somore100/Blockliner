@@ -144,6 +144,10 @@ class BlockEditMixin:
             target = container_list if container_list is not None else self.project_blocks
             if add_mode:
                 target.append((block_id, new_params))
+                if container_list is None:
+                    # lazy rendering: make sure the new block is in the window
+                    self.reveal_block(len(target) - 1,
+                                      to_tail=getattr(self, "_win_end", 0) < len(target) - 1)
             else:
                 target[index] = (block_id, new_params)
             self.mark_active_tab_dirty()
@@ -265,6 +269,8 @@ class BlockEditMixin:
         target = container_list if container_list is not None else self.project_blocks
         if index > 0:
             target[index], target[index-1] = target[index-1], target[index]
+            if container_list is None:
+                self.reveal_block(index - 1)
             self.mark_active_tab_dirty()
             self.refresh_workspace()
     
@@ -273,6 +279,8 @@ class BlockEditMixin:
         target = container_list if container_list is not None else self.project_blocks
         if index < len(target) - 1:
             target[index], target[index+1] = target[index+1], target[index]
+            if container_list is None:
+                self.reveal_block(index + 1)
             self.mark_active_tab_dirty()
             self.refresh_workspace()
     

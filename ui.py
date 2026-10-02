@@ -416,6 +416,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         # Workspace canvas - FIXED
         self.workspace_canvas = tk.Canvas(middle_panel, bg=DARK_BG, highlightthickness=1, highlightbackground=DARK_BORDER)
         workspace_scrollbar = ttk.Scrollbar(middle_panel, orient="vertical", command=self.workspace_canvas.yview)
+        self.workspace_scrollbar = workspace_scrollbar
         self.workspace_frame = tk.Frame(self.workspace_canvas, bg=DARK_BG)
         
         self.workspace_frame.bind(
@@ -426,7 +427,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.workspace_frame_window_id = self.workspace_canvas.create_window(
             (0, 0), window=self.workspace_frame, anchor="nw", width=600
         )
-        self.workspace_canvas.configure(yscrollcommand=workspace_scrollbar.set)
+        self.workspace_canvas.configure(yscrollcommand=self._on_workspace_yscroll)
         
         # Bind mousewheel ONLY to workspace canvas
         def _bind_workspace_scroll(e):

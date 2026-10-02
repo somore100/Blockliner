@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import simpledialog
 import uuid
 from nodes_model import find_node_by_id, make_node, next_order, normalize_orders
-from ui_common import DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, LAYER_ACTIONS
+from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, LAYER_ACTIONS
 from ui_widgets import BlockWidget
 
 
@@ -443,6 +443,7 @@ class LayersMixin:
         self.update_generated_code()
         self.update_right_panel_visibility()
 
+        self._more_footer = None   # before destroying: scroll events must not touch dead widgets
         for widget in self.workspace_frame.winfo_children():
             widget.destroy()
         # Phase C2's node boxes/wires live directly on workspace_canvas
@@ -492,23 +493,154 @@ class LayersMixin:
             self.block_count_label.config(text="")
             return
 
+        self._more_footer = None
         if not self.project_blocks:
             self.show_empty_state()
+            self._win_list = None
         else:
-            for i, (block_id, params) in enumerate(self.project_blocks):
-                block_module = self.blocks.get(block_id)
-                if block_module:
-                    block_widget = BlockWidget(
-                        self.workspace_frame,
-                        block_id,
-                        block_module,
-                        params if isinstance(params, dict) else dict(params),
-                        i,
-                        self.project_blocks,
-                        self
-                    )
-                    block_widget.pack(fill=tk.X, pady=4, padx=10)
-        
+            self._render_block_window()
+
         count = len(self.project_blocks)
-        self.block_count_label.config(text=f"{count} block{'s' if count != 1 else ''}")
-        self.update_generated_code()
+        label = f"{count} block{'s' if count != 1 else ''}"
+        if self._win_list is self.project_blocks and (self._win_start > 0 or self._win_end < count):
+            label += f" (showing {self._win_start + 1}-{self._win_end})"
+        self.block_count_label.config(text=label)
+
+    # ---- lazy block rendering (Blocks layer) ------------------------------
+    # Only a window [_win_start, _win_end) of the top-level blocks is built
+    # as widgets (Tk layout cost grows steeply with widget count). Block
+    # indexes stay absolute, so edit/move/delete are unaffected. The window
+    # resets to the top whenever project_blocks becomes a different list
+    # (node/tab switch, code-view commit); it persists across refreshes of
+    # the same list, so editing block 300 doesn't snap you back to block 1.
+
+    def _clamp_block_window(self):
+        blocks, n = self.project_blocks, len(self.project_blocks)
+        prev = getattr(self, "_win_list", None)
+        if prev is not blocks:
+            self._win_list, self._win_start, self._win_end, self._win_len = blocks, 0, min(n, BLOCK_CHUNK), n
+            return
+        start, end = self._win_start, self._win_end
+        if n > self._win_len and end >= self._win_len:
+            end = n                      # was viewing the tail: new blocks join the window
+        if start >= n:                   # the whole window was deleted/shrunk away: show the tail
+            start, end = max(0, n - BLOCK_CHUNK), n
+        end = min(end, n)
+        self._win_start, self._win_end, self._win_len = start, end, n
+
+    def reveal_block(self, index, to_tail=False):
+        """Make sure top-level block `index` falls inside the rendered window
+        (call before refresh_workspace). to_tail: show the last chunk instead."""
+        blocks, n = self.project_blocks, len(self.project_blocks)
+        if getattr(self, "_win_list", None) is not blocks:
+            self._win_list, self._win_start, self._win_end, self._win_len = blocks, 0, min(n, BLOCK_CHUNK), n
+        if to_tail:
+            self._win_start, self._win_end = max(0, n - BLOCK_CHUNK), n
+            self._scroll_to_end_pending = True
+        else:
+            self._win_start = min(self._win_start, index)
+            self._win_end = max(self._win_end, index + 1)
+
+    def _make_block_widget(self, i):
+        block_id, params = self.project_blocks[i]
+        block_module = self.blocks.get(block_id)
+        if not block_module:
+            return None
+        w = BlockWidget(self.workspace_frame, block_id, block_module,
+                        params if isinstance(params, dict) else dict(params),
+                        i, self.project_blocks, self)
+        return w
+
+    def _render_block_window(self):
+        self._clamp_block_window()
+        if self._win_start > 0:
+            self._earlier_row = self._make_window_row(
+                f"\u25b2 {self._win_start} earlier block{'s' if self._win_start != 1 else ''}",
+                [("Show earlier", self._show_earlier_blocks)])
+            self._earlier_row.pack(fill=tk.X, pady=4, padx=10)
+        for i in range(self._win_start, self._win_end):
+            w = self._make_block_widget(i)
+            if w is not None:
+                w.pack(fill=tk.X, pady=4, padx=10)
+        self._update_more_footer()
+        if getattr(self, "_scroll_to_end_pending", False):
+            self._scroll_to_end_pending = False
+            self.after_idle(lambda: self.workspace_canvas.yview_moveto(1.0))
+
+    def _make_window_row(self, text, buttons):
+        row = tk.Frame(self.workspace_frame, bg=DARK_BG)
+        tk.Label(row, text=text, bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(4, 10))
+        for label, cmd in buttons:
+            tk.Button(row, text=label, bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT,
+                      cursor="hand2", font=("Segoe UI", 9), command=cmd).pack(side=tk.LEFT, padx=3)
+        return row
+
+    def _update_more_footer(self):
+        """(Re)create the 'N more blocks' footer, or remove it when done."""
+        old = getattr(self, "_more_footer", None)
+        if old is not None:
+            try:
+                old.destroy()
+            except tk.TclError:
+                pass
+            self._more_footer = None
+        remaining = len(self.project_blocks) - self._win_end
+        if remaining > 0:
+            self._more_footer = self._make_window_row(
+                f"\u25bc {remaining} more block{'s' if remaining != 1 else ''}",
+                [(f"Show next {min(BLOCK_CHUNK, remaining)}", self._show_more_blocks),
+                 ("Show all", lambda: self._show_more_blocks(all_remaining=True))])
+            self._more_footer.pack(fill=tk.X, pady=4, padx=10)
+
+    def _show_more_blocks(self, all_remaining=False):
+        """Extend the window downward IN PLACE (no rebuild of what's shown)."""
+        if self.view_mode != "node" or getattr(self, "_win_list", None) is not self.project_blocks:
+            return
+        n = len(self.project_blocks)
+        new_end = n if all_remaining else min(n, self._win_end + BLOCK_CHUNK)
+        if new_end <= self._win_end:
+            return
+        if getattr(self, "_more_footer", None) is not None:
+            self._more_footer.destroy()
+            self._more_footer = None
+        for i in range(self._win_end, new_end):
+            w = self._make_block_widget(i)
+            if w is not None:
+                w.pack(fill=tk.X, pady=4, padx=10)
+        self._win_end = new_end
+        self._update_more_footer()
+        count = len(self.project_blocks)
+        label = f"{count} block{'s' if count != 1 else ''}"
+        if self._win_start > 0 or self._win_end < count:
+            label += f" (showing {self._win_start + 1}-{self._win_end})"
+        self.block_count_label.config(text=label)
+
+    def _show_earlier_blocks(self):
+        if self.view_mode != "node" or getattr(self, "_win_list", None) is not self.project_blocks:
+            return
+        self._win_start = max(0, self._win_start - BLOCK_CHUNK)
+        self.refresh_workspace()
+
+    def _on_workspace_yscroll(self, first, last):
+        """Scrollbar feed + auto-load the next chunk when scrolled to the bottom."""
+        self.workspace_scrollbar.set(first, last)
+        if (getattr(self, "_more_footer", None) is None or self.view_mode != "node"
+                or getattr(self, "_auto_loading", False)):
+            return
+        try:
+            near_bottom = float(last) >= 0.97
+        except (TypeError, ValueError):
+            return
+        if near_bottom:
+            self.after_idle(self._auto_load_more)
+
+    def _auto_load_more(self):
+        if getattr(self, "_auto_loading", False) or getattr(self, "_more_footer", None) is None:
+            return
+        self._auto_loading = True
+        try:
+            if self._more_footer.winfo_exists() and float(self.workspace_canvas.yview()[1]) >= 0.97:
+                self._show_more_blocks()
+                self.update_idletasks()   # settle the scrollregion before re-arming
+        finally:
+            self._auto_loading = False

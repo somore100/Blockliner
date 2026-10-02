@@ -376,7 +376,7 @@ class CanvasMixin:
             wid, _ = self._fileview_boxes.get(nid, (None, None))
             if wid is not None:
                 self.workspace_canvas.coords(wid, new_x, new_y)
-            self.draw_wires()
+            self.draw_wires_for(nid)
 
         def _release(e, nid=node["id"]):
             if drag_state["dragging"]:
@@ -539,6 +539,30 @@ class CanvasMixin:
                 if target_id not in shown_ids or target_id not in self._fileview_boxes:
                     continue
                 self._draw_one_wire(node["id"], target_id)
+
+    def draw_wires_for(self, node_id):
+        """Redraw only the wires touching `node_id` (drag-motion fast path).
+        Same edge rules as draw_wires(); every other wire is left as is, so
+        a drag costs O(that node's edges) instead of O(all edges)."""
+        tab = self.tabs[self.active_tab_index]
+        nodes_shown = self.get_current_node_list(tab)
+        shown_ids = {n["id"] for n in nodes_shown}
+        if node_id not in shown_ids or node_id not in self._fileview_boxes:
+            self.draw_wires()
+            return
+        edges = []
+        for node in nodes_shown:
+            if node.get("kind", "function") != "function" or node["id"] not in self._fileview_boxes:
+                continue
+            for target_id in node.get("references", []):
+                if target_id not in shown_ids or target_id not in self._fileview_boxes:
+                    continue
+                if node["id"] == node_id or target_id == node_id:
+                    edges.append((node["id"], target_id))
+        for source_id, target_id in edges:
+            self.workspace_canvas.delete(f"wire_{source_id}_{target_id}")
+        for source_id, target_id in edges:
+            self._draw_one_wire(source_id, target_id)
 
     def _draw_one_wire(self, source_id, target_id):
         _, src_widget = self._fileview_boxes[source_id]

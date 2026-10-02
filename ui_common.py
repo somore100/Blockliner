@@ -85,6 +85,8 @@ DARK_ACCENT = "#007acc"
 DARK_HOVER = "#2d2d30"
 DARK_BORDER = "#3e3e42"
 BLOCK_BG = "#2d2d30"
+# Blocks layer renders top-level blocks in windows of this many (lazy rendering).
+BLOCK_CHUNK = 60
 BLOCK_HOVER = "#3e3e42"
 BLOCK_SELECTED = "#094771"
 

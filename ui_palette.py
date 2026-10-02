@@ -4,7 +4,7 @@ from tkinter import colorchooser, messagebox, ttk
 import os
 import shutil
 from block_templates import make_raw_code_block_source
-from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, LAYER_ACTIONS, get_block_attr, keybind_from_event, keybind_label, safe_grab_set
+from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, get_block_attr, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
 
 
@@ -513,15 +513,24 @@ class PaletteMixin:
                 else:
                     seq = keybind_from_event(ev)
                     if seq is None:
-                        return "break"  # modifier alone / no Ctrl or Alt: keep waiting
-                    key_vars[action].set(seq)
-                    btn.config(text=keybind_label(seq))
+                        return "break"  # modifier alone / plain letter: keep waiting
+                    clash = [a for a, v in key_vars.items() if a != action and v.get() == seq]
+                    if clash:
+                        messagebox.showwarning("Shortcuts", "That shortcut is already used by another action.", parent=dialog)
+                        btn.config(text=keybind_label(key_vars[action].get()))
+                    else:
+                        # Saves the moment the keys are set, like a game's keybind screen.
+                        key_vars[action].set(seq)
+                        btn.config(text=keybind_label(seq))
+                        self.settings["keybinds"] = {a: v.get() for a, v in key_vars.items()}
+                        self.apply_keybinds()
+                        self.save_app_settings()
                 btn.unbind("<KeyPress>")
                 return "break"
 
             btn.bind("<KeyPress>", on_key)
 
-        for action, label in LAYER_ACTIONS:
+        for action, label in KEYBIND_ACTIONS:
             row = add_row(label + ":")
             key_vars[action] = tk.StringVar(value=current_binds[action])
             btn = tk.Button(
@@ -531,7 +540,7 @@ class PaletteMixin:
                 command=lambda a=action: start_capture(a))
             btn.pack(side=tk.LEFT, ipady=2)
             key_buttons[action] = btn
-        add_help("Click a shortcut, then press the new keys. Shortcuts need Ctrl or Alt.")
+        add_help("Click a shortcut, then press the new keys (a combo like Ctrl+Alt+K works too). It saves right away. Plain letters aren't allowed; arrows and F-keys are, and they pause while you type in a text box.")
 
         # --- Save / Cancel ---
         btn_frame = tk.Frame(dialog, bg=DARK_PANEL)

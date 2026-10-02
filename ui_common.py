@@ -154,6 +154,9 @@ DEFAULT_SETTINGS = {
         "layer_nodes": "Control-Key-2",
         "layer_blocks": "Control-Key-3",
         "layer_code": "Control-Key-4",
+        # Quick step: Up = one layer toward Files, Down = toward Blocks.
+        "layer_up": "Key-Up",
+        "layer_down": "Key-Down",
     },
 }
 
@@ -164,6 +167,21 @@ LAYER_ACTIONS = [
     ("layer_code", "Code (toggle)"),
 ]
 
+# Quick-step shortcuts: move one layer at a time instead of jumping.
+LAYER_STEP_ACTIONS = [
+    ("layer_up", "Previous layer (toward Files)"),
+    ("layer_down", "Next layer (toward Blocks)"),
+]
+# Everything the shortcut editor in Settings lists.
+KEYBIND_ACTIONS = LAYER_ACTIONS + LAYER_STEP_ACTIONS
+
+# Text-entry widgets: a shortcut with no Ctrl/Alt must not fire while one
+# of these has focus, or it would steal normal typing / caret movement.
+TEXT_INPUT_CLASSES = {
+    "Entry", "Text", "Spinbox", "Listbox", "Menu",
+    "TEntry", "TCombobox", "TSpinbox", "Treeview",
+}
+
 _MODIFIER_KEYSYMS = {
     "Control_L", "Control_R", "Shift_L", "Shift_R", "Alt_L", "Alt_R",
     "Meta_L", "Meta_R", "Super_L", "Super_R", "ISO_Level3_Shift",
@@ -172,14 +190,15 @@ _MODIFIER_KEYSYMS = {
 
 
 def keybind_from_event(event):
-    """Turn a KeyPress event into a Tk sequence like 'Control-Key-1', or
-    None if it's only a modifier or has no Ctrl/Alt (a bare key would
-    steal normal typing, so shortcuts must include one of them)."""
+    """Turn a KeyPress event into a Tk sequence like 'Control-Key-1' or
+    'Key-Up', or None if it's only a modifier, or a plain printable key
+    with no Ctrl/Alt (that would steal normal typing). Named keys such as
+    Up, Down, F5 or Prior are fine on their own."""
     if event.keysym in _MODIFIER_KEYSYMS:
         return None
     ctrl = bool(event.state & 0x4)
     alt = bool(event.state & 0x8) or bool(event.state & 0x20000)
-    if not (ctrl or alt):
+    if not (ctrl or alt) and len(event.keysym) <= 1:
         return None
     parts = []
     if ctrl:
@@ -190,6 +209,12 @@ def keybind_from_event(event):
         parts.append("Shift")
     parts.append("Key-" + event.keysym)
     return "-".join(parts)
+
+
+def keybind_is_bare(seq):
+    """True when the shortcut has no Ctrl/Alt (so it must not fire while
+    the user is typing in a text widget)."""
+    return not seq or not ("Control" in seq.split("-") or "Alt" in seq.split("-"))
 
 
 def keybind_label(seq):

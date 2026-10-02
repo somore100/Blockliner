@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import simpledialog
 import uuid
 from nodes_model import find_node_by_id, make_node, next_order, normalize_orders
-from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, LAYER_ACTIONS
+from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, KEYBIND_ACTIONS, TEXT_INPUT_CLASSES, keybind_is_bare
 from ui_widgets import BlockWidget
 
 
@@ -174,17 +174,29 @@ class LayersMixin:
             except tk.TclError:
                 pass
         self._layer_key_seqs = []
-        for action, _label in LAYER_ACTIONS:
+        for action, _label in KEYBIND_ACTIONS:
             seq = self.get_keybinds().get(action)
             if not seq:
                 continue
-            layer = action.replace("layer_", "")
+            bare = keybind_is_bare(seq)
 
-            def handler(e, layer=layer):
+            def handler(e, action=action, bare=bare):
                 grab = self.grab_current()
                 if grab is not None and grab is not self:
                     return None
-                self.goto_layer(layer)
+                if bare:
+                    try:
+                        focus_class = self.focus_get().winfo_class()
+                    except (KeyError, AttributeError, tk.TclError):
+                        focus_class = ""
+                    if focus_class in TEXT_INPUT_CLASSES:
+                        return None  # let the widget use the key
+                if action == "layer_up":
+                    self.step_layer(-1)
+                elif action == "layer_down":
+                    self.step_layer(1)
+                else:
+                    self.goto_layer(action.replace("layer_", ""))
                 return "break"
 
             try:
@@ -192,6 +204,17 @@ class LayersMixin:
                 self._layer_key_seqs.append(f"<{seq}>")
             except tk.TclError:
                 pass
+
+    def step_layer(self, delta):
+        """Move one layer toward Files (-1) or Blocks (+1); stops at the
+        ends. Code is a toggle, not a layer, so it isn't part of the walk."""
+        order = ["files", "nodes", "blocks"]
+        current = {"files": "files", "file": "nodes", "node": "blocks"}.get(self.view_mode)
+        if current is None:
+            return
+        target = order[max(0, min(len(order) - 1, order.index(current) + delta))]
+        if target != current:
+            self.goto_layer(target)
 
     def switch_to_file_view(self):
         """Always resets to the top level of the file view - a user

@@ -154,7 +154,7 @@ def main():
     app.refresh_palette(); app.update()
     real_add = app.add_block_to_workspace
     dropped = []
-    app.add_block_to_workspace = lambda m, c=None: dropped.append(m)
+    app.add_block_to_workspace = lambda m, c=None, insert_at=None: dropped.append(m)
     try:
         app.refresh_palette(); app.update()
         items = []

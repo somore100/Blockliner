@@ -260,7 +260,8 @@ class PaletteMixin:
             # Category blocks
             for block_module in sorted(blocks_in_category, key=lambda x: get_block_attr(x, "display_name", "")):
                 item = PaletteBlockItem(self.palette_frame, block_module, self.add_block_to_workspace,
-                                        self.can_drop_block_at)
+                                        self.can_drop_block_at, self.add_block_from_drop,
+                                        self.show_drop_indicator)
                 place(item, fill=tk.X, pady=1)
     
     def refresh_palette(self):

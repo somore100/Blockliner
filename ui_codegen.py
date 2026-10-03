@@ -7,6 +7,7 @@ import threading
 import subprocess
 import sys
 from nodes_model import make_node, sorted_function_nodes
+import portable
 from ui_common import BLOCKLINER_SAVES_PATH, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
 
 
@@ -127,6 +128,109 @@ class CodegenMixin:
 
         return code
 
+    WRAPPER_INDENT = {"cpp": "    ", "csharp": "        ", "java": "        "}
+    WRAPPER_TAIL = {"cpp": "    return 0;\n}\n", "csharp": "    }\n}\n", "java": "    }\n}\n"}
+
+    def get_comment_token(self, lang):
+        """The language pack's comment_token (cached; None -> '#')."""
+        cache = self.__dict__.setdefault("_comment_tokens", {})
+        if lang not in cache:
+            from engine.loader import load_language_pack
+            try:
+                manifest, _ = load_language_pack(os.path.join(self.languages_path, lang), verbose=False)
+            except Exception:
+                manifest = None
+            cache[lang] = (manifest or {}).get("comment_token")
+        return cache[lang]
+
+    def generate_portable_for_tab(self, tab, lang=None):
+        """The portable form of a tab's code: exactly generate_code_for_tab's
+        output plus node marker lines around each function node (in
+        execution order) and the optional metadata block at the end.
+        portable.strip_portable() of it is the plain code again."""
+        if lang is None:
+            lang = tab["language"]
+        nodes = tab.get("nodes")
+        if not nodes:
+            return self.generate_code_for_tab(tab, lang)
+        clean = self.generate_code_for_tab(tab, lang)
+        indent = self.WRAPPER_INDENT.get(lang, "")
+        token = self.get_comment_token(lang)
+
+        chunks = []
+        for node in sorted_function_nodes(nodes):
+            code = ""
+            for block_code in self.render_block_list(node.get("blocks", []), lang):
+                if indent:
+                    block_code = indent + block_code.replace("\n", "\n" + indent).rstrip() + "\n"
+                code += block_code
+            start, end = portable.node_marker_lines(node["id"], token)
+            chunks.append((start, code, end, indent))
+
+        # head/tail = the wrapper text generate_code_for_tab puts around the
+        # bodies; verified, so a mismatch can only ever mean "stay plain".
+        body = "".join(c[1] for c in chunks)
+        tail = self.WRAPPER_TAIL.get(lang, "")
+        if not (clean.endswith(body + tail) and len(clean) >= len(body) + len(tail)):
+            return clean
+        head = clean[:len(clean) - len(body) - len(tail)]
+        meta = portable.build_metadata(nodes, lang, tab.get("active_node_id"))
+        return portable.assemble(head, chunks, tail, portable.render_meta_block(meta, token))
+
+    def load_portable_text(self, text, title="Imported"):
+        """Open a portable file's text as a NEW tab: nodes, nesting, order
+        and layout from its metadata when present, otherwise a flat
+        skeleton from the markers (see portable.rebuild_nodes). Each
+        function node's code goes through the normal Code -> Blocks matcher
+        (unmatched lines stay as Raw Code, so nothing is lost). Returns the
+        diagnostics list, or None if the text has no node markers."""
+        if not portable.NODE_MARKER_RE.search(text):
+            return None
+        _n, meta, _d = portable.parse_portable(text)
+        lang = (meta or {}).get("language")
+        if not (isinstance(lang, str) and os.path.isdir(os.path.join(self.languages_path, lang))):
+            lang = self.current_language
+
+        self.sync_active_tab_state()
+        placeholder = make_node("main", node_id="main", blocks=[])
+        self.tabs.append({
+            "title": title, "language": lang, "nodes": [placeholder],
+            "active_node_id": "main", "filepath": None, "dirty": False,
+        })
+        self.switch_to_tab(len(self.tabs) - 1)  # loads the language + palette
+
+        wrapper = self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
+        nodes, active, diagnostics = portable.rebuild_nodes(
+            text, lang, self.WRAPPER_INDENT.get(lang, ""), wrapper)
+
+        can_import = self.get_raw_code_block_id(lang) is not None
+        if not can_import:
+            diagnostics.append(f"no Raw Code block for '{lang}' - node code could not be turned into blocks")
+
+        def fill(level):
+            for node in level:
+                code = node.pop("code", "")
+                if can_import and code.strip():
+                    node["blocks"] = self.import_code_to_blocks(code)[0]
+                fill(node["child_nodes"])
+        fill(nodes)
+
+        if not nodes:
+            nodes = [make_node("main", node_id="main", blocks=[])]
+            active = "main"
+        tab = self.tabs[self.active_tab_index]
+        tab["nodes"], tab["active_node_id"], tab["dirty"] = nodes, active, True
+        self.project_blocks = self.get_active_node(tab)["blocks"]
+        self.view_mode = "file"
+        self.refresh_workspace()
+        self.refresh_tab_bar()
+        return diagnostics
+
+    def get_clean_code(self):
+        """Code-panel text with markers/metadata removed - what Run, the
+        terminal and VS Code use, identical to the pre-marker output."""
+        return portable.strip_portable(self.code_text.get(1.0, tk.END)).strip()
+
     def update_generated_code(self):
         """Generate code from every node's blocks in the active tab,
         concatenated in node order (see all_tab_blocks_concatenated),
@@ -136,10 +240,14 @@ class CodegenMixin:
         lang = self.lang_var.get()
         tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
         code = self.generate_code_for_tab(tab, lang) if tab is not None else self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
+        if tab is not None and code.strip():
+            code_shown = self.generate_portable_for_tab(tab, lang)
+        else:
+            code_shown = code
 
         self.code_text.delete(1.0, tk.END)
         if code:
-            self.code_text.insert(tk.END, code)
+            self.code_text.insert(tk.END, code_shown)
         else:
             self.code_text.insert(tk.END, "# No code generated yet\n# Add blocks from the palette!")
 
@@ -342,7 +450,7 @@ class CodegenMixin:
     
     def run_in_terminal(self):
         """Run code in external terminal"""
-        code = self.code_text.get(1.0, tk.END).strip()
+        code = self.get_clean_code()
         if not code or code.startswith("# No code"):
             messagebox.showwarning("No Code", "Generate some code first!")
             return
@@ -436,7 +544,7 @@ class CodegenMixin:
     
     def open_in_vscode(self):
         """Open generated code in VS Code"""
-        code = self.code_text.get(1.0, tk.END).strip()
+        code = self.get_clean_code()
         if not code or code.startswith("# No code"):
             messagebox.showwarning("No Code", "Generate some code first!")
             return
@@ -480,7 +588,7 @@ class CodegenMixin:
     
     def export_and_run(self):
         """Export code and provide run instructions"""
-        code = self.code_text.get(1.0, tk.END).strip()
+        code = self.get_clean_code()
         if not code or code.startswith("# No code"):
             messagebox.showwarning("No Code", "Generate some code first!")
             return
@@ -519,7 +627,7 @@ class CodegenMixin:
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export: {e}")
         """Execute generated Python code in a thread to prevent freezing"""
-        code = self.code_text.get(1.0, tk.END).strip()
+        code = self.get_clean_code()
         if not code or code.startswith("# No code"):
             messagebox.showwarning("No Code", "Generate some code first!")
             return
@@ -635,7 +743,7 @@ class CodegenMixin:
     
     def run_code(self):
         """Execute generated Python code in a thread to prevent freezing - runs in Blockliner"""
-        code = self.code_text.get(1.0, tk.END).strip()
+        code = self.get_clean_code()
         if not code or code.startswith("# No code"):
             messagebox.showwarning("No Code", "Generate some code first!")
             return

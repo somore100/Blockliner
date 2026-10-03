@@ -8,9 +8,10 @@ from ui_widgets import ExpressionSlot
 class BlockEditMixin:
         # No same-language neighbor in that direction - already at the edge, no-op.
 
-    def add_block_to_workspace(self, block_module, container_list=None):
+    def add_block_to_workspace(self, block_module, container_list=None, insert_at=None):
         """Add a block to the workspace, or into a container block's
-        body if container_list is given."""
+        body if container_list is given. insert_at: absolute index to insert
+        at instead of appending (palette drop)."""
         # Check for special action blocks (like custom block creator)
         special_action = get_block_attr(block_module, "block_ui_description", {}).get("special_action")
 
@@ -28,9 +29,9 @@ class BlockEditMixin:
             default_params_func = lambda: {p["name"]: p.get("default", "") for p in block_module.get("params", [])}
 
         params = default_params_func() if callable(default_params_func) else {}
-        self.edit_block_params(block_module, params, add_mode=True, container_list=container_list)
+        self.edit_block_params(block_module, params, add_mode=True, container_list=container_list, insert_at=insert_at)
     
-    def edit_block_params(self, block_module, current_params, add_mode=True, index=None, container_list=None):
+    def edit_block_params(self, block_module, current_params, add_mode=True, index=None, container_list=None, insert_at=None):
         """Show dialog to edit block parameters"""
         block_id = get_block_attr(block_module, "block_id", "unknown")
         display_name = get_block_attr(block_module, "display_name", "Unknown")
@@ -142,7 +143,12 @@ class BlockEditMixin:
                 if reserved_key in current_params:
                     new_params[reserved_key] = current_params[reserved_key]
             target = container_list if container_list is not None else self.project_blocks
-            if add_mode:
+            if add_mode and insert_at is not None and 0 <= insert_at < len(target):
+                # palette drop: insert at the drop position (absolute index).
+                # No reveal_block needed: the index comes from a rendered
+                # widget, so it is already inside the lazy window.
+                target.insert(insert_at, (block_id, new_params))
+            elif add_mode:
                 target.append((block_id, new_params))
                 if container_list is None:
                     # lazy rendering: make sure the new block is in the window

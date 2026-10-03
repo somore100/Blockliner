@@ -424,6 +424,61 @@ class LayersMixin:
             w = getattr(w, "master", None)
         return False
 
+    def _top_level_block_widgets(self):
+        """Rendered top-level BlockWidgets in on-screen order. Nested
+        children are grandchildren (inside their container's widget), and
+        the window rows aren't BlockWidgets, so neither is included.
+        Not filtered by winfo_ismapped: Tk unmaps canvas windows that are
+        scrolled out of view, but their layout (winfo_y) is still valid."""
+        return [w for w in self.workspace_frame.winfo_children()
+                if isinstance(w, BlockWidget) and w.winfo_exists()]
+
+    def drop_target(self, y_root):
+        """Where a palette block released at screen y should go.
+        Returns (insert_at, line_y): insert_at is an ABSOLUTE index into
+        project_blocks (BlockWidget.index, so the lazy window is fine) or
+        None to append at the very end; line_y is the indicator's y inside
+        workspace_frame. Above a block's vertical midpoint = before it;
+        below the last rendered block (or an empty workspace) = append.
+        Works in workspace_frame coordinates, so scrolling doesn't matter."""
+        y = y_root - self.workspace_frame.winfo_rooty()
+        widgets = self._top_level_block_widgets()
+        for w in widgets:
+            if y < w.winfo_y() + w.winfo_height() / 2:
+                return w.index, max(0, w.winfo_y() - 4)
+        if widgets:
+            last = widgets[-1]
+            return None, last.winfo_y() + last.winfo_height() + 1
+        return None, 4
+
+    def show_drop_indicator(self, x_root, y_root):
+        """Palette drag feedback: a thin line where the block would land.
+        (None, None) removes it."""
+        line = getattr(self, "_drop_line", None)
+        if x_root is None:
+            if line is not None:
+                try:
+                    line.destroy()
+                except tk.TclError:
+                    pass
+            self._drop_line = None
+            return
+        _idx, y = self.drop_target(y_root)
+        try:
+            if line is None or not line.winfo_exists():
+                line = tk.Frame(self.workspace_frame, bg=DARK_ACCENT, height=3)
+                self._drop_line = line
+            line.place(x=10, y=y, relwidth=1.0, width=-20, height=3)
+            line.lift()
+        except tk.TclError:
+            self._drop_line = None
+
+    def add_block_from_drop(self, block_module, x_root, y_root):
+        """Palette drop: same add flow as a click, but inserted where the
+        block was dropped instead of appended."""
+        insert_at, _y = self.drop_target(y_root)
+        self.add_block_to_workspace(block_module, insert_at=insert_at)
+
     def _palette_strip_hover(self, on):
         bg = DARK_BORDER if on else DARK_PANEL
         self.palette_strip.config(bg=bg)

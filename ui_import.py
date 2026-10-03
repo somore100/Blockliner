@@ -6,6 +6,7 @@ import re
 import shutil
 import json
 import uuid
+import portable
 from block_templates import _net_braces, _pattern_from_rendered, build_reverse_pattern, get_choice_combos, make_custom_block_generate_code
 from ui_common import APP_SETTINGS_PATH, BLOCK_BG, CUSTOM_BLOCKS_PATH, DARK_ACCENT, DARK_BG, DARK_FG, LANGUAGE_EXTENSIONS, get_block_attr
 
@@ -389,7 +390,8 @@ class ImportMixin:
         so the paste/convert window doesn't linger after it's done its
         job."""
         placeholder = "# No code generated yet\n# Add blocks from the palette!"
-        remaining = code.strip()
+        # Blockliner marker lines / metadata are never code: text-only view
+        remaining = portable.strip_portable(code).strip()
         if remaining.startswith(placeholder):
             remaining = remaining[len(placeholder):].strip()
         if not remaining:
@@ -535,6 +537,15 @@ class ImportMixin:
             content = self._pick_code_file_content()
             if content is None:
                 dialog.destroy()
+                return
+            if portable.NODE_MARKER_RE.search(content) and messagebox.askyesno(
+                    "Blockliner File",
+                    "This file has Blockliner node markers.\n\nOpen it as a Blockliner file "
+                    "(nodes and layout restored, in a new tab)?\n\nNo = import it as plain code."):
+                dialog.destroy()
+                notes = self.load_portable_text(content)
+                if notes:
+                    messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
                 return
             text_widget.insert(1.0, content)
 

@@ -6,13 +6,19 @@ from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DARK_BG, DARK_BORD
 
 class PaletteBlockItem(tk.Frame):
     """Block item in palette - click to add"""
-    def __init__(self, parent, block_module, on_add, can_drop=None):
+    def __init__(self, parent, block_module, on_add, can_drop=None, on_drop=None, drag_feedback=None):
         super().__init__(parent, bg=DARK_PANEL, cursor="hand2", relief=tk.FLAT)
         self.block_module = block_module
         self.on_add = on_add
         # can_drop(x_root, y_root) -> bool says whether a drag released
         # there should add the block; without it, dragging never adds.
         self.can_drop = can_drop
+        # on_drop(block_module, x_root, y_root): called instead of on_add
+        # when a drag is released over a valid target, so the app can
+        # insert at the drop position. drag_feedback(x_root, y_root) while
+        # dragging over a valid target, drag_feedback(None, None) to clear.
+        self.on_drop = on_drop
+        self.drag_feedback = drag_feedback
         
         # Handle both dict (custom blocks) and module objects
         category = get_block_attr(block_module, "category", "Basic")
@@ -93,6 +99,8 @@ class PaletteBlockItem(tk.Frame):
             self._drag = True
             self._make_ghost()
         ok = bool(self.can_drop and self.can_drop(e.x_root, e.y_root))
+        if self.drag_feedback:
+            self.drag_feedback(*((e.x_root, e.y_root) if ok else (None, None)))
         if self._ghost is not None:
             name = get_block_attr(self.block_module, "display_name", "Block")
             self._ghost_label.config(
@@ -106,11 +114,16 @@ class PaletteBlockItem(tk.Frame):
         self._drag = False
         self._press_xy = None
         self._destroy_ghost()
+        if self.drag_feedback:
+            self.drag_feedback(None, None)
         if not was_drag:
             self.on_add(self.block_module)
             return
         if self.can_drop and self.can_drop(e.x_root, e.y_root):
-            self.on_add(self.block_module)
+            if self.on_drop:
+                self.on_drop(self.block_module, e.x_root, e.y_root)
+            else:
+                self.on_add(self.block_module)
 
     def _make_ghost(self):
         try:

@@ -487,6 +487,10 @@ class NodeOpsMixin:
         if holder is None:
             messagebox.showwarning("Execution order", msg)
             return
+        mode = self.settings.get("order_conflict", "take")
+        if mode != "ask":  # anything unknown behaves like the default, "take"
+            self.set_node_order(tab, node, value, on_conflict="swap" if mode == "swap" else "take")
+            return
         answer = messagebox.askyesnocancel(
             "Order already used",
             f"{value} is already used by '{holder['name']}'.\n\n"

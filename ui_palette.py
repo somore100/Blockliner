@@ -4,7 +4,9 @@ from tkinter import colorchooser, messagebox, ttk
 import os
 import shutil
 from block_templates import make_raw_code_block_source
-from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, get_block_attr, keybind_from_event, keybind_label, safe_grab_set
+from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
+from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
+from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
 
 
@@ -391,7 +393,7 @@ class PaletteMixin:
         hit Save & Close - Cancel discards changes."""
         dialog = tk.Toplevel(self)
         dialog.title("Settings")
-        dialog.geometry("560x700")
+        dialog.geometry("560x860")
         dialog.configure(bg=DARK_PANEL)
         dialog.transient(self)
         safe_grab_set(dialog)
@@ -409,8 +411,35 @@ class PaletteMixin:
             font=("Segoe UI", 13, "bold")
         ).pack(side=tk.LEFT, padx=20, pady=15)
 
-        body = tk.Frame(dialog, bg=DARK_PANEL)
-        body.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+        # Scrollable body: the rows can outgrow a small screen, and Save & Close
+        # must stay reachable, so only this part scrolls.
+        scroll_holder = tk.Frame(dialog, bg=DARK_PANEL)
+        body_canvas = tk.Canvas(scroll_holder, bg=DARK_PANEL, highlightthickness=0)
+        body_scroll = ttk.Scrollbar(scroll_holder, orient="vertical", command=body_canvas.yview)
+        body = tk.Frame(body_canvas, bg=DARK_PANEL)
+        body_canvas.create_window((0, 0), window=body, anchor="nw", tags="body")
+        body.bind("<Configure>", lambda e: body_canvas.configure(scrollregion=body_canvas.bbox("all")))
+        body_canvas.bind("<Configure>", lambda e: body_canvas.itemconfigure("body", width=e.width))
+        scrollbar_shown = [False]
+
+        def body_yscroll(first, last):
+            body_scroll.set(first, last)
+            needed = float(first) > 0 or float(last) < 1
+            if needed != scrollbar_shown[0]:
+                scrollbar_shown[0] = needed
+                if needed:
+                    body_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+                else:
+                    body_scroll.pack_forget()
+        body_canvas.configure(yscrollcommand=body_yscroll)
+
+        def body_wheel(e):
+            if e.num == 4 or (e.num != 5 and getattr(e, "delta", 0) > 0):
+                body_canvas.yview_scroll(-1, "units")
+            else:
+                body_canvas.yview_scroll(1, "units")
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            dialog.bind(seq, body_wheel)
 
         def add_row(label_text, help_text=None):
             row = tk.Frame(body, bg=DARK_PANEL)
@@ -494,6 +523,54 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        # --- Order number already used ---
+        row = add_row("Order number taken:")
+        conflict_labels = dict((k, v) for k, v in ORDER_CONFLICT_CHOICES)
+        conflict_var = tk.StringVar(value=conflict_labels.get(
+            self.settings.get("order_conflict", "take"), conflict_labels["take"]))
+        ttk.Combobox(
+            row, textvariable=conflict_var, values=[v for _k, v in ORDER_CONFLICT_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("What happens when you give a node a number another node already has.")
+
+        # --- Scroll mode ---
+        row = add_row("Scroll mode:")
+        scroll_labels = dict(SCROLL_MODE_CHOICES)
+        scroll_var = tk.StringVar(value=scroll_labels[normalize_mode(self.settings.get("scroll_mode", "smooth"))])
+        ttk.Combobox(
+            row, textvariable=scroll_var, values=[v for _k, v in SCROLL_MODE_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("Smooth scrolls continuously; Rigid snaps to the next block/node with each wheel step.")
+
+        # --- Where node data is saved ---
+        row = add_row("Node data saved in:")
+        save_labels = dict(SAVE_FORMAT_CHOICES)
+        save_var = tk.StringVar(value=save_labels[normalize_save_format(self.settings.get("save_format"))])
+        ttk.Combobox(
+            row, textvariable=save_var, values=[v for _k, v in SAVE_FORMAT_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("Exported code always has node start/end markers. Node names, order and layout go in a separate .blockliner.json file, or inside the code file.")
+
+        # --- Code panel -> blocks sync ---
+        row = add_row("Code \u2192 blocks sync:")
+        sync_labels = dict(SYNC_MODE_CHOICES)
+        sync_var = tk.StringVar(value=sync_labels[normalize_sync_mode(self.settings.get("code_sync_mode"))])
+        ttk.Combobox(
+            row, textvariable=sync_var, values=[v for _k, v in SYNC_MODE_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("When edits typed in the code panel (right side) become blocks.")
+        confirm_var = tk.BooleanVar(value=bool(self.settings.get("code_sync_confirm", True)))
+        tk.Checkbutton(
+            body, text="Ask before code edits replace or remove blocks",
+            variable=confirm_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+
         # --- Layer shortcuts ---
         tk.Label(
             body, text="Layer shortcuts", bg=DARK_PANEL, fg=DARK_FG,
@@ -545,7 +622,18 @@ class PaletteMixin:
 
         # --- Save / Cancel ---
         btn_frame = tk.Frame(dialog, bg=DARK_PANEL)
-        btn_frame.pack(fill=tk.X, padx=20, pady=(0, 20))
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(0, 20))
+        # Body is packed after the buttons so Save & Close can never be
+        # squeezed out when the content grows or the screen is small.
+        body.update_idletasks()
+        body_canvas.configure(height=body.winfo_reqheight(), width=body.winfo_reqwidth())
+        body_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll_holder.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+        dialog.update_idletasks()
+        wanted = (header.winfo_reqheight() + body_canvas.winfo_reqheight()
+                  + btn_frame.winfo_reqheight() + 30 + 20 + 10)   # paddings of the three parts
+        h = min(wanted, dialog.winfo_screenheight() - 80)
+        dialog.geometry(f"560x{h}+{(dialog.winfo_screenwidth() - 560) // 2}+{max(0, (dialog.winfo_screenheight() - h) // 2 - 20)}")
 
         def on_save_close():
             chosen = [v.get() for v in key_vars.values() if v.get()]
@@ -561,6 +649,15 @@ class PaletteMixin:
             self.settings["confirm_delete"] = confirm_var.get()
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
+            self.settings["order_conflict"] = next(
+                (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
+            self.settings["scroll_mode"] = next(
+                (k for k, v in SCROLL_MODE_CHOICES if v == scroll_var.get()), "smooth")
+            self.settings["save_format"] = next(
+                (k for k, v in SAVE_FORMAT_CHOICES if v == save_var.get()), "sidecar")
+            self.settings["code_sync_mode"] = next(
+                (k for k, v in SYNC_MODE_CHOICES if v == sync_var.get()), "line")
+            self.settings["code_sync_confirm"] = bool(confirm_var.get())
             self.save_app_settings()
             dialog.destroy()
 

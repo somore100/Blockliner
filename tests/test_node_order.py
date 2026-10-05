@@ -26,6 +26,7 @@ def main():
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
     app.geometry("1400x800"); app.update()
     warned = []; asked = []
+    app.settings["order_conflict"] = "ask"  # these checks cover the popup path
     real = (ui.simpledialog.askstring, ui.messagebox.askyesnocancel, ui.messagebox.showwarning)
     ui.messagebox.showwarning = lambda t, m, **k: warned.append(m)
     def stub_ask(v): ui.simpledialog.askstring = lambda *a, **k: v

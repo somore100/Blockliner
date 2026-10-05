@@ -479,6 +479,45 @@ class LayersMixin:
         insert_at, _y = self.drop_target(y_root)
         self.add_block_to_workspace(block_module, insert_at=insert_at)
 
+    def move_block_to(self, src, insert_at):
+        """Move top-level block `src` so it lands before absolute index
+        `insert_at` (None = the very end), the same convention as
+        drop_target. Returns False for a no-op (same place / bad index).
+        Moving down compensates for the removal of the source first."""
+        blocks = self.project_blocks
+        n = len(blocks)
+        if not (0 <= src < n):
+            return False
+        dest = n if insert_at is None else max(0, min(insert_at, n))
+        if dest > src:
+            dest -= 1
+        if dest == src:
+            return False
+        blocks.insert(dest, blocks.pop(src))
+        self.reveal_block(dest)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True
+
+    def block_drag_feedback(self, src, x_root, y_root):
+        """Landing line for a workspace block being dragged; hidden when
+        outside the workspace or when dropping there would change nothing."""
+        if x_root is None or not self.can_drop_block_at(x_root, y_root):
+            self.show_drop_indicator(None, None)
+            return
+        idx, _y = self.drop_target(y_root)
+        if (len(self.project_blocks) if idx is None else idx) in (src, src + 1):
+            self.show_drop_indicator(None, None)
+        else:
+            self.show_drop_indicator(x_root, y_root)
+
+    def drop_block_reorder(self, src, x_root, y_root):
+        """Release of a dragged workspace block: reorder if over the workspace."""
+        if not self.can_drop_block_at(x_root, y_root):
+            return False
+        idx, _y = self.drop_target(y_root)
+        return self.move_block_to(src, idx)
+
     def _palette_strip_hover(self, on):
         bg = DARK_BORDER if on else DARK_PANEL
         self.palette_strip.config(bg=bg)

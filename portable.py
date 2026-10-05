@@ -127,6 +127,19 @@ def _meta_span(lines):
     return start, end
 
 
+def protected_line_numbers(lines):
+    """1-based numbers of the lines safe mode protects: every node marker line
+    and the whole metadata block (start tag to end tag; to the end if it was
+    never closed)."""
+    out = {i + 1 for i, ln in enumerate(lines) if NODE_MARKER_RE.search(ln)}
+    span = _meta_span(lines)
+    if span:
+        start, end = span
+        last = len(lines) - 1 if end is None else end
+        out.update(range(start + 1, last + 2))
+    return out
+
+
 # --- building / stripping --------------------------------------------------
 
 def assemble(head, chunks, tail, meta_block=""):
@@ -241,7 +254,7 @@ def dedent_code(code, indent):
     return "".join(ln[len(indent):] if ln.startswith(indent) else ln for ln in code.splitlines(keepends=True))
 
 
-def rebuild_nodes(text, language, wrapper_indent="", wrapper_text=""):
+def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_override=None):
     """Turn a portable file's text into UI-shaped node descriptions.
 
     Returns (nodes, active_id, diagnostics). `nodes` is a list of plain
@@ -258,6 +271,8 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text=""):
     """
     marked, meta, diagnostics = parse_portable(
         text, ignore_lines={ln.strip() for ln in wrapper_text.splitlines()})
+    if meta is None and meta_override is not None:
+        meta = meta_override  # sidecar data; a valid block inside the file wins
     code_by_id = {n["id"]: dedent_code(n["code"], wrapper_indent) for n in marked}
     file_order = [n["id"] for n in marked]
     active = None
@@ -354,3 +369,83 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text=""):
     if active not in flat:
         active = next((n["id"] for n in fn_nodes), None)
     return top, active, diagnostics
+
+
+# --- sidecar file (<code file>.blockliner.json) ------------------------------
+
+SIDECAR_SUFFIX = ".blockliner.json"
+
+
+def sidecar_path(code_path):
+    return code_path + SIDECAR_SUFFIX
+
+
+def render_sidecar(meta):
+    return json.dumps(meta, indent=1, sort_keys=True) + "\n"
+
+
+def parse_sidecar(text):
+    """(meta, diagnostics). Strict: anything wrong -> meta None plus a note
+    naming what was wrong, so the caller falls back to the markers."""
+    try:
+        parsed = json.loads(text)
+    except ValueError as exc:
+        return None, [f"sidecar file is not valid JSON ({exc}) - ignored, rebuilt from markers"]
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("nodes"), dict):
+        return None, ["sidecar file has an unexpected shape (no 'nodes' table) - ignored, rebuilt from markers"]
+    bad = [k for k, v in parsed["nodes"].items() if not isinstance(v, dict)]
+    if bad:
+        return None, [f"sidecar entries for {', '.join(sorted(bad)[:5])} are not objects - ignored, rebuilt from markers"]
+    return parsed, []
+
+
+# --- files with no markers at all ------------------------------------------
+
+_ID_BAD = re.compile(r"[^A-Za-z0-9_\-]")
+
+
+def split_python_top_level(text):
+    """Split plain Python into [(name, code)] by top-level def/class; runs of
+    other top-level statements (imports, assignments, ...) become
+    'top_level' chunks. Order is file order and nothing is dropped.
+    Returns None if the text doesn't parse (caller keeps it as one node)."""
+    import ast
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    lines = text.splitlines(keepends=True)
+    kinds = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+    spans = []  # (name or None, last line number)
+    for stmt in tree.body:
+        spans.append((stmt.name if isinstance(stmt, kinds) else None, stmt.end_lineno))
+    chunks = []
+    cursor = 0  # each chunk starts where the previous ended, so decorators/comments stay attached
+    for name, end in spans:
+        if name is None:
+            if chunks and chunks[-1][0] is None:
+                chunks[-1][2] = end
+            else:
+                chunks.append([None, cursor, end])
+        else:
+            chunks.append([name, cursor, end])
+        cursor = end
+    if chunks:
+        chunks[-1][2] = len(lines)  # trailing blank/comment lines stay attached
+    return [(n or "top_level", "".join(lines[a:b])) for n, a, b in chunks]
+
+
+def wrap_with_markers(chunks, token="#"):
+    """[(name, code)] -> marker-wrapped text with unique safe ids."""
+    used, out = set(), []
+    for name, code in chunks:
+        base = _ID_BAD.sub("_", name) or "node"
+        node_id, n = base, 2
+        while node_id in used:
+            node_id, n = f"{base}_{n}", n + 1
+        used.add(node_id)
+        start, end = node_marker_lines(node_id, token)
+        if code and not code.endswith("\n"):
+            code += "\n"
+        out.append(f"{start}\n{code}{end}\n")
+    return "".join(out)

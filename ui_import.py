@@ -448,6 +448,7 @@ class ImportMixin:
         )
         if not filename:
             return None
+        self._last_picked_path = filename
 
         try:
             with open(filename, "r", encoding="utf-8", errors="replace") as f:
@@ -543,13 +544,46 @@ class ImportMixin:
                     "This file has Blockliner node markers.\n\nOpen it as a Blockliner file "
                     "(nodes and layout restored, in a new tab)?\n\nNo = import it as plain code."):
                 dialog.destroy()
-                notes = self.load_portable_text(content)
+                notes = self.load_portable_text(content, sidecar_text=self._read_sidecar(content))
                 if notes:
                     messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
+                return
+            elif self._offer_split_unmarked(content, dialog):
                 return
             text_widget.insert(1.0, content)
 
         return dialog
+
+    def _read_sidecar(self, content):
+        """Text of <last picked file>.blockliner.json, or None if absent."""
+        path = getattr(self, "_last_picked_path", None)
+        if not path:
+            return None
+        try:
+            with open(portable.sidecar_path(path), "r", encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return None
+
+    def _offer_split_unmarked(self, content, dialog):
+        """A file with no markers: offer (never automatic) to open it as nodes
+        split by top-level class/def. Python only for now. True if opened."""
+        if self.current_language != "python" or portable.NODE_MARKER_RE.search(content):
+            return False
+        chunks = portable.split_python_top_level(content)
+        if not chunks or len(chunks) < 2:
+            return False
+        if not messagebox.askyesno(
+                "No node markers",
+                f"This file has no Blockliner node markers.\n\nSplit it into {len(chunks)} nodes "
+                "by its top-level classes and functions (other top-level code becomes "
+                "'top_level' nodes) and open it in a new tab?\n\nNo = import it as plain code."):
+            return False
+        dialog.destroy()
+        notes = self.load_portable_text(portable.wrap_with_markers(chunks, "#"))
+        notes = [f"Split into {len(chunks)} nodes - names come from the code; layout is a default grid."] + (notes or [])
+        messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
+        return True
 
     def load_and_merge_custom_blocks(self):
         """

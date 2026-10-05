@@ -143,7 +143,7 @@ class CodegenMixin:
             cache[lang] = (manifest or {}).get("comment_token")
         return cache[lang]
 
-    def generate_portable_for_tab(self, tab, lang=None):
+    def generate_portable_for_tab(self, tab, lang=None, embed_meta=True):
         """The portable form of a tab's code: exactly generate_code_for_tab's
         output plus node marker lines around each function node (in
         execution order) and the optional metadata block at the end.
@@ -174,10 +174,118 @@ class CodegenMixin:
         if not (clean.endswith(body + tail) and len(clean) >= len(body) + len(tail)):
             return clean
         head = clean[:len(clean) - len(body) - len(tail)]
-        meta = portable.build_metadata(nodes, lang, tab.get("active_node_id"))
-        return portable.assemble(head, chunks, tail, portable.render_meta_block(meta, token))
+        meta_block = ""
+        if embed_meta:
+            meta = portable.build_metadata(nodes, lang, tab.get("active_node_id"))
+            meta_block = portable.render_meta_block(meta, token)
+        return portable.assemble(head, chunks, tail, meta_block)
 
-    def load_portable_text(self, text, title="Imported"):
+    # --- code panel options: safe mode + show markers ---------------------
+
+    def build_code_options_row(self, code_header_row):
+        """Two checkboxes on the right side of the code panel's header row."""
+        self.safe_mode_var = tk.BooleanVar(value=bool(self.settings.get("safe_mode", True)))
+        self.show_markers_var = tk.BooleanVar(value=bool(self.settings.get("show_markers", True)))
+        tk.Button(
+            code_header_row, text="\U0001F504 Sync code \u2192 blocks", command=self.sync_code_now,
+            bg=DARK_PANEL, fg=DARK_FG, relief=tk.FLAT, font=("Segoe UI", 8)
+        ).pack(side=tk.RIGHT, padx=4)
+        for text, var, cmd in (("Show markers", self.show_markers_var, self.on_show_markers_toggle),
+                               ("Safe mode", self.safe_mode_var, self.on_safe_mode_toggle)):
+            tk.Checkbutton(
+                code_header_row, text=text, variable=var, command=cmd,
+                bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+                activebackground=DARK_PANEL, activeforeground=DARK_FG,
+                font=("Segoe UI", 8)
+            ).pack(side=tk.RIGHT, padx=2)
+
+    def on_safe_mode_toggle(self):
+        self.settings["safe_mode"] = bool(self.safe_mode_var.get())
+        self.save_app_settings()
+
+    def on_show_markers_toggle(self):
+        self.settings["show_markers"] = bool(self.show_markers_var.get())
+        self.save_app_settings()
+        self.update_generated_code()
+
+    def show_markers_setting(self):
+        return bool(self.settings.get("show_markers", True))
+
+    def safe_mode_setting(self):
+        return bool(self.settings.get("safe_mode", True))
+
+    def install_code_guard(self):
+        """Route every edit of the code panel through a check: with safe mode
+        on, anything that would change a node marker line (or the embedded
+        metadata block) is refused. Blockliner's own regeneration bypasses it."""
+        widget = self.code_text
+        name = str(widget)
+        orig = name + "_orig"
+        widget.tk.call("rename", name, orig)
+        self._code_internal = False
+
+        def proxy(*args):
+            editing = bool(args) and args[0] in ("insert", "delete", "replace") and not self._code_internal
+            if editing and self.safe_mode_setting() and self.code_edit_blocked(orig, args):
+                widget.bell()
+                return ""
+            if editing:
+                self.confirm_first_code_edit()
+            result = widget.tk.call((orig,) + args)
+            if editing:
+                self.on_code_panel_edited(args)
+            return result
+
+        widget.tk.createcommand(name, proxy)
+
+    def code_edit_blocked(self, orig, args):
+        call = self.code_text.tk.call
+        def idx(i):
+            return call(orig, "index", i)
+        # pasting/typing marker or metadata tags would duplicate structure
+        new_text = args[2] if args[0] == "insert" and len(args) > 2 else (
+            args[3] if args[0] == "replace" and len(args) > 3 else "")
+        if isinstance(new_text, str) and (portable.NODE_MARKER_RE.search(new_text)
+                                          or portable.META_START_TAG in new_text
+                                          or portable.META_END_TAG in new_text):
+            return True
+        text = call(orig, "get", "1.0", "end-1c")
+        lines = text.split("\n")
+        protected = portable.protected_line_numbers(lines)
+        if not protected:
+            return False
+        def line_col(i):
+            ln, col = str(idx(i)).split(".")
+            return int(ln), int(col)
+        if args[0] == "insert":
+            ln, col = line_col(args[1])
+            if ln in protected:
+                return col > 0   # col 0 only pushes the marker down a line
+            return False
+        a = line_col(args[1])
+        b = line_col(args[2]) if len(args) > 2 and args[2] not in ("",) else (a[0], a[1] + 1)
+        if b < a:
+            a, b = b, a
+        if a == b:
+            return False
+        for ln in range(a[0], b[0] + 1):
+            if ln not in protected:
+                continue
+            start = (ln, 0)
+            end = (ln + 1, 0)   # the line plus its newline
+            if a < end and b > start:
+                return True
+        # deleting just the newline in front of a marker line would glue it to code
+        if b[1] == 0 and b[0] in protected and a[0] == b[0] - 1 and a[1] == len(lines[a[0] - 1]):
+            return True
+        return False
+
+    def embed_meta_setting(self):
+        """True when node data goes inside the code file (setting 'save_format')."""
+        from ui_common import normalize_save_format
+        return normalize_save_format(self.settings.get("save_format")) == "embedded"
+
+    def load_portable_text(self, text, title="Imported", sidecar_text=None):
         """Open a portable file's text as a NEW tab: nodes, nesting, order
         and layout from its metadata when present, otherwise a flat
         skeleton from the markers (see portable.rebuild_nodes). Each
@@ -187,6 +295,11 @@ class CodegenMixin:
         if not portable.NODE_MARKER_RE.search(text):
             return None
         _n, meta, _d = portable.parse_portable(text)
+        sidecar_meta, sidecar_notes = None, []
+        if sidecar_text is not None:
+            sidecar_meta, sidecar_notes = portable.parse_sidecar(sidecar_text)
+        if meta is None:
+            meta = sidecar_meta
         lang = (meta or {}).get("language")
         if not (isinstance(lang, str) and os.path.isdir(os.path.join(self.languages_path, lang))):
             lang = self.current_language
@@ -201,7 +314,8 @@ class CodegenMixin:
 
         wrapper = self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
         nodes, active, diagnostics = portable.rebuild_nodes(
-            text, lang, self.WRAPPER_INDENT.get(lang, ""), wrapper)
+            text, lang, self.WRAPPER_INDENT.get(lang, ""), wrapper, meta_override=sidecar_meta)
+        diagnostics = sidecar_notes + diagnostics
 
         can_import = self.get_raw_code_block_id(lang) is not None
         if not can_import:
@@ -240,16 +354,22 @@ class CodegenMixin:
         lang = self.lang_var.get()
         tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
         code = self.generate_code_for_tab(tab, lang) if tab is not None else self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
-        if tab is not None and code.strip():
-            code_shown = self.generate_portable_for_tab(tab, lang)
+        if tab is not None and code.strip() and self.show_markers_setting():
+            code_shown = self.generate_portable_for_tab(tab, lang, embed_meta=self.embed_meta_setting())
         else:
             code_shown = code
 
-        self.code_text.delete(1.0, tk.END)
-        if code:
-            self.code_text.insert(tk.END, code_shown)
-        else:
-            self.code_text.insert(tk.END, "# No code generated yet\n# Add blocks from the palette!")
+        if getattr(self, "sync_banner", None) is not None:
+            self.hide_sync_banner()   # the panel is being rewritten from blocks
+        self._code_internal = True
+        try:
+            self.code_text.delete(1.0, tk.END)
+            if code:
+                self.code_text.insert(tk.END, code_shown)
+            else:
+                self.code_text.insert(tk.END, "# No code generated yet\n# Add blocks from the palette!")
+        finally:
+            self._code_internal = False
 
         line_count = len([l for l in code.split('\n') if l.strip()])
         self.line_count_label.config(text=f"{line_count} lines")
@@ -444,10 +564,28 @@ class CodegenMixin:
             try:
                 with open(filename, 'w') as f:
                     f.write(code)
-                self.maybe_notify("Exported", f"Code exported to:\n{filename}")
+                note = ""
+                if not self.show_markers_setting():
+                    note = "\n(markers hidden - exported plain code, no node data)"
+                elif not self.embed_meta_setting():
+                    note = self.write_sidecar_for_active_tab(filename, lang)
+                self.maybe_notify("Exported", f"Code exported to:\n{filename}{note}")
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export: {e}")
     
+    def write_sidecar_for_active_tab(self, code_path, lang):
+        """Write <code_path>.blockliner.json for the active tab's nodes (or
+        remove a stale one when there are no nodes). Returns a note for the
+        export popup."""
+        tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
+        side = portable.sidecar_path(code_path)
+        if tab is None or not tab.get("nodes"):
+            return ""
+        meta = portable.build_metadata(tab["nodes"], lang, tab.get("active_node_id"))
+        with open(side, "w", encoding="utf-8") as f:
+            f.write(portable.render_sidecar(meta))
+        return f"\n{side}"
+
     def run_in_terminal(self):
         """Run code in external terminal"""
         code = self.get_clean_code()

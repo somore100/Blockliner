@@ -143,6 +143,32 @@ DEFAULT_SETTINGS = {
     "confirm_delete": True,
     "show_notifications": True,
     "animate_blocks": False,
+    # When you give a node a number another node already has:
+    # "take" = you get it, the other node becomes unassigned (red);
+    # "swap" = the other node gets your old number; "ask" = pop up a choice.
+    "order_conflict": "take",
+    # "smooth" = continuous wheel scrolling; "rigid" = one wheel step snaps
+    # block to block (workspace layers and the palette).
+    "scroll_mode": "smooth",
+    # Where node data (names, nesting, order, layout) is kept when saving:
+    # "sidecar" = a <file>.blockliner.json next to the code file (code stays
+    # clean apart from the node markers); "embedded" = a block at the end of
+    # the code file itself.
+    "save_format": "sidecar",
+    # Code panel (right side): safe mode protects the node markers (and an
+    # embedded metadata block) from edits so the structure can't be broken
+    # by accident; unchecked = the panel text is fully editable.
+    "safe_mode": True,
+    # Show the node marker lines in the panel (and in Export). Unchecked =
+    # clean code only.
+    "show_markers": True,
+    # Code panel edits -> blocks: "line" (when the caret leaves the edited
+    # line), "char" (every keystroke) or "manual" (Sync button only).
+    "code_sync_mode": "line",
+    # Ask (amber banner) before code edits replace or remove blocks.
+    "code_sync_confirm": True,
+    # The one-time "modifying raw code" warning has been shown.
+    "code_edit_warned": False,
     "python_command": "python3",
     "cpp_compiler": "g++",
     "terminal_command": "gnome-terminal --",
@@ -159,6 +185,22 @@ DEFAULT_SETTINGS = {
         "layer_down": "Key-Down",
     },
 }
+
+ORDER_CONFLICT_CHOICES = [
+    ("take", "Take it (other node becomes unassigned)"),
+    ("swap", "Swap (other node gets my old number)"),
+    ("ask", "Ask me every time"),
+]
+
+SAVE_FORMAT_CHOICES = [
+    ("sidecar", "Separate .blockliner.json file (default)"),
+    ("embedded", "Inside the code file"),
+]
+
+
+def normalize_save_format(value):
+    return value if value in ("sidecar", "embedded") else "sidecar"
+
 
 LAYER_ACTIONS = [
     ("layer_files", "Files layer"),

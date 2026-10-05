@@ -3,9 +3,11 @@ this file keeps window construction (__init__, create_widgets, theme) and start_
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog, colorchooser  # noqa: F401 (re-exported: tests patch ui.messagebox etc.)
 import os
+import time
 from PIL import Image
 from PIL import ImageTk
 from panels import PanelManager
+from scroll_modes import SNAP_THROTTLE_S, next_snap, normalize_mode, snap_points
 from panels import PanelSpec
 from block_templates import make_raw_code_block_source
 from nodes_model import default_active_node_id, find_node_by_id
@@ -20,6 +22,7 @@ from ui_nodeops import NodeOpsMixin
 from ui_menus import MenusMixin
 from ui_canvas import CanvasMixin
 from ui_codegen import CodegenMixin
+from ui_codesync import CodeSyncMixin
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -27,7 +30,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -36,6 +39,8 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         
         self.languages_path = languages_path
         self.settings = self.load_app_settings()
+        self._scroll_clock = time.monotonic   # tests swap this to step time
+        self._rigid_last = {}
 
         # A settings.default_language only overrides the caller's choice
         # if the caller left it at the plain default ("python") - an
@@ -136,12 +141,51 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         was happening here.
         """
         if event.num == 4:
-            canvas.yview_scroll(-1, "units")
+            step = -1
         elif event.num == 5:
-            canvas.yview_scroll(1, "units")
+            step = 1
         elif event.delta:
             step = -1 if event.delta > 0 else 1
+        else:
+            return
+        if normalize_mode(self.settings.get("scroll_mode", "smooth")) == "rigid":
+            self._rigid_scroll(canvas, step)
+        else:
             canvas.yview_scroll(step, "units")
+
+    def _snap_targets(self, canvas):
+        """Top y (canvas coordinates) of every item rigid mode can snap to:
+        palette headers/blocks, the blocks of the open node, or the node/file
+        boxes on the canvas layers."""
+        if canvas is self.palette_canvas:
+            return [w.winfo_y() for w in self.palette_frame.winfo_children() if w.winfo_ismapped()]
+        if getattr(self, "view_mode", None) == "node":
+            return [w.winfo_y() for w in self.workspace_frame.winfo_children() if w.winfo_ismapped()]
+        tops = []
+        for item in canvas.find_all():
+            if canvas.type(item) == "window" and item != getattr(self, "workspace_frame_window_id", None):
+                box = canvas.bbox(item)
+                if box:
+                    tops.append(box[1])
+        return tops
+
+    def _rigid_scroll(self, canvas, step):
+        """Snap `canvas` one item up/down (step < 0 / > 0). Throttled."""
+        now = self._scroll_clock()
+        last = self._rigid_last.get(str(canvas), -1e9)
+        if now - last < SNAP_THROTTLE_S:
+            return
+        self._rigid_last[str(canvas)] = now
+        box = canvas.bbox("all")
+        region = str(canvas.cget("scrollregion")).split()
+        top, bottom = (float(region[1]), float(region[3])) if len(region) == 4 else (box[1], box[3]) if box else (0.0, 0.0)
+        if bottom - top <= 0:
+            return
+        current = top + canvas.yview()[0] * (bottom - top)   # (canvasy(0) is off by the border inset)
+        target = next_snap(snap_points(self._snap_targets(canvas), top), current, step)
+        if target is None:
+            return
+        canvas.yview_moveto((target - top) / (bottom - top))
     
     def create_widgets(self):
         # Top toolbar
@@ -191,7 +235,6 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         ttk.Button(toolbar, text="📂 Load", command=self.load_project, **btn_style).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="\U0001F4C4 Open Code File", command=lambda: self.open_code_to_blocks_dialog(prefill_from_file=True), **btn_style).pack(side=tk.LEFT, padx=3)
         ttk.Button(toolbar, text="📤 Export", command=self.export_code, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="\U0001F504 Code \u2192 Blocks", command=lambda: self.open_code_to_blocks_dialog(prefill_from_file=False), **btn_style).pack(side=tk.LEFT, padx=3)
         
         tk.Frame(toolbar, bg=DARK_BORDER, width=2).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=8)
         
@@ -544,6 +587,9 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             wrap=tk.NONE
         )
         self.code_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.install_code_guard()
+        self.build_code_options_row(code_header_row=lang_frame)
+        self.install_code_sync()
         
         # Apply dark theme
         self.apply_theme()

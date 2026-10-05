@@ -86,7 +86,7 @@ def main():
     check("dialog lists Up and Down rows", "Up" in by_text and "Down" in by_text)
     save_btn = [b for b in btns if "Save" in str(b.cget("text"))][0]
     dlg.update_idletasks()
-    check("Save button fully visible in dialog", save_btn.winfo_rooty() + save_btn.winfo_height() <= dlg.winfo_rooty() + dlg.winfo_height())
+    check("Save button fully visible in dialog", save_btn.winfo_height() > 20 and save_btn.winfo_rooty() + save_btn.winfo_height() <= dlg.winfo_rooty() + dlg.winfo_height())
 
     def press(btn, keysym, state=0):
         btn.invoke(); dlg.update()
@@ -102,6 +102,9 @@ def main():
     import ui_palette
     warned = []
     ui_palette.messagebox.showwarning = lambda *a, **k: warned.append(a)
+    for cv in [w for w in walk(dlg) if isinstance(w, tk.Canvas)]:
+        cv.yview_moveto(1.0)       # the dialog body scrolls; bring the Down row into view
+    dlg.update()
     press(by_text["Down"], "Prior")  # same key as Up now -> rejected
     check("duplicate shows a warning and restores the label", len(warned) == 1 and str(by_text["Down"].cget("text")) == "Down")
     check("duplicate not saved", len(saved) == n and app.get_keybinds()["layer_down"] == "Key-Down")

@@ -1,7 +1,7 @@
 """Reusable widgets: palette item, block widget, expression slot."""
 import tkinter as tk
 from tkinter import ttk
-from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
+from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DARK_BG, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
 class PaletteBlockItem(tk.Frame):
@@ -186,6 +186,48 @@ class BlockWidget(tk.Frame):
         self.create_widgets()
         self.bind("<Enter>", self.on_hover)
         self.bind("<Leave>", self.on_leave)
+
+        # Drag-reorder: only top-level blocks (a nested block keeps its
+        # own up/down buttons). Grab anywhere except buttons and nested
+        # blocks; a press that never moves past the threshold does nothing.
+        self._drag_press_xy = None
+        self._dragging = False
+        if self.container_list is getattr(app, "project_blocks", None):
+            self._bind_drag_tree(self)
+
+    def _bind_drag_tree(self, widget):
+        widget.bind("<ButtonPress-1>", self._reorder_press, add="+")
+        widget.bind("<B1-Motion>", self._reorder_motion, add="+")
+        widget.bind("<ButtonRelease-1>", self._reorder_release, add="+")
+        for child in widget.winfo_children():
+            if isinstance(child, (tk.Button, BlockWidget)):
+                continue
+            self._bind_drag_tree(child)
+
+    def _reorder_press(self, e):
+        self._drag_press_xy = (e.x_root, e.y_root)
+        self._dragging = False
+
+    def _reorder_motion(self, e):
+        if self._drag_press_xy is None:
+            return
+        if not self._dragging:
+            if (abs(e.x_root - self._drag_press_xy[0]) <= 5
+                    and abs(e.y_root - self._drag_press_xy[1]) <= 5):
+                return
+            self._dragging = True
+            self.configure(highlightbackground=DARK_ACCENT, highlightthickness=3)
+        self.app.block_drag_feedback(self.index, e.x_root, e.y_root)
+
+    def _reorder_release(self, e):
+        was_drag = self._dragging
+        self._dragging = False
+        self._drag_press_xy = None
+        if not was_drag:
+            return
+        self.app.block_drag_feedback(self.index, None, None)
+        self.on_leave(None)
+        self.app.drop_block_reorder(self.index, e.x_root, e.y_root)
 
     def toggle_collapsed(self):
         self.params["_collapsed"] = not self.is_collapsed

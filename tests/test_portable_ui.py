@@ -35,6 +35,7 @@ def raw(app, lang, line):
 def main():
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
     app.geometry("1200x800+0+0"); app.update()
+    app.settings["save_format"] = "embedded"  # this file tests the in-file metadata form
     for lang in LANGS:
         tab, fn = fresh_tab(app, lang)
         first = fn[0]

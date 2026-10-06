@@ -8,7 +8,8 @@ import subprocess
 import sys
 from nodes_model import make_node, sorted_function_nodes
 import portable
-from ui_common import BLOCKLINER_SAVES_PATH, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
+import project_file
+from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
 
 
 class CodegenMixin:
@@ -378,7 +379,9 @@ class CodegenMixin:
         """Save project - shows a small dialog to name the file and
         choose where it goes: Blockliner's own saves folder, or any
         custom location via the normal file browser."""
-        if not self.project_blocks:
+        self.sync_active_tab_state()
+        tab = self.tabs[self.active_tab_index]
+        if not any(n["blocks"] for n in self.all_function_nodes(tab)) and len(tab["nodes"]) < 2:
             messagebox.showinfo("Nothing to Save", "Add some blocks first!")
             return
 
@@ -467,14 +470,13 @@ class CodegenMixin:
     def _write_project_file(self, filepath):
         """Actually write the project JSON to disk. Returns True on success."""
         try:
-            project_data = {
-                "language": self.current_language,
-                "blocks": self.project_blocks
-            }
-            with open(filepath, 'w') as f:
-                json.dump(project_data, f, indent=2)
-
+            self.sync_active_tab_state()
             tab = self.tabs[self.active_tab_index]
+            text = project_file.dumps(self.current_language, tab["nodes"],
+                                      tab.get("active_node_id"))
+            with open(filepath, 'w') as f:
+                f.write(text)
+
             tab["filepath"] = filepath
             tab["title"] = os.path.splitext(os.path.basename(filepath))[0]
             tab["dirty"] = False
@@ -500,50 +502,44 @@ class CodegenMixin:
             try:
                 with open(filename, 'r') as f:
                     project_data = json.load(f)
-
-                if isinstance(project_data, list):
-                    loaded_lang = self.current_language
-                    loaded_blocks = project_data
-                else:
-                    loaded_lang = project_data.get("language", "python")
-                    loaded_blocks = project_data.get("blocks", [])
+                loaded_lang, loaded_nodes, active_id, notes = project_file.parse_project_data(
+                    project_data, PRESET_LANGUAGES, self.current_language)
 
                 current_tab = self.tabs[self.active_tab_index]
-                reuse_current = (not self.project_blocks) and (not current_tab["dirty"])
+                reuse_current = (not self.project_blocks) and (not current_tab["dirty"]) \
+                    and len(current_tab["nodes"]) < 2
 
-                if not reuse_current:
-                    self.sync_active_tab_state()
-                    new_node = make_node("main", node_id="main", blocks=[])
-                    self.tabs.append({
-                        "title": "Untitled",
-                        "language": loaded_lang,
-                        "nodes": [new_node],
-                        "active_node_id": new_node["id"],
-                        "filepath": None,
-                        "dirty": False,
-                    })
+                self.sync_active_tab_state()
+                if reuse_current:
+                    tab = current_tab
+                else:
+                    tab = {"title": "Untitled", "filepath": None, "dirty": False}
+                    self.tabs.append(tab)
                     self.active_tab_index = len(self.tabs) - 1
+                tab.update({"language": loaded_lang, "nodes": loaded_nodes,
+                            "active_node_id": active_id})
 
-                if loaded_lang != self.current_language:
-                    self.current_language = loaded_lang
-                    self.lang_var.set(loaded_lang)
-                    self.load_blocks_for_language(loaded_lang)
-                    self.load_and_merge_custom_blocks()
-                    self.refresh_palette()
+                self.current_language = loaded_lang
+                self.lang_var.set(loaded_lang)
+                self.load_blocks_for_language(loaded_lang)
+                self.load_and_merge_custom_blocks()
+                self.refresh_palette()
+                self.project_blocks = self.get_active_node(tab)["blocks"]
 
-                self.set_project_blocks(loaded_blocks)
-
-                tab = self.tabs[self.active_tab_index]
                 tab["filepath"] = filename
                 tab["title"] = os.path.splitext(os.path.basename(filename))[0]
                 tab["dirty"] = False
 
                 self.refresh_workspace()
+                self.goto_layer("files")
                 self.refresh_tab_bar()
-                self.maybe_notify("Loaded", f"Project loaded from:\n{filename}")
+                msg = f"Project loaded from:\n{filename}"
+                if notes:
+                    msg += "\n\n" + "\n".join(sorted(set(notes)))
+                self.maybe_notify("Loaded", msg)
             except Exception as e:
                 messagebox.showerror("Load Error", f"Failed to load: {e}")
-    
+
     def export_code(self):
         """Export generated code to file"""
         code = self.code_text.get(1.0, tk.END).strip()

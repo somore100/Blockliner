@@ -128,3 +128,58 @@ def parse_project_data(data, known_languages, fallback_language="python"):
 
 def dumps(language, nodes, active_node_id):
     return json.dumps(build_project_data(language, nodes, active_node_id), indent=2)
+
+
+# ---- version 3: a whole workspace (tab) = several files ------------------
+
+WORKSPACE_VERSION = 3
+
+
+def build_workspace_data(files, active_index):
+    """files: list of file dicts (title, language, nodes, active_node_id,
+    optional canvas_x/canvas_y). Each file is saved like a version-2 project."""
+    out = []
+    for f in files:
+        d = build_project_data(f.get("language", "python"), f["nodes"], f.get("active_node_id"))
+        d.pop("format", None)
+        d.pop("version", None)
+        d["title"] = f.get("title")
+        for key in ("canvas_x", "canvas_y"):
+            if isinstance(f.get(key), (int, float)) and not isinstance(f.get(key), bool):
+                d[key] = f[key]
+        out.append(d)
+    return {"format": FORMAT, "version": WORKSPACE_VERSION,
+            "active_file": active_index, "files": out}
+
+
+def parse_workspace_data(data, known_languages, fallback_language="python"):
+    """-> (files, active_index, notes). Accepts version 3 (files list) and
+    every older shape (one file). Raises ValueError only for non-projects."""
+    notes = []
+    if isinstance(data, dict) and isinstance(data.get("files"), list):
+        files = []
+        for raw in data["files"]:
+            try:
+                lang, nodes, active, n = parse_project_data(raw, known_languages, fallback_language)
+            except ValueError:
+                notes.append("A damaged file was skipped.")
+                continue
+            notes += n
+            f = {"title": raw.get("title") if isinstance(raw.get("title"), str) and raw.get("title") else None,
+                 "language": lang, "nodes": nodes, "active_node_id": active}
+            for key in ("canvas_x", "canvas_y"):
+                if isinstance(raw.get(key), (int, float)) and not isinstance(raw.get(key), bool):
+                    f[key] = raw[key]
+            files.append(f)
+        if not files:
+            raise ValueError("The project has no readable files.")
+        ai = data.get("active_file")
+        if not isinstance(ai, int) or isinstance(ai, bool) or not 0 <= ai < len(files):
+            ai = 0
+        return files, ai, notes
+    lang, nodes, active, notes = parse_project_data(data, known_languages, fallback_language)
+    return [{"title": None, "language": lang, "nodes": nodes, "active_node_id": active}], 0, notes
+
+
+def dumps_workspace(files, active_index):
+    return json.dumps(build_workspace_data(files, active_index), indent=2)

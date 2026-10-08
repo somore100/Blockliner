@@ -351,6 +351,40 @@ class LayersMixin:
             return
         self.open_node(new_node["id"])
 
+    STARTER_NODES = (("function", "Empty function"), ("class", "Class"),
+                     ("category", "Category"), ("raw", "Raw code"))
+
+    def create_starter_node(self, key, pos, wire_from=None):
+        """Create a ready-made node at pos on the Nodes layer without a
+        name prompt (rename later from its menu). Function-type nodes
+        are wired from wire_from when given."""
+        tab = self.tabs[self.active_tab_index]
+        target_list = self.get_current_node_list(tab) if self.view_mode == "file" else tab["nodes"]
+        n = len(target_list) + 1
+        normalize_orders(tab["nodes"])
+        if key == "class":
+            node = make_node(f"Class {n}", node_id=str(uuid.uuid4())[:8], kind="class", child_nodes=[])
+        elif key == "category":
+            node = make_node(f"Category {n}", node_id=str(uuid.uuid4())[:8], kind="category", child_nodes=[])
+        else:
+            blocks = []
+            if key == "raw":
+                bid = self.get_raw_code_block_id(self.current_language)
+                pn = self.get_raw_code_param_name(bid)
+                if bid and pn:
+                    blocks = [(bid, {pn: ""})]
+            name = f"Raw code {n}" if key == "raw" else f"Function {n}"
+            node = make_node(name, node_id=str(uuid.uuid4())[:8], blocks=blocks,
+                             order=next_order(tab["nodes"]))
+        node["canvas_x"], node["canvas_y"] = pos
+        target_list.append(node)
+        self.mark_active_tab_dirty()
+        if wire_from is not None and node.get("kind", "function") == "function":
+            self.add_wire_by_drag(wire_from, node["id"])   # also refreshes
+        else:
+            self.refresh_workspace()
+        return node
+
     def create_category(self, pos=None):
         """Phase D: add a new, empty category node (a pure visual
         folder - zero codegen effect, see make_node's docstring) at the
@@ -545,6 +579,24 @@ class LayersMixin:
             "code",
             self.view_mode == "node" and not getattr(self, "_code_panel_user_hidden", False))
         self._sync_code_strip()
+        self._sync_palette_for_layer()
+
+    def _sync_palette_for_layer(self):
+        """The block palette is useless on the Nodes layer (view_mode ==
+        "file"): hide it and its edge strip there, and put both back the
+        way they were when you leave."""
+        on_nodes = (self.view_mode == "file")
+        hidden = getattr(self, "_palette_hidden_by_layer", False)
+        if on_nodes and not hidden:
+            self._palette_was_visible = self.panels.is_visible("palette")
+            self.panels.hide("palette")
+            self.palette_strip.pack_forget()
+            self._palette_hidden_by_layer = True
+        elif not on_nodes and hidden:
+            self.palette_strip.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 3),
+                                    before=self.panels.paned)
+            self.panels.set_visible("palette", getattr(self, "_palette_was_visible", True))
+            self._palette_hidden_by_layer = False
 
     def refresh_workspace(self):
         """Refresh the visual workspace - either the file-level node

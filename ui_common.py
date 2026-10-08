@@ -162,6 +162,8 @@ DEFAULT_SETTINGS = {
     # Show the node marker lines in the panel (and in Export). Unchecked =
     # clean code only.
     "show_markers": True,
+    # Typing ( [ { " ' in a code box inserts the closing one too.
+    "code_autoclose": True,
     # Code panel edits -> blocks: "line" (when the caret leaves the edited
     # line), "char" (every keystroke) or "manual" (Sync button only).
     "code_sync_mode": "line",

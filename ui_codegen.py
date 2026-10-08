@@ -9,6 +9,7 @@ import sys
 from nodes_model import make_node, sorted_function_nodes
 import portable
 import project_file
+import code_autoclose
 from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
 
 
@@ -191,14 +192,27 @@ class CodegenMixin:
             code_header_row, text="\U0001F504 Sync code \u2192 blocks", command=self.sync_code_now,
             bg=DARK_PANEL, fg=DARK_FG, relief=tk.FLAT, font=("Segoe UI", 8)
         ).pack(side=tk.RIGHT, padx=4)
+        self.autoclose_var = tk.BooleanVar(value=self.autoclose_setting())
         for text, var, cmd in (("Show markers", self.show_markers_var, self.on_show_markers_toggle),
-                               ("Safe mode", self.safe_mode_var, self.on_safe_mode_toggle)):
+                               ("Safe mode", self.safe_mode_var, self.on_safe_mode_toggle),
+                               ("Auto-close ( [ { \" '", self.autoclose_var, self.on_autoclose_toggle)):
             tk.Checkbutton(
                 code_header_row, text=text, variable=var, command=cmd,
                 bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
                 activebackground=DARK_PANEL, activeforeground=DARK_FG,
                 font=("Segoe UI", 8)
             ).pack(side=tk.RIGHT, padx=2)
+
+    def autoclose_setting(self):
+        return bool(self.settings.get("code_autoclose", True))
+
+    def on_autoclose_toggle(self):
+        self.settings["code_autoclose"] = bool(self.autoclose_var.get())
+        self.save_app_settings()
+
+    def attach_autoclose(self, text_widget):
+        """Give any code Text widget the bracket/quote auto-closing."""
+        code_autoclose.install(text_widget, self.autoclose_setting)
 
     def on_safe_mode_toggle(self):
         self.settings["safe_mode"] = bool(self.safe_mode_var.get())
@@ -380,10 +394,12 @@ class CodegenMixin:
         choose where it goes: Blockliner's own saves folder, or any
         custom location via the normal file browser."""
         self.sync_active_tab_state()
-        tab = self.tabs[self.active_tab_index]
-        if not any(n["blocks"] for n in self.all_function_nodes(tab)) and len(tab["nodes"]) < 2:
+        if all(self._file_is_blank(f) for f in self.tabs) and len(self.tabs) < 2:
             messagebox.showinfo("Nothing to Save", "Add some blocks first!")
             return
+        ws = self.workspaces[self.active_ws_index]
+        default_name = (os.path.splitext(os.path.basename(ws["filepath"]))[0]
+                        if ws.get("filepath") else f"project_{self.current_language}")
 
         dialog = tk.Toplevel(self)
         dialog.title("Save Project")
@@ -412,7 +428,7 @@ class CodegenMixin:
             highlightthickness=1, highlightbackground=DARK_BORDER
         )
         name_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0), ipady=4)
-        name_entry.insert(0, f"project_{self.current_language}")
+        name_entry.insert(0, default_name)
         name_entry.focus_set()
         name_entry.select_range(0, tk.END)
 
@@ -467,19 +483,25 @@ class CodegenMixin:
         dialog.bind("<Escape>", lambda e: dialog.destroy())
         dialog.bind("<Return>", lambda e: do_save_to_app_folder())
 
+    def _file_is_blank(self, tab):
+        """No blocks anywhere and a single node: nothing worth saving."""
+        return len(tab["nodes"]) < 2 and not any(
+            n["blocks"] for n in self.all_function_nodes(tab))
+
     def _write_project_file(self, filepath):
-        """Actually write the project JSON to disk. Returns True on success."""
+        """Write the whole workspace (every file in this tab) as JSON.
+        Returns True on success."""
         try:
             self.sync_active_tab_state()
-            tab = self.tabs[self.active_tab_index]
-            text = project_file.dumps(self.current_language, tab["nodes"],
-                                      tab.get("active_node_id"))
+            ws = self.workspaces[self.active_ws_index]
+            text = project_file.dumps_workspace(ws["files"], ws["active_index"])
             with open(filepath, 'w') as f:
                 f.write(text)
 
-            tab["filepath"] = filepath
-            tab["title"] = os.path.splitext(os.path.basename(filepath))[0]
-            tab["dirty"] = False
+            ws["filepath"] = filepath
+            ws["title"] = os.path.splitext(os.path.basename(filepath))[0]
+            for f in ws["files"]:
+                f["dirty"] = False
             self.refresh_tab_bar()
 
             self.maybe_notify("Saved", f"Project saved to:\n{filepath}")
@@ -487,11 +509,11 @@ class CodegenMixin:
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save: {e}")
             return False
-    
+
     def load_project(self):
-        """Load project from JSON - opens into a new tab, unless the
-        current tab is both empty and unmodified, in which case it's
-        reused rather than leaving a pointless blank tab behind."""
+        """Load a project JSON. A blank, untouched tab is reused; any
+        other tab is left alone and the project opens in a NEW tab.
+        Either way it lands on the Files layer."""
         initial_dir = BLOCKLINER_SAVES_PATH if os.path.isdir(BLOCKLINER_SAVES_PATH) else "."
         filename = filedialog.askopenfilename(
             filetypes=[("Blockliner Project", "*.json"), ("All Files", "*.*")],
@@ -502,43 +524,33 @@ class CodegenMixin:
             try:
                 with open(filename, 'r') as f:
                     project_data = json.load(f)
-                loaded_lang, loaded_nodes, active_id, notes = project_file.parse_project_data(
+                files, active_index, notes = project_file.parse_workspace_data(
                     project_data, PRESET_LANGUAGES, self.current_language)
-
-                current_tab = self.tabs[self.active_tab_index]
-                reuse_current = (not self.project_blocks) and (not current_tab["dirty"]) \
-                    and len(current_tab["nodes"]) < 2
+                stem = os.path.splitext(os.path.basename(filename))[0]
+                for i, fl in enumerate(files):
+                    fl["filepath"] = None
+                    fl["dirty"] = False
+                    if not fl.get("title"):
+                        fl["title"] = stem if len(files) == 1 else f"File {i + 1}"
 
                 self.sync_active_tab_state()
-                if reuse_current:
-                    tab = current_tab
+                ws = self.workspaces[self.active_ws_index]
+                blank = (len(ws["files"]) == 1 and not self.workspace_dirty(ws)
+                         and self._file_is_blank(ws["files"][0]))
+                if blank:
+                    ws.update({"files": files, "active_index": active_index,
+                               "title": stem, "filepath": filename})
+                    self._show_active_file("files")
                 else:
-                    tab = {"title": "Untitled", "filepath": None, "dirty": False}
-                    self.tabs.append(tab)
-                    self.active_tab_index = len(self.tabs) - 1
-                tab.update({"language": loaded_lang, "nodes": loaded_nodes,
-                            "active_node_id": active_id})
-
-                self.current_language = loaded_lang
-                self.lang_var.set(loaded_lang)
-                self.load_blocks_for_language(loaded_lang)
-                self.load_and_merge_custom_blocks()
-                self.refresh_palette()
-                self.project_blocks = self.get_active_node(tab)["blocks"]
-
-                tab["filepath"] = filename
-                tab["title"] = os.path.splitext(os.path.basename(filename))[0]
-                tab["dirty"] = False
-
-                self.refresh_workspace()
-                self.goto_layer("files")
-                self.refresh_tab_bar()
+                    self.new_workspace(files=files, title=stem, filepath=filename,
+                                       active_index=active_index)
                 msg = f"Project loaded from:\n{filename}"
                 if notes:
                     msg += "\n\n" + "\n".join(sorted(set(notes)))
                 self.maybe_notify("Loaded", msg)
             except Exception as e:
                 messagebox.showerror("Load Error", f"Failed to load: {e}")
+
 
     def export_code(self):
         """Export generated code to file"""

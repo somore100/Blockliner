@@ -195,7 +195,8 @@ def main():
             except tk.TclError: pass
             out += all_text(c)
         return out
-    check("tab strip shows the new tab", nt["title"] in all_text(app.tab_bar_frame))
+    strip = " | ".join(all_text(app.tab_bar_frame))
+    check("tab strip shows the workspace, not each file", app.workspaces[app.active_ws_index]["title"] in strip and nt["title"] not in strip)
     check("Files box drawn for every tab", len(app._filesview_boxes) == len(app.tabs))
     app.files_view_code_mode = True
     check("Files code view: only Panels",

@@ -59,6 +59,7 @@ class NodeOpsMixin:
                         font=("Consolas", 10), height=max(3, min(30, code.count("\n") + 2))
                     )
                     text_widget.pack(fill=tk.X, padx=12, pady=(0, 4))
+                    self.attach_autoclose(text_widget)
                     if code:
                         text_widget.insert("1.0", code)
                     text_widget.bind(
@@ -126,6 +127,7 @@ class NodeOpsMixin:
                 font=("Consolas", 10), height=max(3, min(30, code.count("\n") + 2))
             )
             text_widget.pack(fill=tk.X, padx=4, pady=(0, 4))
+            self.attach_autoclose(text_widget)
             if code:
                 text_widget.insert("1.0", code)
             text_widget.bind(

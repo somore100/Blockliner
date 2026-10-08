@@ -57,8 +57,29 @@ def pure():
     check("unknown active id -> a real function node", find_node_by_id(n, act) is not None and find_node_by_id(n, act)["kind"] == "function")
     check("order filled in for legacy nodes", all("order" in x for x in function_nodes_in_tree_order(n)))
 
+def workspace_pure():
+    nodes = [make_node("a", node_id="a")]
+    files = [{"title": "one", "language": "python", "nodes": nodes, "active_node_id": "a", "canvas_x": 5, "canvas_y": 6},
+             {"title": "two", "language": "rust", "nodes": [make_node("b", node_id="b")], "active_node_id": "b"}]
+    d = json.loads(PF.dumps_workspace(files, 1))
+    got, ai, notes = PF.parse_workspace_data(d, PRESET_LANGUAGES)
+    check("workspace round trip: files, titles, languages, active file", [f["title"] for f in got] == ["one", "two"] and [f["language"] for f in got] == ["python", "rust"] and ai == 1 and notes == [])
+    check("file canvas position survives", got[0].get("canvas_x") == 5 and "canvas_x" not in got[1])
+    for bad in (99, -1, "x", True, None):
+        d["active_file"] = bad
+        check(f"bad active_file {bad!r} -> 0", PF.parse_workspace_data(d, PRESET_LANGUAGES)[1] == 0)
+    d["active_file"] = 1
+    d["files"].insert(0, {"junk": 1})
+    got, ai, notes = PF.parse_workspace_data(d, PRESET_LANGUAGES)
+    check("damaged file skipped with a note", len(got) == 2 and any("damaged file" in n for n in notes))
+    try: PF.parse_workspace_data({"files": [1, 2]}, PRESET_LANGUAGES); ok = False
+    except ValueError: ok = True
+    check("no readable files -> ValueError", ok)
+    got, ai, notes = PF.parse_workspace_data({"language": "python", "blocks": []}, PRESET_LANGUAGES)
+    check("old single-file format -> one file", len(got) == 1 and ai == 0 and got[0]["title"] is None)
+
 def main():
-    pure()
+    pure(); workspace_pure()
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
     app.geometry("1200x800+0+0"); app.update()
     ui_codegen.messagebox.showinfo = lambda *a, **k: None
@@ -75,17 +96,18 @@ def main():
     tmp = tempfile.mkdtemp(); path = os.path.join(tmp, "p.json")
     check("save writes", app._write_project_file(path))
     data = json.load(open(path))
-    check("file is version 2 with every node", data["version"] == 2 and {n["id"] for n in data["nodes"]} >= {"s2", fn[0]["id"]})
+    check("file is version 3 with every node of every file", data["version"] == 3 and {n["id"] for n in data["files"][0]["nodes"]} >= {"s2", fn[0]["id"]})
 
     ui_codegen.filedialog.askopenfilename = lambda **k: path
-    n_tabs = len(app.tabs)
+    n_tabs = len(app.workspaces)
     app.load_project()
     t = app.tabs[app.active_tab_index]
-    check("dirty tab -> opens in a NEW tab", len(app.tabs) == n_tabs + 1 and not errs)
+    check("dirty tab -> opens in a NEW tab", len(app.workspaces) == n_tabs + 1 and not errs)
     check("loaded tab has all nodes + active node", find_node_by_id(t["nodes"], "s2") is not None and t["active_node_id"] == "s2" and len(t["nodes"]) == len(tab["nodes"]))
     check("active node's blocks are the live ones", app.project_blocks is find_node_by_id(t["nodes"], "s2")["blocks"])
     check("opens on the Files layer", app.view_mode == "files")
-    check("title/path/clean", t["title"] == "p" and t["filepath"] == path and not t["dirty"])
+    ws = app.workspaces[app.active_ws_index]
+    check("tab titled after the file, path kept, files clean", ws["title"] == "p" and ws["filepath"] == path and not t["dirty"])
 
     # old format file loads
     old = os.path.join(tmp, "old.json"); json.dump({"language": "python", "blocks": [[bid, {pn: "z = 9"}]]}, open(old, "w"))
@@ -96,15 +118,33 @@ def main():
     # garbage file -> error popup, no new tab
     bad = os.path.join(tmp, "bad.json"); open(bad, "w").write("[1, 2")
     ui_codegen.filedialog.askopenfilename = lambda **k: bad
-    n = len(app.tabs); app.load_project()
-    check("garbage file: error shown, no tab added", len(errs) == 1 and len(app.tabs) == n)
+    n = len(app.workspaces); app.load_project()
+    check("garbage file: error shown, no tab added", len(errs) == 1 and len(app.workspaces) == n)
+    # several files in one tab: only that tab's files are saved/loaded
+    app.new_workspace(); ws = app.workspaces[app.active_ws_index]
+    app.tabs[0]["title"] = "alpha"; app.tabs[0]["dirty"] = True
+    app.create_file_at((50, 50)); app.tabs[1]["title"] = "beta"
+    other = [w for w in app.workspaces if w is not ws][0]
+    check("each tab has its OWN files", len(ws["files"]) == 2 and ws["files"] is not other["files"] and len(other["files"]) != 2)
+    multi = os.path.join(tmp, "multi.json")
+    check("save multi-file tab", app._write_project_file(multi))
+    check("saving marks every file of the tab clean", not any(f["dirty"] for f in ws["files"]))
+    d = json.load(open(multi))
+    check("saved file holds exactly this tab's files", [f["title"] for f in d["files"]] == ["alpha", "beta"])
+    ui_codegen.filedialog.askopenfilename = lambda **k: multi
+    nws = len(app.workspaces); app.load_project()
+    got = app.workspaces[app.active_ws_index]
+    check("load: new tab with both files, Files layer", len(app.workspaces) == nws + 1 and [f["title"] for f in got["files"]] == ["alpha", "beta"] and app.view_mode == "files")
+    check("other tabs untouched by the load", other["files"] is not got["files"] and len(ws["files"]) == 2)
+    app.switch_workspace(app.workspaces.index(other))
+    check("switching tab switches the files shown", app.tabs is other["files"] and app.view_mode == "files")
     # blank tab is reused; a blank-looking tab with several nodes is not
     ui_codegen.filedialog.askopenfilename = lambda **k: path
-    app.new_tab(); n = len(app.tabs); app.load_project()
-    check("blank untouched tab is reused", len(app.tabs) == n and app.tabs[app.active_tab_index]["filepath"] == path)
-    app.new_tab(); app.tabs[app.active_tab_index]["nodes"].append(make_node("empty2", node_id="e2"))
-    n = len(app.tabs); app.load_project()
-    check("tab with several (empty) nodes is NOT overwritten", len(app.tabs) == n + 1)
+    app.new_workspace(); n = len(app.workspaces); app.load_project()
+    check("blank untouched tab is reused", len(app.workspaces) == n and app.workspaces[app.active_ws_index]["filepath"] == path)
+    app.new_workspace(); app.tabs[app.active_tab_index]["nodes"].append(make_node("empty2", node_id="e2"))
+    n = len(app.workspaces); app.load_project()
+    check("tab with several (empty) nodes is NOT overwritten", len(app.workspaces) == n + 1)
     app.destroy()
     print("FAILURES:", FAILURES)
     sys.exit(1 if FAILURES else 0)

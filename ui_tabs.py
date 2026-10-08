@@ -10,6 +10,108 @@ from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK
 
 class TabsMixin:
     
+    # ---- workspaces: a TAB is a workspace holding several FILES --------
+    # self.tabs / self.active_tab_index keep meaning "the files of the
+    # current workspace / the active file", so every Files/Nodes/Blocks
+    # layer routine works unchanged; the top tab bar switches workspaces.
+    @property
+    def tabs(self):
+        return self.workspaces[self.active_ws_index]["files"]
+
+    @tabs.setter
+    def tabs(self, files):
+        if not hasattr(self, "workspaces"):
+            self.workspaces = [{"title": "Project 1", "files": files,
+                                "active_index": 0, "filepath": None}]
+            self.active_ws_index = 0
+            self._next_project_number = 2
+        else:
+            self.workspaces[self.active_ws_index]["files"] = files
+
+    @property
+    def active_tab_index(self):
+        return self.workspaces[self.active_ws_index]["active_index"]
+
+    @active_tab_index.setter
+    def active_tab_index(self, value):
+        self.workspaces[self.active_ws_index]["active_index"] = value
+
+    def _show_active_file(self, view_mode="files"):
+        """Point the editor at the active file of the current workspace."""
+        tab = self.tabs[self.active_tab_index]
+        self.current_language = tab["language"]
+        self.project_blocks = self.get_active_node(tab)["blocks"]
+        self.view_mode = view_mode
+        self.lang_var.set(self.current_language)
+        self.load_blocks_for_language(self.current_language)
+        self.load_and_merge_custom_blocks()
+        self.refresh_palette()
+        self.refresh_workspace()
+        self.refresh_tab_bar()
+
+    def workspace_dirty(self, ws):
+        return any(f.get("dirty") for f in ws["files"])
+
+    def switch_workspace(self, index):
+        if not (0 <= index < len(self.workspaces)) or index == self.active_ws_index:
+            return
+        self.sync_active_tab_state()
+        self.active_ws_index = index
+        self._show_active_file("files")
+
+    def new_workspace(self, files=None, title=None, filepath=None, active_index=0):
+        """Open a new tab. files=None -> one fresh blank file."""
+        self.sync_active_tab_state()
+        if files is None:
+            nodes = self.build_initial_nodes_for_language(self.current_language)
+            files = [{"title": f"Untitled {self._next_untitled_number}",
+                      "language": self.current_language, "nodes": nodes,
+                      "active_node_id": default_active_node_id(nodes),
+                      "filepath": None, "dirty": False}]
+            self._next_untitled_number += 1
+        if title is None:
+            title = f"Project {self._next_project_number}"
+            self._next_project_number += 1
+        self.workspaces.append({"title": title, "files": files,
+                                "active_index": active_index, "filepath": filepath})
+        self.active_ws_index = len(self.workspaces) - 1
+        self._show_active_file("files")
+        return self.workspaces[-1]
+
+    def close_workspace(self, index):
+        if not (0 <= index < len(self.workspaces)):
+            return
+        ws = self.workspaces[index]
+        if self.workspace_dirty(ws):
+            if not messagebox.askyesno(
+                    "Unsaved Changes",
+                    f"'{ws['title']}' has unsaved changes. Close it anyway?"):
+                return
+        self.sync_active_tab_state()
+        was_active = (index == self.active_ws_index)
+        self.workspaces.pop(index)
+        if not self.workspaces:
+            self.workspaces.append({"title": f"Project {self._next_project_number}",
+                                    "files": [], "active_index": 0, "filepath": None})
+            self._next_project_number += 1
+            self.active_ws_index = 0
+            nodes = self.build_initial_nodes_for_language(self.current_language)
+            self.workspaces[0]["files"] = [{
+                "title": f"Untitled {self._next_untitled_number}",
+                "language": self.current_language, "nodes": nodes,
+                "active_node_id": default_active_node_id(nodes),
+                "filepath": None, "dirty": False}]
+            self._next_untitled_number += 1
+            was_active = True
+        elif index < self.active_ws_index:
+            self.active_ws_index -= 1
+        elif was_active:
+            self.active_ws_index = min(index, len(self.workspaces) - 1)
+        if was_active:
+            self._show_active_file("files")
+        else:
+            self.refresh_tab_bar()
+
     def get_active_node(self, tab=None):
         """Return the currently-active node dict for `tab` (defaulting
         to the active tab), searching into class nodes' child_nodes at
@@ -162,8 +264,8 @@ class TabsMixin:
                 continue
             widget.destroy()
 
-        for i, tab in enumerate(self.tabs):
-            is_active = (i == self.active_tab_index)
+        for i, tab in enumerate(self.workspaces):
+            is_active = (i == self.active_ws_index)
             tab_frame = tk.Frame(
                 self.tab_bar_frame,
                 bg=(DARK_ACCENT if is_active else DARK_PANEL),
@@ -172,7 +274,7 @@ class TabsMixin:
             )
             tab_frame.pack(side=tk.LEFT, padx=(0, 2), pady=2)
 
-            label_text = tab["title"] + (" \u25CF" if tab["dirty"] else "")
+            label_text = tab["title"] + (" \u25CF" if self.workspace_dirty(tab) else "")
             label = tk.Label(
                 tab_frame, text=label_text,
                 bg=(DARK_ACCENT if is_active else DARK_PANEL),
@@ -181,7 +283,7 @@ class TabsMixin:
                 cursor="hand2", padx=10, pady=6
             )
             label.pack(side=tk.LEFT)
-            label.bind("<Button-1>", lambda e, idx=i: self.switch_to_tab(idx))
+            label.bind("<Button-1>", lambda e, idx=i: self.switch_workspace(idx))
 
             close_btn = tk.Label(
                 tab_frame, text="\u2715",
@@ -190,12 +292,12 @@ class TabsMixin:
                 font=("Segoe UI", 8), cursor="hand2", padx=8
             )
             close_btn.pack(side=tk.LEFT)
-            close_btn.bind("<Button-1>", lambda e, idx=i: self.close_tab(idx))
+            close_btn.bind("<Button-1>", lambda e, idx=i: self.close_workspace(idx))
 
         tk.Button(
             self.tab_bar_frame, text="+", bg=DARK_PANEL, fg=DARK_FG,
             relief=tk.FLAT, font=("Segoe UI", 11, "bold"), cursor="hand2",
-            width=2, command=self.new_tab
+            width=2, command=self.new_workspace
         ).pack(side=tk.LEFT, padx=(6, 0), pady=2)
 
         self.refresh_layer_bar()

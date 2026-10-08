@@ -489,6 +489,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self._bind_workspace_context_menu()
+        self.install_canvas_pan()
         
         # Empty state
         self.show_empty_state()
@@ -588,6 +589,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         )
         self.code_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.install_code_guard()
+        self.attach_autoclose(self.code_text)
         self.build_code_options_row(code_header_row=lang_frame)
         self.install_code_sync()
         

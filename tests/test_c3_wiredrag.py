@@ -46,6 +46,7 @@ def to_root_event(app, cx, cy):
 
 def main():
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
+    app.show_drop_menu = lambda *a, **k: None   # empty-space release opens a menu; tested in test_pan_dropmenu
     app.update()
 
     tab = app.tabs[app.active_tab_index]

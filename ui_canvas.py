@@ -477,6 +477,9 @@ class CanvasMixin:
         self._wire_drag_source = None
         if target_id is not None:
             self.add_wire_by_drag(source_id, target_id)
+        elif source_id is not None:
+            # Dropped on empty canvas: offer to create a node right there.
+            self.show_drop_menu(source_id, (max(0, cx), max(0, cy)), e.x_root, e.y_root)
 
     def _node_box_at(self, cx, cy, exclude_id=None):
         """Return the id of whichever currently-drawn function-kind node
@@ -695,3 +698,50 @@ class CanvasMixin:
                 row, col = divmod(idx, per_row)
                 tab["canvas_x"] = start_x + col * col_width
                 tab["canvas_y"] = start_y + row * row_height
+
+    # ---- left-drag panning (ComfyUI style), all layers -----------------
+
+    def install_canvas_pan(self):
+        """Hold left mouse on EMPTY canvas and drag to move the view.
+        Boxes, blocks and wires are separate widgets/items, so a press on
+        them never starts a pan. The canvas is unconfined and its
+        scrollregion grows to include wherever you pan to."""
+        c = self.workspace_canvas
+        c.configure(confine=False)
+        self._pan_active = False
+        self.bind_all("<ButtonPress-1>", lambda e: self._dismiss_drop_menu(), add="+")
+        for w in (c, self.workspace_frame):
+            w.bind("<ButtonPress-1>", self._pan_press, add="+")
+            w.bind("<B1-Motion>", self._pan_motion, add="+")
+            w.bind("<ButtonRelease-1>", self._pan_release, add="+")
+
+    def _pan_press(self, e):
+        c = self.workspace_canvas
+        rx, ry = e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty()
+        self._pan_active = False
+        if e.widget is c:
+            x, y = c.canvasx(rx), c.canvasy(ry)
+            if c.find_overlapping(x - 2, y - 2, x + 2, y + 2) and \
+                    set(c.find_overlapping(x - 2, y - 2, x + 2, y + 2)) != {self.workspace_frame_window_id}:
+                return
+        c.scan_mark(rx, ry)
+        self._pan_active = True
+        c.configure(cursor="fleur")
+
+    def _pan_motion(self, e):
+        if not getattr(self, "_pan_active", False):
+            return
+        c = self.workspace_canvas
+        c.scan_dragto(e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty(), gain=1)
+        vx0, vy0 = c.canvasx(0), c.canvasy(0)
+        vx1, vy1 = c.canvasx(c.winfo_width()), c.canvasy(c.winfo_height())
+        try:
+            sx0, sy0, sx1, sy1 = [float(v) for v in str(c.cget("scrollregion")).split()]
+        except ValueError:
+            sx0, sy0, sx1, sy1 = vx0, vy0, vx1, vy1
+        c.configure(scrollregion=(min(sx0, vx0), min(sy0, vy0), max(sx1, vx1), max(sy1, vy1)))
+
+    def _pan_release(self, e):
+        if getattr(self, "_pan_active", False):
+            self._pan_active = False
+            self.workspace_canvas.configure(cursor="")

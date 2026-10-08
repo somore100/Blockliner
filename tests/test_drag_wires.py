@@ -11,7 +11,7 @@ def check(label, cond):
 
 def wire_state(app):
     c = app.workspace_canvas
-    return sorted((tuple(c.gettags(i)), tuple(round(v, 3) for v in c.coords(i))) for i in c.find_withtag("wire"))
+    return sorted((tuple(t for t in c.gettags(i) if t != "current"), tuple(round(v, 3) for v in c.coords(i))) for i in c.find_withtag("wire"))
 
 def wire_ids(app, tag): return set(app.workspace_canvas.find_withtag(tag))
 

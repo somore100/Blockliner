@@ -79,6 +79,49 @@ class MenusMixin:
         menu.add_cascade(label="\u25a4 Panels", menu=panels)
         return menu
 
+    def build_drop_menu(self, source_id, pos):
+        """Menu shown when a wire is dropped on empty canvas: New node at
+        the top, ready-made starter nodes below."""
+        menu = self._new_menu(self)
+        menu.add_command(label="\u2795 New node",
+                         command=lambda: self._drop_new_node(source_id, pos))
+        menu.add_separator()
+        for key, label in self.STARTER_NODES:
+            menu.add_command(
+                label=label,
+                command=lambda k=key: self.create_starter_node(k, pos, wire_from=source_id))
+        return menu
+
+    def _drop_new_node(self, source_id, pos):
+        """Named new node (asks for the name), wired from the source."""
+        before = {n["id"] for n in self.get_current_node_list(self.tabs[self.active_tab_index])}
+        self.create_node(pos=pos)
+        for n in self.get_current_node_list(self.tabs[self.active_tab_index]):
+            if n["id"] not in before and n.get("kind", "function") == "function":
+                self.add_wire_by_drag(source_id, n["id"])
+
+    def show_drop_menu(self, source_id, pos, x_root, y_root):
+        menu = self.build_drop_menu(source_id, pos)
+        self._dismiss_drop_menu()
+        self._drop_menu = menu
+
+        def close(_e=None):
+            self._dismiss_drop_menu()
+        menu.bind("<Escape>", close)
+        try:
+            menu.tk_popup(int(x_root), int(y_root))
+        finally:
+            menu.grab_release()
+
+    def _dismiss_drop_menu(self):
+        menu = getattr(self, "_drop_menu", None)
+        if menu is not None:
+            try:
+                menu.unpost()
+            except tk.TclError:
+                pass
+            self._drop_menu = None
+
     def _add_block_cascade(self, menu):
         """'Add block' > category > block, same source/order as the palette."""
         sub = self._new_menu(menu)

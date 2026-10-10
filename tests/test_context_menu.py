@@ -106,10 +106,11 @@ def main():
     check("at Nodes layer", app.view_mode == "file")
     mn = app.build_workspace_menu((300, 150))
     Ln = labels(mn)
-    check("Nodes layer: Add node + Add category, then Panels",
-          Ln[0].endswith("Add node") and Ln[1].endswith("Add category") and Ln[2] == "-" and Ln[3].endswith("Panels"))
+    check("Nodes layer: Add node + Add category + Add group, then Panels",
+          Ln[0].endswith("Add node") and Ln[1].endswith("Add category") and Ln[2].endswith("Add group")
+          and Ln[3] == "-" and Ln[4].endswith("Panels"))
     check("Nodes layer Panels has only the palette (no code panel here)",
-          labels(sub(mn, Ln[3])) == ["Block Palette"])
+          labels(sub(mn, Ln[4])) == ["Block Palette"])
 
     names = iter(["Alpha", "Beta", "Gamma", "Delta"])
     real_ask = ui.simpledialog.askstring
@@ -181,7 +182,7 @@ def main():
     app.files_view_code_mode = False
     mf = app.build_workspace_menu((500, 260))
     Lf = labels(mf)
-    check("Files layer: 'New file' top entry", Lf[0].endswith("New file") and Lf[2].endswith("Panels"))
+    check("Files layer: 'New file' top entry", Lf[0].endswith("New file") and Lf[1].endswith("Add group") and Lf[3].endswith("Panels"))
     tabs_before, active_before = len(app.tabs), app.active_tab_index
     mf.invoke(0); app.update()
     nt = app.tabs[-1]

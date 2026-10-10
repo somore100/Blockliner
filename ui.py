@@ -25,6 +25,8 @@ from ui_codegen import CodegenMixin
 from ui_codesync import CodeSyncMixin
 from ui_nodetemplates import NodeTemplatesMixin
 from ui_topbar import TopBarMixin
+from ui_canvasview import CanvasViewMixin
+from ui_groups import GroupsMixin
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -32,7 +34,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -150,6 +152,8 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             step = -1 if event.delta > 0 else 1
         else:
             return
+        if canvas is self.workspace_canvas and self.canvas_wheel_zoom(step):
+            return   # Files/Nodes layers: the wheel zooms instead of scrolling
         if normalize_mode(self.settings.get("scroll_mode", "smooth")) == "rigid":
             self._rigid_scroll(canvas, step)
         else:
@@ -199,20 +203,9 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         logo_frame = tk.Frame(toolbar, bg=DARK_PANEL)
         logo_frame.pack(side=tk.LEFT, padx=15)
         
-        # Try to load logo
-        try:
-            logo_path = "logo.png"  # Assumes logo.png is in the same folder as main.py
-            if os.path.exists(logo_path):
-                logo_img = Image.open(logo_path)
-                logo_img = logo_img.resize((32, 32), Image.Resampling.LANCZOS)
-                self.logo_photo = ImageTk.PhotoImage(logo_img)
-                tk.Label(
-                    logo_frame,
-                    image=self.logo_photo,
-                    bg=DARK_PANEL
-                ).pack(side=tk.LEFT, padx=(0, 8))
-        except Exception as e:
-            print(f"Could not load logo: {e}")
+        # Settings button where the logo used to be (the logo lives in About)
+        ttk.Button(logo_frame, text="\u2699", width=3, command=self.settings_dialog,
+                   style="Toolbar.TButton").pack(side=tk.LEFT, padx=(0, 8))
         
         title_label = tk.Label(
             logo_frame,
@@ -467,6 +460,16 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             self.workspace_canvas.bind_all("<Button-5>", lambda ev: self._on_mousewheel(ev, self.workspace_canvas))
 
         def _unbind_workspace_scroll(e):
+            # Leave also fires when the pointer moves onto a box (a child
+            # widget); the wheel must keep working there.
+            try:
+                under = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
+                while under is not None:
+                    if under is self.workspace_canvas:
+                        return
+                    under = under.master
+            except (tk.TclError, KeyError):
+                pass
             self.workspace_canvas.unbind_all("<MouseWheel>")
             self.workspace_canvas.unbind_all("<Button-4>")
             self.workspace_canvas.unbind_all("<Button-5>")
@@ -478,6 +481,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self._bind_workspace_context_menu()
         self.install_canvas_pan()
+        self.install_grid()
         
         # Empty state
         self.show_empty_state()

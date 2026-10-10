@@ -59,7 +59,7 @@ class TabsMixin:
         self.active_ws_index = index
         self._show_active_file("files")
 
-    def new_workspace(self, files=None, title=None, filepath=None, active_index=0):
+    def new_workspace(self, files=None, title=None, filepath=None, active_index=0, groups=None):
         """Open a new tab. files=None -> one fresh blank file."""
         self.sync_active_tab_state()
         if files is None:
@@ -73,7 +73,8 @@ class TabsMixin:
             title = f"Project {self._next_project_number}"
             self._next_project_number += 1
         self.workspaces.append({"title": title, "files": files,
-                                "active_index": active_index, "filepath": filepath})
+                                "active_index": active_index, "filepath": filepath,
+                                "groups": groups or []})
         self.active_ws_index = len(self.workspaces) - 1
         self._show_active_file("files")
         return self.workspaces[-1]

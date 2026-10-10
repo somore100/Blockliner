@@ -113,25 +113,18 @@ def main():
     wheel(app.workspace_canvas, DOWN); app.workspace_canvas.yview_scroll = real
     check("missing key behaves like smooth", calls == [(1, "units")])
 
-    # ---- Nodes layer ----
-    app.settings["scroll_mode"] = "rigid"
-    app.goto_layer("nodes"); app.update(); app.update()
-    app.workspace_canvas.yview_moveto(0.0); app.update()
-    wins = [i for i in app.workspace_canvas.find_all() if app.workspace_canvas.type(i) == "window"]
-    nreg = float(str(app.workspace_canvas.cget("scrollregion")).split()[1])
-    ntops = sm.snap_points(sorted({app.workspace_canvas.bbox(i)[1] for i in wins}), nreg)
-    check("nodes layer: several rows of node boxes", len(ntops) >= 5)
-    tick(); wheel(app.workspace_canvas, DOWN)
-    check("nodes layer rigid: snaps to the next node row", round(ws_top()) == round(ntops[1]))
-    tick(); wheel(app.workspace_canvas, DOWN)
-    check("nodes layer rigid: ...and the next", round(ws_top()) == round(ntops[2]))
-    tick(); wheel(app.workspace_canvas, UP)
-    check("nodes layer rigid: up goes back", round(ws_top()) == round(ntops[1]))
-
-    # ---- Files layer ----
-    app.goto_layer("files"); app.update(); app.update()
-    tick(); wheel(app.workspace_canvas, DOWN)
-    check("files layer: rigid wheel does not crash", True)
+    # ---- Nodes + Files layers: the wheel ZOOMS (not scrolls), in any scroll mode ----
+    for layer in ("nodes", "files"):
+        app.settings["scroll_mode"] = "rigid"
+        app.goto_layer(layer); app.update(); app.update()
+        app.set_zoom(1.0); app.update()
+        top0 = ws_top()
+        wheel(app.workspace_canvas, UP); app.apply_zoom(); app.update()
+        check(layer + " layer: wheel up zooms in", app.canvas_zoom > 1.0)
+        wheel(app.workspace_canvas, DOWN); wheel(app.workspace_canvas, DOWN); app.apply_zoom(); app.update()
+        check(layer + " layer: wheel down zooms out", app.canvas_zoom < 1.0)
+        app.set_zoom(1.0); app.update()
+        check(layer + " layer: zoom reset to 1.0", app.canvas_zoom == 1.0)
 
     # ---- Palette ----
     pal = app.palette_canvas

@@ -26,6 +26,14 @@ class MenusMixin:
                 w.bind(seq, self._on_workspace_right_click)
 
     def _on_workspace_right_click(self, event):
+        gid = self._group_title_at(event) if self.canvas_layer_active() else None
+        if gid:
+            menu = self.build_group_menu(gid)
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+            return
         x, y = self._canvas_coords_from_event(event)
         menu = self.build_workspace_menu((max(0, x), max(0, y)))
         try:
@@ -58,12 +66,16 @@ class MenusMixin:
                                  command=lambda: self.create_node(pos=canvas_pos))
                 menu.add_command(label="\U0001F4C1 Add category",
                                  command=lambda: self.create_category(pos=canvas_pos))
+                menu.add_command(label="\u25ad Add group",
+                                 command=lambda: self.add_group(canvas_pos))
                 self.add_template_cascades(
                     menu, lambda e: self.insert_node_template(e, canvas_pos), separator=True)
                 added = True
             elif self.view_mode == "files":
                 menu.add_command(label="\u2795 New file",
                                  command=lambda: self.create_file_at(canvas_pos))
+                menu.add_command(label="\u25ad Add group",
+                                 command=lambda: self.add_group(canvas_pos))
                 added = True
         if added:
             menu.add_separator()

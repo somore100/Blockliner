@@ -24,12 +24,14 @@ class CanvasMixin:
 
         self.assign_default_tab_canvas_positions()
 
+        self.draw_groups()
         for index, tab in enumerate(self.tabs):
             self.create_filesview_file_box(index, tab)
 
         self.workspace_frame.update_idletasks()
         self.draw_file_wires()
         self._update_fileview_scrollregion()
+        self.redraw_grid()
 
     def create_filesview_file_box(self, index, tab):
         """Build one tab's draggable box and place it on
@@ -48,32 +50,33 @@ class CanvasMixin:
         def _open(_e=None, idx=index):
             self.open_file_from_files_view(idx)
 
-        header = tk.Frame(box, bg=box_color, height=36, cursor="fleur")
+        z = self.canvas_zoom
+        header = tk.Frame(box, bg=box_color, height=self._zi(36), cursor="fleur")
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         label_text = tab["title"] + (" \u25CF" if tab.get("dirty") else "")
         name_label = tk.Label(
             header, text=f"\U0001F4C4 {label_text}",
             bg=box_color, fg="#ffffff",
-            font=("Segoe UI", 10, "bold"), anchor="w", cursor="fleur"
+            font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
-        name_label.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
+        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
         body = tk.Frame(box, bg=BLOCK_BG)
-        body.pack(fill=tk.X, padx=10, pady=8)
+        body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
         node_count = len(tab.get("nodes", []))
         tk.Label(
             body, text=f"{node_count} node{'s' if node_count != 1 else ''} \u2022 {tab['language']}",
-            bg=BLOCK_BG, fg="#888888", font=("Segoe UI", 9)
+            bg=BLOCK_BG, fg="#888888", font=self._zfont(9)
         ).pack(side=tk.LEFT)
         tk.Button(
             body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
-            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
             command=_open
         ).pack(side=tk.RIGHT)
 
         win_id = self.workspace_canvas.create_window(
-            tab["canvas_x"], tab["canvas_y"], anchor="nw", window=box,
+            tab["canvas_x"] * z, tab["canvas_y"] * z, anchor="nw", window=box,
             tags=("fileview", "file_box")
         )
         self._filesview_boxes[index] = (win_id, box)
@@ -106,12 +109,12 @@ class CanvasMixin:
             if not (0 <= idx < len(self.tabs)):
                 return
             t = self.tabs[idx]
-            new_x = drag_state["tab_x0"] + dx
-            new_y = drag_state["tab_y0"] + dy
+            new_x = drag_state["tab_x0"] + dx / self.canvas_zoom
+            new_y = drag_state["tab_y0"] + dy / self.canvas_zoom
             t["canvas_x"], t["canvas_y"] = new_x, new_y
             wid, _ = self._filesview_boxes.get(idx, (None, None))
             if wid is not None:
-                self.workspace_canvas.coords(wid, new_x, new_y)
+                self.workspace_canvas.coords(wid, new_x * self.canvas_zoom, new_y * self.canvas_zoom)
             self.draw_file_wires()
 
         def _release(e, idx=index):
@@ -146,10 +149,11 @@ class CanvasMixin:
         src_tab = self.tabs[source_index]
         dst_tab = self.tabs[target_index]
 
-        x0 = src_tab["canvas_x"] + sw
-        y0 = src_tab["canvas_y"] + sh / 2
-        x1 = dst_tab["canvas_x"]
-        y1 = dst_tab["canvas_y"] + dh / 2
+        z = self.canvas_zoom
+        x0 = src_tab["canvas_x"] * z + sw
+        y0 = src_tab["canvas_y"] * z + sh / 2
+        x1 = dst_tab["canvas_x"] * z
+        y1 = dst_tab["canvas_y"] * z + dh / 2
 
         pull = max(abs(x1 - x0) * 0.5, 40)
         p0 = (x0, y0)
@@ -199,12 +203,14 @@ class CanvasMixin:
 
         self.assign_default_canvas_positions(nodes)
 
+        self.draw_groups()
         for node in nodes:
             self.create_fileview_node_box(node)
 
         self.workspace_frame.update_idletasks()
         self.draw_wires()
         self._update_fileview_scrollregion()
+        self.redraw_grid()
 
     def assign_default_canvas_positions(self, nodes):
         """Give any node without a stored canvas position a sensible
@@ -260,15 +266,16 @@ class CanvasMixin:
             icon = "\U0001F3DB"  # classical building
         else:
             icon = "\U0001F9E9"  # puzzle piece
-        header = tk.Frame(box, bg=box_color, width=215, height=36, cursor="fleur")
+        z = self.canvas_zoom
+        header = tk.Frame(box, bg=box_color, width=self._zi(215), height=self._zi(36), cursor="fleur")
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
             header, text=f"{icon} {node['name']}",
             bg=box_color, fg=text_fg,
-            font=("Segoe UI", 10, "bold"), anchor="w", cursor="fleur"
+            font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
-        name_label.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
+        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
         # Execution order badge (function nodes only): "#N" is this
         # node's place in the generated file; "#?" + a red outline
@@ -281,9 +288,9 @@ class CanvasMixin:
                 header, text="#?" if unassigned else f"#{order_val}",
                 bg="#c62828" if unassigned else box_color,
                 fg="#ffffff" if unassigned else text_fg,
-                font=("Segoe UI", 10, "bold"),
+                font=self._zfont(10, "bold"),
                 cursor="arrow" if node.get("locked") else "hand2")
-            badge.pack(side=tk.LEFT, padx=(8, 0))
+            badge.pack(side=tk.LEFT, padx=(self._zi(8), 0))
             if not node.get("locked"):
                 badge.bind("<Button-1>",
                            lambda e, nid=node["id"]: self.set_node_order_dialog(nid))
@@ -301,23 +308,24 @@ class CanvasMixin:
         if can_wire:
             port = tk.Label(
                 header, text="\u25cf", bg=box_color, fg=text_fg,
-                font=("Segoe UI", 12, "bold"), cursor="crosshair"
+                font=self._zfont(12, "bold"), cursor="crosshair"
             )
-            port.pack(side=tk.RIGHT, padx=(4, 8))
+            port.pack(side=tk.RIGHT, padx=(self._zi(4), self._zi(8)))
 
         if node.get("locked"):
             tk.Label(
                 header, text="\U0001F512", bg=box_color, fg=text_fg,
-            ).pack(side=tk.RIGHT, padx=8)
+                font=self._zfont(9),
+            ).pack(side=tk.RIGHT, padx=self._zi(8))
 
         # Re-pack the name last so the badge, lock and port get their
         # full width first (the header has a fixed width, so a short
         # box would otherwise squeeze them out).
         name_label.pack_forget()
-        name_label.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
+        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
         body = tk.Frame(box, bg=BLOCK_BG)
-        body.pack(fill=tk.X, padx=10, pady=8)
+        body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
         if is_container:
             count = len(node.get("child_nodes", []))
             label_text = f"{count} node{'s' if count != 1 else ''} inside"
@@ -326,16 +334,16 @@ class CanvasMixin:
             label_text = f"{count} block{'s' if count != 1 else ''}"
         tk.Label(
             body, text=label_text,
-            bg=BLOCK_BG, fg="#888888", font=("Segoe UI", 9)
+            bg=BLOCK_BG, fg="#888888", font=self._zfont(9)
         ).pack(side=tk.LEFT)
         tk.Button(
             body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
-            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
             command=_open
         ).pack(side=tk.RIGHT)
 
         win_id = self.workspace_canvas.create_window(
-            node["canvas_x"], node["canvas_y"], anchor="nw", window=box,
+            node["canvas_x"] * z, node["canvas_y"] * z, anchor="nw", window=box,
             tags=("fileview", "node_box")
         )
         self._fileview_boxes[node["id"]] = (win_id, box)
@@ -370,12 +378,12 @@ class CanvasMixin:
             n = find_node_by_id(self.tabs[self.active_tab_index]["nodes"], nid)
             if n is None:
                 return
-            new_x = drag_state["node_x0"] + dx
-            new_y = drag_state["node_y0"] + dy
+            new_x = drag_state["node_x0"] + dx / self.canvas_zoom
+            new_y = drag_state["node_y0"] + dy / self.canvas_zoom
             n["canvas_x"], n["canvas_y"] = new_x, new_y
             wid, _ = self._fileview_boxes.get(nid, (None, None))
             if wid is not None:
-                self.workspace_canvas.coords(wid, new_x, new_y)
+                self.workspace_canvas.coords(wid, new_x * self.canvas_zoom, new_y * self.canvas_zoom)
             self.draw_wires_for(nid)
 
         def _release(e, nid=node["id"]):
@@ -395,16 +403,20 @@ class CanvasMixin:
             port.bind("<B1-Motion>", self._port_motion)
             port.bind("<ButtonRelease-1>", self._port_release)
 
-    def _canvas_coords_from_event(self, e):
-        """Convert a mouse event fired on some widget nested inside
-        workspace_canvas (a port label several frames deep) into actual
-        canvas coordinates, accounting for scroll offset. canvasx/canvasy
-        expect a position relative to the canvas widget itself, not the
-        screen, so root coordinates are translated through the canvas's
-        own screen origin first."""
+    def _canvas_screen_from_event(self, e):
+        """Mouse event -> canvas (screen-scale) coordinates, accounting for
+        scroll offset. canvasx/canvasy expect a position relative to the
+        canvas widget itself, so root coordinates are translated first."""
         rel_x = e.x_root - self.workspace_canvas.winfo_rootx()
         rel_y = e.y_root - self.workspace_canvas.winfo_rooty()
         return self.workspace_canvas.canvasx(rel_x), self.workspace_canvas.canvasy(rel_y)
+
+    def _canvas_coords_from_event(self, e):
+        """Same point in MODEL units (what nodes/files store as canvas_x/y):
+        on the zoomable layers that is the screen point divided by the zoom."""
+        x, y = self._canvas_screen_from_event(e)
+        z = self.canvas_zoom if getattr(self, "view_mode", None) in ("files", "file") else 1.0
+        return x / z, y / z
 
     def _port_press(self, e, source_id):
         """Phase C3: start dragging a wire from source_id's output port.
@@ -420,8 +432,8 @@ class CanvasMixin:
         _, src_widget = wid_pair
         sw = src_widget.winfo_width() or 220
         sh = src_widget.winfo_height() or 70
-        x0 = src_node["canvas_x"] + sw
-        y0 = src_node["canvas_y"] + sh / 2
+        x0 = src_node["canvas_x"] * self.canvas_zoom + sw
+        y0 = src_node["canvas_y"] * self.canvas_zoom + sh / 2
 
         self._wire_drag_source = source_id
         self._wire_drag_start = (x0, y0)
@@ -437,7 +449,7 @@ class CanvasMixin:
         to. Purely visual - no data changes until _port_release."""
         if self._wire_drag_source is None or self._wire_drag_temp_id is None:
             return
-        cx, cy = self._canvas_coords_from_event(e)
+        cx, cy = self._canvas_screen_from_event(e)
         x0, y0 = self._wire_drag_start
         self.workspace_canvas.coords(self._wire_drag_temp_id, x0, y0, cx, cy)
 
@@ -462,7 +474,7 @@ class CanvasMixin:
         Always cleans up the temp line/hover highlight regardless of
         whether a connection was actually made."""
         source_id = self._wire_drag_source
-        cx, cy = self._canvas_coords_from_event(e) if source_id is not None else (0, 0)
+        cx, cy = self._canvas_screen_from_event(e) if source_id is not None else (0, 0)
 
         if self._wire_drag_temp_id is not None:
             self.workspace_canvas.delete(self._wire_drag_temp_id)
@@ -479,7 +491,8 @@ class CanvasMixin:
             self.add_wire_by_drag(source_id, target_id)
         elif source_id is not None:
             # Dropped on empty canvas: offer to create a node right there.
-            self.show_drop_menu(source_id, (max(0, cx), max(0, cy)), e.x_root, e.y_root)
+            z = self.canvas_zoom
+            self.show_drop_menu(source_id, (max(0, cx / z), max(0, cy / z)), e.x_root, e.y_root)
 
     def _node_box_at(self, cx, cy, exclude_id=None):
         """Return the id of whichever currently-drawn function-kind node
@@ -496,7 +509,7 @@ class CanvasMixin:
             if wid_pair is None:
                 continue
             _, widget = wid_pair
-            nx, ny = node["canvas_x"], node["canvas_y"]
+            nx, ny = node["canvas_x"] * self.canvas_zoom, node["canvas_y"] * self.canvas_zoom
             nw = widget.winfo_width() or 220
             nh = widget.winfo_height() or 70
             if nx <= cx <= nx + nw and ny <= cy <= ny + nh:
@@ -578,10 +591,11 @@ class CanvasMixin:
         dst_node = find_node_by_id(tab["nodes"], target_id)
         if not src_node or not dst_node:
             return
-        x0 = src_node["canvas_x"] + sw
-        y0 = src_node["canvas_y"] + sh / 2
-        x1 = dst_node["canvas_x"]
-        y1 = dst_node["canvas_y"] + dh / 2
+        z = self.canvas_zoom
+        x0 = src_node["canvas_x"] * z + sw
+        y0 = src_node["canvas_y"] * z + sh / 2
+        x1 = dst_node["canvas_x"] * z
+        y1 = dst_node["canvas_y"] * z + dh / 2
 
         # ComfyUI-style cubic bezier: control points pulled
         # horizontally outward from each endpoint, so the curve leaves
@@ -721,8 +735,7 @@ class CanvasMixin:
         self._pan_active = False
         if e.widget is c:
             x, y = c.canvasx(rx), c.canvasy(ry)
-            if c.find_overlapping(x - 2, y - 2, x + 2, y + 2) and \
-                    set(c.find_overlapping(x - 2, y - 2, x + 2, y + 2)) != {self.workspace_frame_window_id}:
+            if self._pan_blocking_items(x, y):
                 return
         c.scan_mark(rx, ry)
         self._pan_active = True

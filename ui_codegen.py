@@ -494,7 +494,7 @@ class CodegenMixin:
         try:
             self.sync_active_tab_state()
             ws = self.workspaces[self.active_ws_index]
-            text = project_file.dumps_workspace(ws["files"], ws["active_index"])
+            text = project_file.dumps_workspace(ws["files"], ws["active_index"], ws.get("groups"))
             with open(filepath, 'w') as f:
                 f.write(text)
 
@@ -539,11 +539,13 @@ class CodegenMixin:
                          and self._file_is_blank(ws["files"][0]))
                 if blank:
                     ws.update({"files": files, "active_index": active_index,
-                               "title": stem, "filepath": filename})
+                               "title": stem, "filepath": filename,
+                               "groups": project_file.parse_workspace_groups(project_data)})
                     self._show_active_file("files")
                 else:
                     self.new_workspace(files=files, title=stem, filepath=filename,
-                                       active_index=active_index)
+                                       active_index=active_index,
+                                       groups=project_file.parse_workspace_groups(project_data))
                 msg = f"Project loaded from:\n{filename}"
                 if notes:
                     msg += "\n\n" + "\n".join(sorted(set(notes)))

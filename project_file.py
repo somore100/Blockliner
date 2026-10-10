@@ -11,6 +11,7 @@ old files.
 """
 import json
 
+import groups_model
 from nodes_model import make_node, normalize_orders, default_active_node_id
 
 FORMAT = "blockliner-project"
@@ -135,7 +136,7 @@ def dumps(language, nodes, active_node_id):
 WORKSPACE_VERSION = 3
 
 
-def build_workspace_data(files, active_index):
+def build_workspace_data(files, active_index, groups=None):
     """files: list of file dicts (title, language, nodes, active_node_id,
     optional canvas_x/canvas_y). Each file is saved like a version-2 project."""
     out = []
@@ -147,9 +148,14 @@ def build_workspace_data(files, active_index):
         for key in ("canvas_x", "canvas_y"):
             if isinstance(f.get(key), (int, float)) and not isinstance(f.get(key), bool):
                 d[key] = f[key]
+        if f.get("groups"):
+            d["groups"] = groups_model.normalize_groups(f["groups"])
         out.append(d)
-    return {"format": FORMAT, "version": WORKSPACE_VERSION,
+    data = {"format": FORMAT, "version": WORKSPACE_VERSION,
             "active_file": active_index, "files": out}
+    if groups:
+        data["groups"] = groups_model.normalize_groups(groups)   # Files-layer groups
+    return data
 
 
 def parse_workspace_data(data, known_languages, fallback_language="python"):
@@ -170,6 +176,9 @@ def parse_workspace_data(data, known_languages, fallback_language="python"):
             for key in ("canvas_x", "canvas_y"):
                 if isinstance(raw.get(key), (int, float)) and not isinstance(raw.get(key), bool):
                     f[key] = raw[key]
+            fg = groups_model.normalize_groups(raw.get("groups"), notes)
+            if fg:
+                f["groups"] = fg
             files.append(f)
         if not files:
             raise ValueError("The project has no readable files.")
@@ -181,5 +190,10 @@ def parse_workspace_data(data, known_languages, fallback_language="python"):
     return [{"title": None, "language": lang, "nodes": nodes, "active_node_id": active}], 0, notes
 
 
-def dumps_workspace(files, active_index):
-    return json.dumps(build_workspace_data(files, active_index), indent=2)
+def parse_workspace_groups(data):
+    """Files-layer groups of a saved workspace ([] if none/damaged)."""
+    return groups_model.normalize_groups(data.get("groups")) if isinstance(data, dict) else []
+
+
+def dumps_workspace(files, active_index, groups=None):
+    return json.dumps(build_workspace_data(files, active_index, groups), indent=2)

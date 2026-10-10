@@ -621,6 +621,7 @@ class LayersMixin:
         # so switching to the block editor view never leaves stale
         # boxes/wires behind.
         self.workspace_canvas.delete("fileview")
+        self.workspace_canvas.delete("grid")
 
         # Tk canvas window items (like the one embedding workspace_frame)
         # always paint on top of drawn items (lines/ovals) regardless of

@@ -523,6 +523,14 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        coords_var = tk.BooleanVar(value=bool(self.settings.get("show_coords", False)))
+        tk.Checkbutton(
+            body, text="Show x/y numbers on the canvas grid (Files and Nodes layers)",
+            variable=coords_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+
         # --- Order number already used ---
         row = add_row("Order number taken:")
         conflict_labels = dict((k, v) for k, v in ORDER_CONFLICT_CHOICES)
@@ -649,6 +657,7 @@ class PaletteMixin:
             self.settings["confirm_delete"] = confirm_var.get()
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
+            self.settings["show_coords"] = bool(coords_var.get())
             self.settings["order_conflict"] = next(
                 (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
             self.settings["scroll_mode"] = next(
@@ -660,6 +669,7 @@ class PaletteMixin:
             self.settings["code_sync_confirm"] = bool(confirm_var.get())
             self.save_app_settings()
             dialog.destroy()
+            self.redraw_grid()
 
         def on_cancel():
             dialog.destroy()

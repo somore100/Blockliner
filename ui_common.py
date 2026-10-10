@@ -163,6 +163,8 @@ DEFAULT_SETTINGS = {
     # "smooth" = continuous wheel scrolling; "rigid" = one wheel step snaps
     # block to block (workspace layers and the palette).
     "scroll_mode": "smooth",
+    # Files/Nodes canvas: print x/y numbers along the coordinate grid.
+    "show_coords": False,
     # Where node data (names, nesting, order, layout) is kept when saving:
     # "sidecar" = a <file>.blockliner.json next to the code file (code stays
     # clean apart from the node markers); "embedded" = a block at the end of

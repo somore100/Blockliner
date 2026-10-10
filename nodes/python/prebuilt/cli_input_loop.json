@@ -1,0 +1,57 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "Command-line input loop",
+  "description": "Keeps asking for a command until the quit word is typed.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "prompt",
+      "label": "Prompt text",
+      "default": "> "
+    },
+    {
+      "name": "quit_word",
+      "label": "Word that quits",
+      "default": "quit"
+    }
+  ],
+  "blocks": [
+    [
+      "assign_variable",
+      {
+        "variable": "command",
+        "value": "\"\""
+      }
+    ],
+    [
+      "loop_while",
+      {
+        "condition": "command != \"{{quit_word}}\"",
+        "_children": [
+          [
+            "assign_variable",
+            {
+              "variable": "command",
+              "value": "input(\"{{prompt}}\").strip()"
+            }
+          ],
+          [
+            "if_statement",
+            {
+              "condition": "command == \"help\"",
+              "_children": [
+                [
+                  "print_output",
+                  {
+                    "value": "\"Type '{{quit_word}}' to exit\""
+                  }
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    ]
+  ]
+}

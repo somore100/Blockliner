@@ -1,0 +1,33 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "Header comment",
+  "description": "A short comment block for the top of a file. Works in every language.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "purpose",
+      "label": "What this file does",
+      "default": "Describe this file"
+    },
+    {
+      "name": "author",
+      "label": "Author",
+      "default": ""
+    }
+  ],
+  "blocks": [
+    [
+      "comment",
+      {
+        "text": "{{purpose}}"
+      }
+    ],
+    [
+      "comment",
+      {
+        "text": "Author: {{author}}"
+      }
+    ]
+  ]
+}

@@ -12,6 +12,7 @@ def check(label, cond):
     if not cond: FAILURES.append(label)
 
 app = BlocklinerUI(initial_lang="python", languages_path="languages")
+app.node_template_roots = lambda: []   # menu layout tests must not depend on whatever node templates are on disk
 app.geometry("1200x800+0+0"); app.update()
 ui_layers.simpledialog.askstring = lambda *a, **k: "Named"
 c = app.workspace_canvas

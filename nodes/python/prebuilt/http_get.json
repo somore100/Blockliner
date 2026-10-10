@@ -1,0 +1,33 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "HTTP GET request",
+  "description": "Downloads a web page or API response as text.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "url",
+      "label": "URL",
+      "default": "https://example.com"
+    },
+    {
+      "name": "result",
+      "label": "Variable name",
+      "default": "response_text"
+    }
+  ],
+  "blocks": [
+    [
+      "import_module",
+      {
+        "module": "urllib.request"
+      }
+    ],
+    [
+      "@raw",
+      {
+        "code": "with urllib.request.urlopen(\"{{url}}\", timeout=10) as r:\n    {{result}} = r.read().decode(\"utf-8\")"
+      }
+    ]
+  ]
+}

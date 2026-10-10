@@ -58,6 +58,8 @@ class MenusMixin:
                                  command=lambda: self.create_node(pos=canvas_pos))
                 menu.add_command(label="\U0001F4C1 Add category",
                                  command=lambda: self.create_category(pos=canvas_pos))
+                self.add_template_cascades(
+                    menu, lambda e: self.insert_node_template(e, canvas_pos), separator=True)
                 added = True
             elif self.view_mode == "files":
                 menu.add_command(label="\u2795 New file",
@@ -90,6 +92,8 @@ class MenusMixin:
             menu.add_command(
                 label=label,
                 command=lambda k=key: self.create_starter_node(k, pos, wire_from=source_id))
+        self.add_template_cascades(
+            menu, lambda e: self.insert_node_template(e, pos, wire_from=source_id), separator=True)
         return menu
 
     def _drop_new_node(self, source_id, pos):
@@ -173,6 +177,9 @@ class MenusMixin:
         if node.get("kind", "function") == "function":
             menu.add_command(label="Set order\u2026", state=off,
                              command=lambda: self.set_node_order_dialog(node_id))
+        if node.get("kind", "function") in ("function", "class"):
+            menu.add_command(label="Save as node template\u2026",
+                             command=lambda: self.save_node_as_template_dialog(node_id))
         dests = self.move_destinations(tab, node)
         move = self._new_menu(menu)
         for label, lst in dests:

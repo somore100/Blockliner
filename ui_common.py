@@ -136,6 +136,20 @@ def get_persistent_data_path():
 _PERSISTENT_DATA_PATH = get_persistent_data_path()
 CUSTOM_BLOCKS_PATH = os.path.join(_PERSISTENT_DATA_PATH, "user_data", "custom_blocks.json")
 BLOCKLINER_SAVES_PATH = os.path.join(_PERSISTENT_DATA_PATH, "blockliner_saves")
+
+
+def get_bundle_path():
+    """Where files shipped inside the app live (the PyInstaller bundle when
+    frozen, the source folder otherwise)."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+# Node templates: shipped ones (read-only) and the user's own (writable).
+# Running from source these are the same folder.
+NODES_BUNDLED_PATH = os.path.join(get_bundle_path(), "nodes")
+NODES_USER_PATH = os.path.join(_PERSISTENT_DATA_PATH, "nodes")
 APP_SETTINGS_PATH = os.path.join(_PERSISTENT_DATA_PATH, "user_data", "app_settings.json")
 
 DEFAULT_SETTINGS = {

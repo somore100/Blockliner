@@ -28,6 +28,7 @@ def sub(menu, label):
 
 def main():
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
+    app.node_template_roots = lambda: []   # menu layout tests must not depend on whatever node templates are on disk
     app.geometry("1400x800"); app.update()
     pm = app.panels
     tab = app.tabs[0]

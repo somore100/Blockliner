@@ -23,6 +23,7 @@ from ui_menus import MenusMixin
 from ui_canvas import CanvasMixin
 from ui_codegen import CodegenMixin
 from ui_codesync import CodeSyncMixin
+from ui_nodetemplates import NodeTemplatesMixin
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -30,7 +31,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")

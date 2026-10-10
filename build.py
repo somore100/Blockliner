@@ -47,7 +47,7 @@ LOGO_CANDIDATES = ["logo.png", "logo.jpg", "logo.jpeg"]
 # (one file per block). --add-data bundles the whole "languages" tree
 # recursively, so those per-block files travel with it automatically
 # with no changes needed here. Add more folders here as the project grows.
-EXTRA_DATA_DIRS = ["languages"]
+EXTRA_DATA_DIRS = ["languages", "nodes"]
 
 # Individual files (not whole folders) bundled the same way as
 # EXTRA_DATA_DIRS above. concepts.json is the master universal-concept

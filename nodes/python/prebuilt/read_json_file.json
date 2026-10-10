@@ -1,0 +1,33 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "Read JSON file",
+  "description": "Loads a JSON file into a variable.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "path",
+      "label": "File path",
+      "default": "data.json"
+    },
+    {
+      "name": "name",
+      "label": "Variable name",
+      "default": "data"
+    }
+  ],
+  "blocks": [
+    [
+      "import_module",
+      {
+        "module": "json"
+      }
+    ],
+    [
+      "@raw",
+      {
+        "code": "with open(\"{{path}}\", \"r\", encoding=\"utf-8\") as f:\n    {{name}} = json.load(f)"
+      }
+    ]
+  ]
+}

@@ -214,7 +214,8 @@ def main():
     texts = {w.cget("text") for w in walk(app) if w.winfo_class() in ("Button", "TButton") and "text" in w.keys()}
     check("Sync button exists in the code panel", any("Sync code" in x for x in texts))
     check("old 'Code -> Blocks' toolbar button is gone", not any(x.endswith("Code \u2192 Blocks") for x in texts))
-    check("Open Code File button is still there", any("Open Code File" in x for x in texts))
+    menu_labels = [m.entrycget(i, "label") for m in app.topbar_menus.values() for i in range(m.index("end") + 1) if m.type(i) == "command"]
+    check("Open Code File is in the File menu", any("Open Code File" in x for x in menu_labels))
 
     app.destroy()
     print(f"\n{len(FAILURES)} failure(s)")

@@ -53,7 +53,7 @@ EXTRA_DATA_DIRS = ["languages", "nodes"]
 # EXTRA_DATA_DIRS above. concepts.json is the master universal-concept
 # vocabulary main.py loads at startup (Phase 1) - it has to ship
 # alongside main.py itself, same as logo.* already does below.
-EXTRA_DATA_FILES = ["concepts.json"]
+EXTRA_DATA_FILES = ["concepts.json", "LICENSE.md"]
 
 ROOT = Path(__file__).parent.resolve()
 DIST_DIR = ROOT / "dist"

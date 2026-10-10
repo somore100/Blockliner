@@ -11,7 +11,7 @@ from scroll_modes import SNAP_THROTTLE_S, next_snap, normalize_mode, snap_points
 from panels import PanelSpec
 from block_templates import make_raw_code_block_source
 from nodes_model import default_active_node_id, find_node_by_id
-from ui_common import APP_VERSION, BLOCK_SELECTED, BUILD_NUMBER, CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, PRESET_LANGUAGES
+from ui_common import BLOCK_SELECTED, CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, PRESET_LANGUAGES
 from ui_tabs import TabsMixin
 from ui_import import ImportMixin
 from ui_palette import PaletteMixin
@@ -24,6 +24,7 @@ from ui_canvas import CanvasMixin
 from ui_codegen import CodegenMixin
 from ui_codesync import CodeSyncMixin
 from ui_nodetemplates import NodeTemplatesMixin
+from ui_topbar import TopBarMixin
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -31,7 +32,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -213,37 +214,23 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         except Exception as e:
             print(f"Could not load logo: {e}")
         
-        tk.Label(
+        title_label = tk.Label(
             logo_frame,
             text="⬢ Blockliner",
             bg=DARK_PANEL,
             fg=DARK_ACCENT,
-            font=("Segoe UI", 16, "bold")
-        ).pack(side=tk.LEFT)
+            font=("Segoe UI", 16, "bold"),
+            cursor="hand2"
+        )
+        title_label.pack(side=tk.LEFT)
+        title_label.bind("<Button-1>", lambda e: self.show_about())
         
-        tk.Label(
-            logo_frame,
-            text="by domore100",
-            bg=DARK_PANEL,
-            fg="#888888",
-            font=("Segoe UI", 8, "italic")
-        ).pack(side=tk.LEFT, padx=(5, 0))
-        
-        # Toolbar buttons
+        # Menus (hamburger + File/Run/Tools/Help) and the plugin-icon strip
         btn_style = {"style": "Toolbar.TButton"}
-        
-        ttk.Button(toolbar, text="💾 Save", command=self.save_project, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="📂 Load", command=self.load_project, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="\U0001F4C4 Open Code File", command=lambda: self.open_code_to_blocks_dialog(prefill_from_file=True), **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="📤 Export", command=self.export_code, **btn_style).pack(side=tk.LEFT, padx=3)
-        
+        self.build_topbar(toolbar)
+
         tk.Frame(toolbar, bg=DARK_BORDER, width=2).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=8)
-        
-        ttk.Button(toolbar, text="🔧 Manage Custom Blocks", command=self.manage_custom_blocks_dialog, **btn_style).pack(side=tk.LEFT, padx=3)
-        ttk.Button(toolbar, text="\u2699 Settings", command=self.settings_dialog, **btn_style).pack(side=tk.LEFT, padx=3)
-        
-        tk.Frame(toolbar, bg=DARK_BORDER, width=2).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=8)
-        
+
         # Run button with dropdown
         run_frame = tk.Frame(toolbar, bg=DARK_PANEL)
         run_frame.pack(side=tk.LEFT, padx=3)
@@ -596,28 +583,6 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         
         # Apply dark theme
         self.apply_theme()
-        
-        # Footer with credits
-        footer = tk.Frame(self, bg=DARK_PANEL, height=25)
-        footer.pack(side=tk.BOTTOM, fill=tk.X)
-        footer.pack_propagate(False)
-        
-        tk.Label(
-            footer,
-            text="Made with ❤️ by domore100  |  Blockliner Visual Code Builder",
-            bg=DARK_PANEL,
-            fg="#666666",
-            font=("Segoe UI", 8)
-        ).pack(side=tk.LEFT, padx=15, pady=5)
-        
-        version_label = tk.Label(
-            footer,
-            text=f"v{APP_VERSION}  \u00b7  #build {BUILD_NUMBER}",
-            bg=DARK_PANEL,
-            fg="#444444",
-            font=("Segoe UI", 7)
-        )
-        version_label.pack(side=tk.RIGHT, padx=15, pady=5)
     
     def apply_theme(self):
         """Apply dark theme to ttk widgets"""

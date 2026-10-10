@@ -55,8 +55,7 @@ def safe_grab_set(window):
         pass
 
 
-APP_VERSION = "1.0"
-BUILD_NUMBER = 1  # bump this by hand each time you ship a meaningfully new build
+from about_info import APP_VERSION, BUILD_NUMBER  # single source of truth: about_info.py
 
 # Languages available out of the box - each gets a folder with just the
 # Raw Code escape-hatch block (see make_raw_code_block_source), not a

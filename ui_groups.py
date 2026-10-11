@@ -74,6 +74,12 @@ class GroupsMixin:
         self.refresh_workspace()
         return g
 
+    def add_group_in_view(self):
+        """'+ New Group' button: a group near the top-left of what you
+        currently see (right-click > Add group puts it under the cursor)."""
+        c, z = self.workspace_canvas, self.canvas_zoom
+        return self.add_group((max(0, c.canvasx(40) / z), max(0, c.canvasy(40) / z)))
+
     def rename_group(self, gid):
         g = self._find_group(gid)
         if g is None:

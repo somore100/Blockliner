@@ -1,8 +1,8 @@
 """Pure helpers for canvas zoom and the coordinate grid (no Tk)."""
 import math
 
-ZOOM_MIN = 0.5
-ZOOM_MAX = 2.0
+ZOOM_MIN = 0.2
+ZOOM_MAX = 4.0
 ZOOM_STEP = 1.1
 
 # Grid spacing candidates in model units; the smallest one that is at least

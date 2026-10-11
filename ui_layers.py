@@ -26,7 +26,13 @@ class LayersMixin:
                 self.node_nav_frame, text="+ New File", bg="#3a3a3a", fg=DARK_FG,
                 relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
                 command=self.new_tab
-            ).pack(side=tk.LEFT, padx=(0, 10))
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            if not self.files_view_code_mode:
+                tk.Button(
+                    self.node_nav_frame, text="\u25ad New Group", bg="#3a3a3a", fg=DARK_FG,
+                    relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                    command=self.add_group_in_view
+                ).pack(side=tk.LEFT, padx=(0, 10))
             code_toggle_active = self.files_view_code_mode
             tk.Button(
                 self.node_nav_frame,
@@ -74,7 +80,13 @@ class LayersMixin:
                 self.node_nav_frame, text="+ New Category", bg="#3a3a3a", fg=DARK_FG,
                 relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
                 command=self.create_category
-            ).pack(side=tk.LEFT, padx=(0, 10))
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            if not self.file_view_code_mode:
+                tk.Button(
+                    self.node_nav_frame, text="\u25ad New Group", bg="#3a3a3a", fg=DARK_FG,
+                    relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                    command=self.add_group_in_view
+                ).pack(side=tk.LEFT, padx=(0, 10))
             code_toggle_active = self.file_view_code_mode
             tk.Button(
                 self.node_nav_frame,
@@ -635,14 +647,17 @@ class LayersMixin:
         # header nav instead, see refresh_node_nav) sidesteps the
         # problem entirely; reverting to "" lets it size normally again
         # for the block editor or either layer's code view.
+        # Even 1px of it hid the y=0 axis of the coordinate grid for the
+        # frame's whole width, so on the canvas layers it is hidden outright.
+        wid = self.workspace_frame_window_id
         if self.view_mode == "files" and self.files_view_code_mode:
-            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
+            self.workspace_canvas.itemconfigure(wid, height=0, state="normal")
         elif self.view_mode == "file" and self.file_view_code_mode:
-            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
+            self.workspace_canvas.itemconfigure(wid, height=0, state="normal")
         elif self.view_mode in ("file", "files"):
-            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=1)
+            self.workspace_canvas.itemconfigure(wid, height=1, state="hidden")
         else:
-            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, height=0)
+            self.workspace_canvas.itemconfigure(wid, height=0, state="normal")
 
         self.refresh_node_nav()
         self.refresh_layer_bar()

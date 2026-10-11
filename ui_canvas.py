@@ -723,11 +723,19 @@ class CanvasMixin:
         c = self.workspace_canvas
         c.configure(confine=False)
         self._pan_active = False
-        self.bind_all("<ButtonPress-1>", lambda e: self._dismiss_drop_menu(), add="+")
+        self.bind_all("<ButtonPress-1>", self._on_any_press, add="+")
         for w in (c, self.workspace_frame):
             w.bind("<ButtonPress-1>", self._pan_press, add="+")
             w.bind("<B1-Motion>", self._pan_motion, add="+")
             w.bind("<ButtonRelease-1>", self._pan_release, add="+")
+
+    def _on_any_press(self, e):
+        """Click-away closes the wire-drop menu - but a click ON the menu
+        (one of its entries or a cascade) must not, or the entry's command
+        never runs (the menu is unposted before the button is released)."""
+        if isinstance(getattr(e, "widget", None), tk.Menu):
+            return
+        self._dismiss_drop_menu()
 
     def _pan_press(self, e):
         c = self.workspace_canvas

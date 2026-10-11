@@ -14,6 +14,8 @@ class CanvasViewMixin:
     _zoom_job = None
     _zoom_anchor = None
     _grid_job = None
+    _preview_zoom = None
+    ZOOM_SETTLE_MS = 110
 
     # ---- scaling helpers used when building boxes ------------------------
     def _zi(self, n):
@@ -46,11 +48,26 @@ class CanvasViewMixin:
         if z1 == z0:
             return
         c = self.workspace_canvas
-        rz = self._rendered_zoom or 1.0
-        self._zoom_anchor = (c.canvasx(sx) / rz, c.canvasy(sy) / rz, sx, sy)
+        # Zoom the canvas geometry the geometry is currently drawn at: the
+        # last rendered zoom, or the running preview while the wheel spins.
+        gz = self._preview_zoom or self._rendered_zoom or 1.0
+        mx, my = c.canvasx(sx) / gz, c.canvasy(sy) / gz
+        self._zoom_anchor = (mx, my, sx, sy)
         self.canvas_zoom = z1
-        if self._zoom_job is None:
-            self._zoom_job = self.after(15, self.apply_zoom)
+        # Cheap preview: move every item to its new place at once (boxes keep
+        # their old size for now) - nothing is destroyed or rebuilt while the
+        # wheel is spinning, so nothing flinches. The real re-render follows
+        # once the wheel has been still for ZOOM_SETTLE_MS.
+        c.scale("all", 0, 0, z1 / gz, z1 / gz)
+        self._preview_zoom = z1
+        self._set_view_origin(anchor_view_origin(mx, sx, z1), anchor_view_origin(my, sy, z1))
+        self.schedule_grid()
+        if self._zoom_job is not None:
+            try:
+                self.after_cancel(self._zoom_job)
+            except tk.TclError:
+                pass
+        self._zoom_job = self.after(self.ZOOM_SETTLE_MS, self.apply_zoom)
 
     def set_zoom(self, z):
         """Programmatic zoom (keeps the view's top-left model point)."""
@@ -66,6 +83,7 @@ class CanvasViewMixin:
                 pass
             self._zoom_job = None
         anchor, self._zoom_anchor = self._zoom_anchor, None
+        self._preview_zoom = None
         if not self.canvas_layer_active():
             return
         c = self.workspace_canvas

@@ -326,6 +326,7 @@ class LayersMixin:
         node = find_node_by_id(tab["nodes"], node_id)
         if node is None:
             return
+        self.selected_nodes().clear()
         if node.get("kind") in ("class", "category"):
             tab.setdefault("file_view_path", []).append(node_id)
             self.view_mode = "file"
@@ -597,7 +598,7 @@ class LayersMixin:
         """The block palette is useless on the Nodes layer (view_mode ==
         "file"): hide it and its edge strip there, and put both back the
         way they were when you leave."""
-        on_nodes = (self.view_mode == "file")
+        on_nodes = (self.view_mode in ("file", "files"))
         hidden = getattr(self, "_palette_hidden_by_layer", False)
         if on_nodes and not hidden:
             self._palette_was_visible = self.panels.is_visible("palette")

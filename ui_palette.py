@@ -132,7 +132,7 @@ class PaletteMixin:
         menu.add_separator()
         menu.add_command(label="\u25B2 Move Up", command=lambda: self.reorder_category(category, -1))
         menu.add_command(label="\u25BC Move Down", command=lambda: self.reorder_category(category, 1))
-        menu.tk_popup(event.x_root, event.y_root)
+        self.popup_menu(menu, event.x_root, event.y_root)
 
     def change_category_color(self, category):
         """Open a native color picker and persist the chosen color for this category."""

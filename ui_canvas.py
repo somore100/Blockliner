@@ -3,6 +3,8 @@ import tkinter as tk
 from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
 
+SELECT_COLOR = "#ffd54f"
+
 
 class CanvasMixin:
 
@@ -252,6 +254,9 @@ class CanvasMixin:
         else:
             box_color = CATEGORY_COLORS.get("Basic", "#4a4a4a")
         text_fg = "#ffffff" if is_container else "#000000"
+        ignored = bool(node.get("ignored"))
+        if ignored:
+            box_color, text_fg = "#555555", "#cccccc"
         box = tk.Frame(
             self.workspace_canvas, bg=BLOCK_BG, highlightthickness=2,
             highlightbackground=DARK_BORDER
@@ -271,7 +276,7 @@ class CanvasMixin:
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
-            header, text=f"{icon} {node['name']}",
+            header, text=f"{'\u2298 ' if ignored else ''}{icon} {node['name']}",
             bg=box_color, fg=text_fg,
             font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
@@ -285,7 +290,7 @@ class CanvasMixin:
             order_val = node.get("order")
             unassigned = "order" in node and order_val is None
             badge = tk.Label(
-                header, text="#?" if unassigned else f"#{order_val}",
+                header, text="\u25b6?" if unassigned else f"\u25b6{order_val}",
                 bg="#c62828" if unassigned else box_color,
                 fg="#ffffff" if unassigned else text_fg,
                 font=self._zfont(10, "bold"),
@@ -296,6 +301,9 @@ class CanvasMixin:
                            lambda e, nid=node["id"]: self.set_node_order_dialog(nid))
             if unassigned:
                 box.configure(highlightbackground="#ff3b3b")
+
+        if node["id"] in self.selected_nodes():
+            box.configure(highlightbackground=SELECT_COLOR)
 
         # Phase C3: an output "port" handle, only on function-kind nodes
         # in a language that actually has a func_call block (HTML has
@@ -332,10 +340,18 @@ class CanvasMixin:
         else:
             count = len(node["blocks"])
             label_text = f"{count} block{'s' if count != 1 else ''}"
+        info = tk.Frame(body, bg=BLOCK_BG)
+        info.pack(side=tk.LEFT)
         tk.Label(
-            body, text=label_text,
-            bg=BLOCK_BG, fg="#888888", font=self._zfont(9)
-        ).pack(side=tk.LEFT)
+            info, text=label_text + ("  \u00b7  ignored" if ignored else ""),
+            bg=BLOCK_BG, fg="#888888", font=self._zfont(9), anchor="w"
+        ).pack(anchor="w")
+        # The id is NOT the run order (the \u25b6N badge in the header is);
+        # it is the stable name wires and saved files refer to.
+        tk.Label(
+            info, text=f"id {node['id']}",
+            bg=BLOCK_BG, fg="#7a7a7a", font=self._zfont(7), anchor="w"
+        ).pack(anchor="w")
         tk.Button(
             body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
             relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
@@ -356,7 +372,7 @@ class CanvasMixin:
         # click/double-click, since a plain click never moves the
         # mouse far enough to cross it.
         drag_state = {"dragging": False, "start_x": 0, "start_y": 0,
-                      "node_x0": 0, "node_y0": 0}
+                      "node_x0": 0, "node_y0": 0, "starts": {}}
 
         def _press(e, nid=node["id"]):
             drag_state["dragging"] = False
@@ -367,6 +383,16 @@ class CanvasMixin:
                 return
             drag_state["node_x0"] = n["canvas_x"]
             drag_state["node_y0"] = n["canvas_y"]
+            # Shift+right-click selection: dragging one selected node
+            # drags them all by the same amount.
+            drag_state["starts"] = {}
+            sel = self.selected_nodes()
+            if nid in sel:
+                tab = self.tabs[self.active_tab_index]
+                for sid in sel:
+                    sn = find_node_by_id(tab["nodes"], sid)
+                    if sn is not None and "canvas_x" in sn:
+                        drag_state["starts"][sid] = (sn["canvas_x"], sn["canvas_y"])
 
         def _motion(e, nid=node["id"]):
             dx = e.x_root - drag_state["start_x"]
@@ -378,13 +404,19 @@ class CanvasMixin:
             n = find_node_by_id(self.tabs[self.active_tab_index]["nodes"], nid)
             if n is None:
                 return
-            new_x = drag_state["node_x0"] + dx / self.canvas_zoom
-            new_y = drag_state["node_y0"] + dy / self.canvas_zoom
-            n["canvas_x"], n["canvas_y"] = new_x, new_y
-            wid, _ = self._fileview_boxes.get(nid, (None, None))
-            if wid is not None:
-                self.workspace_canvas.coords(wid, new_x * self.canvas_zoom, new_y * self.canvas_zoom)
-            self.draw_wires_for(nid)
+            starts = drag_state["starts"] or {nid: (drag_state["node_x0"], drag_state["node_y0"])}
+            tab = self.tabs[self.active_tab_index]
+            for sid, (sx0, sy0) in starts.items():
+                sn = n if sid == nid else find_node_by_id(tab["nodes"], sid)
+                if sn is None:
+                    continue
+                new_x = sx0 + dx / self.canvas_zoom
+                new_y = sy0 + dy / self.canvas_zoom
+                sn["canvas_x"], sn["canvas_y"] = new_x, new_y
+                wid, _ = self._fileview_boxes.get(sid, (None, None))
+                if wid is not None:
+                    self.workspace_canvas.coords(wid, new_x * self.canvas_zoom, new_y * self.canvas_zoom)
+                self.draw_wires_for(sid)
 
         def _release(e, nid=node["id"]):
             if drag_state["dragging"]:
@@ -729,18 +761,19 @@ class CanvasMixin:
             w.bind("<B1-Motion>", self._pan_motion, add="+")
             w.bind("<ButtonRelease-1>", self._pan_release, add="+")
 
-    def _on_any_press(self, e):
+    def _on_any_press(self, e):  # noqa: D401
         """Click-away closes the wire-drop menu - but a click ON the menu
         (one of its entries or a cascade) must not, or the entry's command
         never runs (the menu is unposted before the button is released)."""
         if isinstance(getattr(e, "widget", None), tk.Menu):
             return
-        self._dismiss_drop_menu()
+        self._dismiss_popup()
 
     def _pan_press(self, e):
         c = self.workspace_canvas
         rx, ry = e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty()
         self._pan_active = False
+        self._pan_moved = False
         if e.widget is c:
             x, y = c.canvasx(rx), c.canvasy(ry)
             if self._pan_blocking_items(x, y):
@@ -752,6 +785,7 @@ class CanvasMixin:
     def _pan_motion(self, e):
         if not getattr(self, "_pan_active", False):
             return
+        self._pan_moved = True
         c = self.workspace_canvas
         c.scan_dragto(e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty(), gain=1)
         vx0, vy0 = c.canvasx(0), c.canvasy(0)
@@ -766,3 +800,5 @@ class CanvasMixin:
         if getattr(self, "_pan_active", False):
             self._pan_active = False
             self.workspace_canvas.configure(cursor="")
+            if not getattr(self, "_pan_moved", False):
+                self.clear_node_selection()       # plain click on empty canvas

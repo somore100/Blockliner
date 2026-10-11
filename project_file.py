@@ -61,6 +61,8 @@ def _node_from_json(raw, seen_ids, notes):
         locked=bool(raw.get("locked", False)),
         node_type_id=raw.get("node_type_id") if isinstance(raw.get("node_type_id"), str) else None,
     )
+    if raw.get("ignored") is True:
+        node["ignored"] = True
     if "order" in raw and (raw["order"] is None or (isinstance(raw["order"], int)
                                                     and not isinstance(raw["order"], bool))):
         node["order"] = raw["order"]

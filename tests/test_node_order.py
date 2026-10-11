@@ -110,13 +110,13 @@ def main():
             found = []
             def walk(w):
                 for ch in w.winfo_children():
-                    if isinstance(ch, tk.Label) and ch.cget("text").startswith("#"): found.append(ch.cget("text"))
+                    if isinstance(ch, tk.Label) and ch.cget("text").startswith("\u25b6"): found.append(ch.cget("text"))
                     walk(ch)
             walk(box); return found
-        check("badge shows the number", badge_text("n1") == ["#4"])
-        check("entry badge shows #1", badge_text(entry["id"]) == ["#1"])
+        check("badge shows the number", badge_text("n1") == ["\u25b64"])
+        check("entry badge shows #1", badge_text(entry["id"]) == ["\u25b61"])
         b["order"] = None; app.refresh_workspace(); app.update()
-        check("unassigned shows #?", badge_text("b") == ["#?"])
+        check("unassigned shows #?", badge_text("b") == ["\u25b6?"])
         check("unassigned box is outlined red",
               str(app._fileview_boxes["b"][1].cget("highlightbackground")).lower() == "#ff3b3b")
         check("assigned box keeps the normal outline",

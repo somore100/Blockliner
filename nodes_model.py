@@ -98,8 +98,10 @@ def sorted_function_nodes(nodes):
     ties broken by tree position; a node with no order key at all is
     treated as sitting at its tree position (so untouched legacy data
     generates exactly as before); explicitly unassigned (None) nodes go
-    last - still generated, so no code is ever silently dropped."""
-    fn = function_nodes_in_tree_order(nodes)
+    last - still generated, so no code is ever silently dropped.
+    The one exception is a node the user marked `ignored` (right-click >
+    Ignore): it stays in the project but is left out of generated code."""
+    fn = [n for n in function_nodes_in_tree_order(nodes) if not n.get("ignored")]
 
     def key(pair):
         idx, n = pair

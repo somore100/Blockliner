@@ -28,18 +28,10 @@ class MenusMixin:
     def _on_workspace_right_click(self, event):
         gid = self._group_title_at(event) if self.canvas_layer_active() else None
         if gid:
-            menu = self.build_group_menu(gid)
-            try:
-                menu.tk_popup(event.x_root, event.y_root)
-            finally:
-                menu.grab_release()
+            self.popup_menu(self.build_group_menu(gid), event.x_root, event.y_root)
             return
         x, y = self._canvas_coords_from_event(event)
-        menu = self.build_workspace_menu((max(0, x), max(0, y)))
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        self.popup_menu(self.build_workspace_menu((max(0, x), max(0, y))), event.x_root, event.y_root)
 
     def _new_menu(self, parent):
         return tk.Menu(parent, tearoff=0, bg=DARK_PANEL, fg=DARK_FG,
@@ -118,7 +110,8 @@ class MenusMixin:
 
     def show_drop_menu(self, source_id, pos, x_root, y_root):
         menu = self.build_drop_menu(source_id, pos)
-        self._dismiss_drop_menu()
+        self._dismiss_popup()
+        self._install_popup_guards()
         self._drop_menu = menu
 
         def close(_e=None):
@@ -169,11 +162,107 @@ class MenusMixin:
             self._bind_context_recursive(child, handler)
 
     def _popup(self, menu, event):
+        self.popup_menu(menu, event.x_root, event.y_root)
+        return "break"
+
+    # ---- popup lifetime: a posted menu must never outlive its moment -----
+    def popup_menu(self, menu, x_root, y_root):
+        """Post a right-click menu and remember it, so it can be closed by
+        Escape, a click elsewhere, minimizing/moving the window or the
+        window losing focus (Tk menus on some Linux desktops otherwise
+        stay on screen until clicked, even over other apps)."""
+        self._dismiss_popup()
+        self._active_popup = menu
+        self._install_popup_guards()
         try:
-            menu.tk_popup(event.x_root, event.y_root)
+            menu.tk_popup(int(x_root), int(y_root))
         finally:
             menu.grab_release()
-        return "break"
+
+    def _install_popup_guards(self):
+        if getattr(self, "_popup_guards_installed", False):
+            return
+        self._popup_guards_installed = True
+        top = self.winfo_toplevel()
+        for seq in ("<Unmap>", "<Configure>"):
+            top.bind(seq, lambda e: e.widget is top and self._dismiss_popup(), add="+")
+        top.bind("<Escape>", lambda e: self._dismiss_popup(), add="+")
+        top.bind("<FocusOut>", self._popup_focus_out, add="+")
+
+    def _popup_focus_out(self, e):
+        if e.widget is self.winfo_toplevel():
+            self.after(150, self._dismiss_popup_if_unfocused)
+
+    def _dismiss_popup_if_unfocused(self):
+        try:
+            if self.focus_displayof() is None:
+                self._dismiss_popup()
+        except tk.TclError:
+            pass
+
+    def _dismiss_popup(self, _e=None):
+        menu = getattr(self, "_active_popup", None)
+        self._active_popup = None
+        if menu is not None:
+            try:
+                menu.unpost()
+            except tk.TclError:
+                pass
+        self._dismiss_drop_menu()
+
+    # ---- multi-selection (Shift+right-click) ---------------------------
+    def selected_nodes(self):
+        return self.__dict__.setdefault("_selected_node_ids", set())
+
+    def _paint_node_selection(self, node_id):
+        entry = getattr(self, "_fileview_boxes", {}).get(node_id)
+        if not entry:
+            return
+        from ui_common import DARK_BORDER
+        from ui_canvas import SELECT_COLOR
+        node = find_node_by_id(self.tabs[self.active_tab_index]["nodes"], node_id)
+        if node_id in self.selected_nodes():
+            color = SELECT_COLOR
+        elif node is not None and "order" in node and node["order"] is None \
+                and node.get("kind", "function") == "function":
+            color = "#ff3b3b"
+        else:
+            color = DARK_BORDER
+        try:
+            entry[1].configure(highlightbackground=color)
+        except tk.TclError:
+            pass
+
+    def toggle_node_selected(self, node_id):
+        sel = self.selected_nodes()
+        sel.symmetric_difference_update({node_id})
+        self._paint_node_selection(node_id)
+
+    def clear_node_selection(self):
+        old = list(self.selected_nodes())
+        self.selected_nodes().clear()
+        for nid in old:
+            self._paint_node_selection(nid)
+
+    def toggle_ignore_node(self, node_id):
+        """Right-click > Ignore: the node stays in the project but is left
+        out of generated code. Applies to every selected node when the
+        clicked one is part of a multi-selection."""
+        tab = self.tabs[self.active_tab_index]
+        sel = self.selected_nodes()
+        ids = list(sel) if node_id in sel and len(sel) > 1 else [node_id]
+        nodes = [n for n in (find_node_by_id(tab["nodes"], i) for i in ids)
+                 if n is not None and n.get("kind", "function") == "function"]
+        if not nodes:
+            return
+        make_ignored = not all(n.get("ignored") for n in nodes)
+        for n in nodes:
+            if make_ignored:
+                n["ignored"] = True
+            else:
+                n.pop("ignored", None)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
 
     def build_node_menu(self, node_id):
         tab = self.tabs[self.active_tab_index]
@@ -184,6 +273,14 @@ class MenusMixin:
         locked = bool(node.get("locked"))
         off = tk.DISABLED if locked else tk.NORMAL
         menu.add_command(label="Open", command=lambda: self.open_node(node_id))
+        if node.get("kind", "function") == "function":
+            sel = self.selected_nodes()
+            multi = node_id in sel and len(sel) > 1
+            all_ign = bool(node.get("ignored")) if not multi else all(
+                (find_node_by_id(tab["nodes"], i) or {}).get("ignored") for i in sel)
+            menu.add_command(
+                label=("Stop ignoring" if all_ign else "Ignore") + (f" ({len(sel)} selected)" if multi else ""),
+                command=lambda: self.toggle_ignore_node(node_id))
         menu.add_command(label="Rename\u2026", state=off,
                          command=lambda: self.rename_node_dialog(node_id))
         if node.get("kind", "function") == "function":
@@ -213,6 +310,10 @@ class MenusMixin:
         return menu
 
     def _on_node_box_right_click(self, event, node_id):
+        if getattr(event, "state", 0) & 0x0001:       # Shift+right-click = select
+            self._dismiss_popup()
+            self.toggle_node_selected(node_id)
+            return "break"
         return self._popup(self.build_node_menu(node_id), event)
 
     def _on_file_box_right_click(self, event, index):

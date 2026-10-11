@@ -126,7 +126,8 @@ def main():
         app.set_zoom(1.0); app.update()
         check(layer + " layer: zoom reset to 1.0", app.canvas_zoom == 1.0)
 
-    # ---- Palette ----
+    # ---- Palette (only shown on the Blocks layer now) ----
+    app.goto_layer("blocks"); app.update(); app.update()
     pal = app.palette_canvas
     app.update(); pal.yview_moveto(0.0); app.update()
     ptops = sm.snap_points(sorted(w.winfo_y() for w in app.palette_frame.winfo_children() if w.winfo_ismapped()), 0)

@@ -75,7 +75,7 @@ def build_metadata(nodes, language, active_node_id=None):
                 "parent": parent_id,
                 "index": index,
             }
-            for key in ("category", "locked", "node_type_id"):
+            for key in ("category", "locked", "node_type_id", "ignored"):
                 if node.get(key):
                     entry[key] = node[key]
             if "order" in node:
@@ -295,6 +295,8 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
             "locked": bool(entry.get("locked", False)),
             "node_type_id": entry.get("node_type_id"), "references": [],
         }
+        if entry.get("ignored") is True:
+            node["ignored"] = True
         if kind == "function":
             node["code"] = code_by_id.get(node_id, "")
             if "order" in entry:

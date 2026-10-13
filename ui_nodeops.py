@@ -176,6 +176,11 @@ class NodeOpsMixin:
         writes project_blocks back into the active node, so a stale
         pointer would silently revert the edit."""
         node["blocks"] = new_blocks
+        if self.multi_active(tab) and any(n is node for n in self.multi_nodes()):
+            self.multi_rebuild()   # the combined view re-reads its nodes
+            tab["dirty"] = True
+            self.refresh_tab_bar()
+            return
         if (getattr(self, "tabs", None) and tab is self.tabs[self.active_tab_index]
                 and self.get_active_node(tab) is node):
             self.project_blocks = new_blocks

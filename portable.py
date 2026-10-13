@@ -437,6 +437,123 @@ def split_python_top_level(text):
     return [(n or "top_level", "".join(lines[a:b])) for n, a, b in chunks]
 
 
+# --- language-independent split by top-level code ---------------------------
+# Rule (no parsing, works for any file type): a line at column 0 that is
+# followed by indented lines starts ONE node that runs until the next such
+# column-0 line (class/def/fn/function/namespace/if/<html>... - whatever it is).
+# A run of consecutive column-0 lines with nothing indented under them is ONE
+# node ("top_level"). Closers at column 0 (}, ), ], </tag>, else, end...) stay
+# with the node they close. Blank lines belong to the node above. Nothing is
+# dropped: "".join(code) == text.
+
+_CLOSER_RE = re.compile(r"^(?:[}\])]|</|(?:else|elif|except|finally|catch|end|esac|fi|done)\b)")
+_ATTACH_RE = re.compile(r"^(?:@|//|/\*|\*|#\[|#(?!\s*(?:include|define|undef|import|pragma|if|ifdef|ifndef|else|elif|endif|error|region|endregion)\b))")
+_NAME_KW_RE = re.compile(
+    r"\b(?:class|struct|interface|enum|trait|impl|def|fn|func|function|namespace|module|"
+    r"object|type|record|package|mod)\s+([A-Za-z_][A-Za-z0-9_]*)")
+_GO_METHOD_RE = re.compile(r"\bfunc\s*\([^)]*\)\s*([A-Za-z_][A-Za-z0-9_]*)")
+_BEFORE_PAREN_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+_FIRST_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def chunk_name(header):
+    """A readable node name from a block's first line (falls back to 'block')."""
+    h = header.strip()
+    m = _GO_METHOD_RE.search(h) or _NAME_KW_RE.search(h)
+    if m:
+        return m.group(1)
+    m = _BEFORE_PAREN_RE.search(h)
+    if m:
+        return m.group(1)
+    m = _FIRST_WORD_RE.search(h)
+    return m.group(0) if m else "block"
+
+
+def split_top_level(text):
+    """Split any text into [(name, code)] by the column-0 rule above."""
+    lines = text.splitlines(keepends=True)
+    n = len(lines)
+
+    def col0(i):
+        return bool(lines[i].strip()) and not lines[i][0].isspace()
+
+    # triple-quote strings: their lines are never headers
+    in_str, inside = None, [False] * n
+    for i, ln in enumerate(lines):
+        inside[i] = in_str is not None
+        for q in ('"""', "\'\'\'"):
+            c = ln.count(q)
+            if c:
+                if in_str is None and c % 2 == 1:
+                    in_str = q
+                elif in_str == q and c % 2 == 1:
+                    in_str = None
+
+    def next_nonblank(i):
+        j = i + 1
+        while j < n and not lines[j].strip():
+            j += 1
+        return j
+
+    kinds = []  # per line: "head" | "plain" | "cont"
+    for i in range(n):
+        if inside[i] or not col0(i):
+            kinds.append("cont")
+        elif _CLOSER_RE.match(lines[i]) or (lines[i].startswith("{") and _after_head(lines, kinds, i)):
+            kinds.append("cont")
+        else:
+            j = next_nonblank(i)
+            if j < n and (lines[j][0].isspace() or lines[j].lstrip().startswith("{")
+                          or lines[i].rstrip().endswith(("{", ":", "("))):
+                kinds.append("head")
+            else:
+                kinds.append("plain")
+
+    chunks = []  # [name, start, end]
+    for i, k in enumerate(kinds):
+        if k == "cont":
+            if chunks:
+                chunks[-1][2] = i + 1
+            else:
+                chunks.append(["top_level", i, i + 1])
+        elif k == "head":
+            start = i
+            # decorators / comments / attributes right above (no blank line) belong to it
+            if chunks and chunks[-1][0] == "top_level":
+                prev = chunks[-1]
+                while start > prev[1] and _ATTACH_RE.match(lines[start - 1]):
+                    start -= 1
+                if start == prev[1]:
+                    chunks.pop()
+                else:
+                    prev[2] = start
+            elif chunks:
+                chunks[-1][2] = start
+            chunks.append([chunk_name(lines[i]), start, i + 1])
+        else:  # plain
+            if chunks and chunks[-1][0] == "top_level" and chunks[-1][2] == i:
+                chunks[-1][2] = i + 1
+            else:
+                if chunks:
+                    chunks[-1][2] = max(chunks[-1][2], i)
+                chunks.append(["top_level", i, i + 1])
+    if chunks:
+        chunks[-1][2] = n
+    out = []
+    for name, a, b in chunks:
+        out.append((name, "".join(lines[a:b])))
+    return out
+
+
+def _after_head(lines, kinds, i):
+    """Allman style: a column-0 '{' right under a header (blank lines between
+    are fine) belongs to that header."""
+    j = i - 1
+    while j >= 0 and not lines[j].strip():
+        j -= 1
+    return j >= 0 and kinds[j] == "head"
+
+
 def wrap_with_markers(chunks, token="#"):
     """[(name, code)] -> marker-wrapped text with unique safe ids."""
     used, out = set(), []

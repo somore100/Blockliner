@@ -146,6 +146,8 @@ class TabsMixin:
         silently keep pointing at the old (now stale) list after a full
         reload like Code -> Blocks or Load Project.
         """
+        if self.multi_active():
+            self.multi_exit()      # a wholesale replace means "the active node" again
         self.project_blocks = new_list
         if getattr(self, "tabs", None):
             self.get_active_node()["blocks"] = new_list
@@ -160,6 +162,11 @@ class TabsMixin:
             return
         tab = self.tabs[self.active_tab_index]
         tab["language"] = self.current_language
+        if self.multi_active(tab):
+            # Open-together view: project_blocks is the combined list, so
+            # hand each node its own part instead of the whole thing.
+            self.multi_flush()
+            return
         self.get_active_node(tab)["blocks"] = self.project_blocks
 
     def mark_active_tab_dirty(self):
@@ -414,9 +421,11 @@ class TabsMixin:
     
     def clear_all(self):
         """Clear all blocks"""
-        if not self.project_blocks:
+        if not self.real_block_count():
             return
-        if messagebox.askyesno("Clear Workspace", f"Remove all {len(self.project_blocks)} blocks?"):
+        n_nodes = len(self.multi_nodes()) if self.multi_active() else 0
+        where = f" from the {n_nodes} open nodes" if n_nodes else ""
+        if messagebox.askyesno("Clear Workspace", f"Remove all {self.real_block_count()} blocks{where}?"):
             self.project_blocks.clear()
             self.mark_active_tab_dirty()
             self.refresh_workspace()

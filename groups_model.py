@@ -73,6 +73,17 @@ def contains_center(g, x, y, w, h):
     return g["x"] <= cx <= g["x"] + g["w"] and g["y"] <= cy <= g["y"] + g["h"]
 
 
+def bounds_around(rects, pad=24, title=30):
+    """Group rectangle (x, y, w, h) that wraps every (x, y, w, h) in rects,
+    with `pad` on all sides and room for the title bar on top. None if empty."""
+    rects = [r for r in rects if all(_num(v) for v in r)]
+    if not rects:
+        return None
+    x0 = min(r[0] for r in rects); y0 = min(r[1] for r in rects)
+    x1 = max(r[0] + r[2] for r in rects); y1 = max(r[1] + r[3] for r in rects)
+    return (x0 - pad, y0 - pad - title, (x1 - x0) + 2 * pad, (y1 - y0) + 2 * pad + title)
+
+
 def blend(color, bg="#1e1e1e", t=0.2):
     """Opaque stand-in for a translucent fill (Tk canvases have no alpha)."""
     c = [int(color[i:i + 2], 16) for i in (1, 3, 5)]

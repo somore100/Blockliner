@@ -14,6 +14,7 @@ class TopBarMixin:
             ("File", [
                 ("Save", self.save_project),
                 ("Load", self.load_project),
+                ("Open Project...", self.open_project_dialog),
                 ("Open Code File...", lambda: self.open_code_to_blocks_dialog(prefill_from_file=True)),
                 ("Export", self.export_code),
             ]),

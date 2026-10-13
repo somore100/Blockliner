@@ -132,7 +132,7 @@ def main():
     check("marked file is never offered a split", app._offer_split_unmarked(code, D()) is False and not asked)
     check("single-chunk file is not offered", app._offer_split_unmarked("x = 1\n", D()) is False and not asked)
     app.current_language = "go"
-    check("non-python file is not offered", app._offer_split_unmarked(plain, D()) is False and not asked)
+    check("any language is offered the same split (declined here)", app._offer_split_unmarked(plain, D()) is False and asked == ["No node markers"])
 
     app.destroy()
     print(f"\n{len(FAILURES)} failure(s)")

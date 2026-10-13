@@ -195,6 +195,15 @@ class BlockWidget(tk.Frame):
         if self.container_list is getattr(app, "project_blocks", None):
             self._bind_drag_tree(self)
 
+    def display_number(self):
+        """The number in the header. Normally index + 1; in the Open-together
+        view the separator rows are not blocks, so top-level numbers skip them."""
+        app = self.app
+        if (self.container_list is getattr(app, "project_blocks", None)
+                and getattr(app, "multi_active", None) and app.multi_active()):
+            return app.block_number_at(self.index)
+        return self.index + 1
+
     def _bind_drag_tree(self, widget):
         widget.bind("<ButtonPress-1>", self._reorder_press, add="+")
         widget.bind("<B1-Motion>", self._reorder_motion, add="+")
@@ -242,7 +251,7 @@ class BlockWidget(tk.Frame):
         # Block index number
         tk.Label(
             header,
-            text=f"{self.index + 1}",
+            text=f"{self.display_number()}",
             bg=self.category_color,
             fg="#000000",
             font=("Segoe UI", 9, "bold"),

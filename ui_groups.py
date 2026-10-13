@@ -80,6 +80,35 @@ class GroupsMixin:
         c, z = self.workspace_canvas, self.canvas_zoom
         return self.add_group((max(0, c.canvasx(40) / z), max(0, c.canvasy(40) / z)))
 
+    def group_selected_nodes(self):
+        """Wrap the Shift+right-click selected nodes in a new group (a box
+        sized to fit them; dragging its title then moves them together)."""
+        if self.view_mode != "file":
+            return None
+        from nodes_model import find_node_by_id
+        tab = self.tabs[self.active_tab_index]
+        z = self.canvas_zoom
+        rects = []
+        for nid in self.selected_nodes():
+            n = find_node_by_id(tab["nodes"], nid)
+            entry = getattr(self, "_fileview_boxes", {}).get(nid)
+            if n is None or entry is None or "canvas_x" not in n:
+                continue
+            rects.append((n["canvas_x"], n["canvas_y"],
+                          entry[1].winfo_reqwidth() / z, entry[1].winfo_reqheight() / z))
+        b = gm.bounds_around(rects)
+        if b is None:
+            return None
+        lst, level = self._groups_ctx()
+        g = gm.make_group(lst, b[0], b[1], w=b[2], h=b[3], level=level)
+        self.selected_nodes().clear()
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return g
+
+    def group_selected_label(self):
+        return f"\u25ad Group {len(self.selected_nodes())} selected"
+
     def rename_group(self, gid):
         g = self._find_group(gid)
         if g is None:

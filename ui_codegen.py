@@ -300,7 +300,7 @@ class CodegenMixin:
         from ui_common import normalize_save_format
         return normalize_save_format(self.settings.get("save_format")) == "embedded"
 
-    def load_portable_text(self, text, title="Imported", sidecar_text=None):
+    def load_portable_text(self, text, title="Imported", sidecar_text=None, language=None):
         """Open a portable file's text as a NEW tab: nodes, nesting, order
         and layout from its metadata when present, otherwise a flat
         skeleton from the markers (see portable.rebuild_nodes). Each
@@ -315,7 +315,7 @@ class CodegenMixin:
             sidecar_meta, sidecar_notes = portable.parse_sidecar(sidecar_text)
         if meta is None:
             meta = sidecar_meta
-        lang = (meta or {}).get("language")
+        lang = language or (meta or {}).get("language")
         if not (isinstance(lang, str) and os.path.isdir(os.path.join(self.languages_path, lang))):
             lang = self.current_language
 

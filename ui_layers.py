@@ -5,6 +5,8 @@ import uuid
 from nodes_model import find_node_by_id, make_node, next_order, normalize_orders
 from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, KEYBIND_ACTIONS, TEXT_INPUT_CLASSES, keybind_is_bare
 from ui_widgets import BlockWidget
+from ui_multiopen import NodeMarkerRow
+from multi_open import NODE_MARK
 
 
 class LayersMixin:
@@ -87,6 +89,18 @@ class LayersMixin:
                     relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
                     command=self.add_group_in_view
                 ).pack(side=tk.LEFT, padx=(0, 10))
+                if len(self.selected_nodes()) >= 2:
+                    tk.Button(
+                        self.node_nav_frame, text=self.group_selected_label(),
+                        bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                        font=("Segoe UI", 9), command=self.group_selected_nodes
+                    ).pack(side=tk.LEFT, padx=(0, 10))
+                if len(self.selected_function_nodes()) >= 2:
+                    tk.Button(
+                        self.node_nav_frame, text="\u29c9 " + self.open_together_label(),
+                        bg=DARK_ACCENT, fg="#ffffff", relief=tk.FLAT, cursor="hand2",
+                        font=("Segoe UI", 9), command=self.open_selected_nodes
+                    ).pack(side=tk.LEFT, padx=(0, 10))
             code_toggle_active = self.file_view_code_mode
             tk.Button(
                 self.node_nav_frame,
@@ -98,10 +112,13 @@ class LayersMixin:
             ).pack(side=tk.LEFT)
         else:
             active_node = self.get_active_node(tab)
-            crumb = f"\U0001F4C4 {tab['title']}  \u203A  \U0001F9E9 {active_node['name']}"
+            together = self.multi_crumb()
+            crumb = f"\U0001F4C4 {tab['title']}  \u203A  " + (
+                together if together else f"\U0001F9E9 {active_node['name']}")
             tk.Label(
-                self.node_nav_frame, text=crumb, bg=DARK_BG, fg="#888888",
-                font=("Segoe UI", 9)
+                self.node_nav_frame, text=crumb, bg=DARK_BG,
+                fg="#e8a33d" if together else "#888888",
+                font=("Segoe UI", 9, "bold" if together else "normal")
             ).pack(side=tk.LEFT, padx=(0, 10))
             # Only worth surfacing "view all nodes" once a file actually
             # has more than one top-level node, or that one node is a
@@ -478,7 +495,7 @@ class LayersMixin:
         Not filtered by winfo_ismapped: Tk unmaps canvas windows that are
         scrolled out of view, but their layout (winfo_y) is still valid."""
         return [w for w in self.workspace_frame.winfo_children()
-                if isinstance(w, BlockWidget) and w.winfo_exists()]
+                if isinstance(w, (BlockWidget, NodeMarkerRow)) and w.winfo_exists()]
 
     def drop_target(self, y_root):
         """Where a palette block released at screen y should go.
@@ -616,6 +633,7 @@ class LayersMixin:
         boxes (view_mode == "file") or the block editor for whichever
         node is currently active (view_mode == "node", the default and
         today's exact original behavior when a tab has only one node)."""
+        self.multi_check()
         self.recompute_references()
         self.recompute_file_references()
         # Kept unconditional (not just for view_mode == "file"/"node")
@@ -687,7 +705,8 @@ class LayersMixin:
             self._render_block_window()
 
         count = len(self.project_blocks)
-        label = f"{count} block{'s' if count != 1 else ''}"
+        shown = self.real_block_count()
+        label = f"{shown} block{'s' if shown != 1 else ''}"
         if self._win_list is self.project_blocks and (self._win_start > 0 or self._win_end < count):
             label += f" (showing {self._win_start + 1}-{self._win_end})"
         self.block_count_label.config(text=label)
@@ -729,6 +748,8 @@ class LayersMixin:
 
     def _make_block_widget(self, i):
         block_id, params = self.project_blocks[i]
+        if block_id == NODE_MARK:
+            return self.make_node_marker_row(i)
         block_module = self.blocks.get(block_id)
         if not block_module:
             return None

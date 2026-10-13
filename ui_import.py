@@ -567,20 +567,23 @@ class ImportMixin:
 
     def _offer_split_unmarked(self, content, dialog):
         """A file with no markers: offer (never automatic) to open it as nodes
-        split by top-level class/def. Python only for now. True if opened."""
-        if self.current_language != "python" or portable.NODE_MARKER_RE.search(content):
+        split by its top-level code (portable.split_top_level - same rule for
+        every language). True if opened."""
+        if portable.NODE_MARKER_RE.search(content):
             return False
-        chunks = portable.split_python_top_level(content)
+        chunks = portable.split_top_level(content)
         if not chunks or len(chunks) < 2:
             return False
         if not messagebox.askyesno(
                 "No node markers",
                 f"This file has no Blockliner node markers.\n\nSplit it into {len(chunks)} nodes "
-                "by its top-level classes and functions (other top-level code becomes "
-                "'top_level' nodes) and open it in a new tab?\n\nNo = import it as plain code."):
+                "by its top-level code (each top-level class / function / block becomes a node; "
+                "runs of plain top-level lines become one 'top_level' node) and open it in a new tab?"
+                "\n\nNo = import it as plain code."):
             return False
         dialog.destroy()
-        notes = self.load_portable_text(portable.wrap_with_markers(chunks, "#"))
+        token = self.get_comment_token(self.current_language) or "#"
+        notes = self.load_portable_text(portable.wrap_with_markers(chunks, token))
         notes = [f"Split into {len(chunks)} nodes - names come from the code; layout is a default grid."] + (notes or [])
         messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
         return True

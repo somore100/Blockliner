@@ -237,12 +237,20 @@ class MenusMixin:
         sel = self.selected_nodes()
         sel.symmetric_difference_update({node_id})
         self._paint_node_selection(node_id)
+        self._refresh_nav_for_selection()
 
     def clear_node_selection(self):
         old = list(self.selected_nodes())
         self.selected_nodes().clear()
         for nid in old:
             self._paint_node_selection(nid)
+        if old:
+            self._refresh_nav_for_selection()
+
+    def _refresh_nav_for_selection(self):
+        """The nav bar offers "Open N selected together" - keep it in step."""
+        if self.view_mode == "file" and not self.file_view_code_mode:
+            self.refresh_node_nav()
 
     def toggle_ignore_node(self, node_id):
         """Right-click > Ignore: the node stays in the project but is left
@@ -273,6 +281,12 @@ class MenusMixin:
         locked = bool(node.get("locked"))
         off = tk.DISABLED if locked else tk.NORMAL
         menu.add_command(label="Open", command=lambda: self.open_node(node_id))
+        if node_id in self.selected_nodes() and len(self.selected_function_nodes()) >= 2:
+            menu.add_command(label=self.open_together_label(),
+                             command=self.open_selected_nodes)
+        if node_id in self.selected_nodes() and len(self.selected_nodes()) >= 2:
+            menu.add_command(label=self.group_selected_label(),
+                             command=self.group_selected_nodes)
         if node.get("kind", "function") == "function":
             sel = self.selected_nodes()
             multi = node_id in sel and len(sel) > 1

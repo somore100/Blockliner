@@ -457,9 +457,12 @@ class CanvasMixin:
         left.pack(side=tk.LEFT, anchor="n")
         right = tk.Frame(row, bg=BLOCK_BG)
         right.pack(side=tk.RIGHT, anchor="n")
+        box._in_port_lines = []
         for p in ports:
             line = tk.Frame(left if p["side"] == "in" else right, bg=BLOCK_BG)
             line.pack(anchor="w" if p["side"] == "in" else "e")
+            if p["side"] == "in":
+                box._in_port_lines.append((p["name"], line))
             dot = tk.Label(line, text="\u25cf", bg=BLOCK_BG, fg=p["color"],
                            font=self._zfont(11, "bold"), cursor="hand2")
             name = tk.Label(line, text=p["name"], bg=BLOCK_BG, fg="#bbbbbb",
@@ -490,7 +493,43 @@ class CanvasMixin:
             self._wire_drag_mode = ("out", port_name)
             self._oport_press_xy = (e.x_root, e.y_root)
 
-    def add_port_wire(self, source_id, target_id):
+    def _input_port_at(self, target_id, x_root, y_root):
+        """Name of the target node's INPUT port under the screen point, or None."""
+        pair = self._fileview_boxes.get(target_id)
+        if pair is None:
+            return None
+        for name, line in getattr(pair[1], "_in_port_lines", []):
+            try:
+                x, y = line.winfo_rootx(), line.winfo_rooty()
+                w, h = line.winfo_width(), line.winfo_height()
+            except tk.TclError:
+                continue
+            if x <= x_root <= x + w and y <= y_root <= y + h:
+                return name
+        return None
+
+    def _highlight_input_port(self, node_id, name):
+        """Cyan background on one input port line while a wire hovers it."""
+        prev = getattr(self, "_in_port_hl", None)
+        if prev is not None:
+            try:
+                prev.configure(bg=BLOCK_BG)
+                for ch in prev.winfo_children():
+                    ch.configure(bg=BLOCK_BG)
+            except tk.TclError:
+                pass
+        self._in_port_hl = None
+        pair = self._fileview_boxes.get(node_id) if node_id else None
+        if pair is None or name is None:
+            return
+        for n, line in getattr(pair[1], "_in_port_lines", []):
+            if n == name:
+                line.configure(bg="#1f4b52")
+                for ch in line.winfo_children():
+                    ch.configure(bg="#1f4b52")
+                self._in_port_hl = line
+
+    def add_port_wire(self, source_id, target_id, input_name=None, output_name=None):
         """Output port dropped on another node: add to the TARGET node the
         ready-made call of the source's function. If the source returns
         values the call is stored in variables named like its output
@@ -506,6 +545,17 @@ class CanvasMixin:
         call = {"name": source["name"], "args": ", ".join(inputs)}
         names = [n for n in outputs if n.isidentifier() and not keyword.iskeyword(n)]
         multi_ok = getattr(self, "current_language", None) in ("python", "go")
+        target_inputs = node_ports.node_interface(target)[0]
+        if input_name in target_inputs and input_name.isidentifier() \
+                and not keyword.iskeyword(input_name) and len(names) == len(outputs) \
+                and "assign_variable" in self.blocks and (len(outputs) == 1 or multi_ok):
+            # dropped on a specific input port: the value lands in a variable
+            # named like that port ("password = gen_pw()"); with several
+            # outputs the dragged one is renamed, the others keep their names
+            if len(outputs) == 1 or output_name not in outputs:
+                names = [input_name] if len(outputs) == 1 else names
+            else:
+                names = [input_name if n == output_name else n for n in outputs]
         if "assign_variable" in self.blocks and names and len(names) == len(outputs) \
                 and (len(names) == 1 or multi_ok):
             target["blocks"].append(("assign_variable", {
@@ -597,6 +647,9 @@ class CanvasMixin:
                 if cur is not None:
                     cur[1].configure(highlightbackground="#e8a33d")
             self._wire_drag_hover_id = target_id
+        if getattr(self, "_wire_drag_mode", None) is not None:
+            self._highlight_input_port(
+                target_id, self._input_port_at(target_id, e.x_root, e.y_root) if target_id else None)
 
     def _port_release(self, e):
         """Finish a wire-drag: if the mouse was released on top of a
@@ -625,8 +678,10 @@ class CanvasMixin:
         if mode is not None:
             # output-port drag: connect to a node, or (a click that never
             # left the dot) open the colour menu; empty canvas = cancel
+            self._highlight_input_port(None, None)
             if target_id is not None:
-                self.add_port_wire(source_id, target_id)
+                self.add_port_wire(source_id, target_id,
+                                   self._input_port_at(target_id, e.x_root, e.y_root), mode[1])
             else:
                 x0, y0 = getattr(self, "_oport_press_xy", (e.x_root, e.y_root))
                 if abs(e.x_root - x0) <= 4 and abs(e.y_root - y0) <= 4:

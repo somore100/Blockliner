@@ -1,14 +1,12 @@
 name: Build Blockliner
 
-# Builds a Windows .exe, a macOS binary, and a Linux .AppImage using the
-# existing build.py script. Runs on every push of a version tag
-# (v1.0.0 etc.) and can also be triggered manually from the Actions tab.
+# Builds a Windows .exe, a macOS binary and a Linux .AppImage with build.py.
+# Runs when you push a version tag (v2.4.1 etc.) or manually from the
+# Actions tab. A tag push also publishes a GitHub Release with all three.
 #
-# NOTE: this assumes main.py / build.py / ui.py / languages/ / engine/
-# sit at the repository root. If your repo nests everything under a
-# subfolder (e.g. source/), add `working-directory: source` to each
-# step below, or a `defaults: run: working-directory: source` block
-# at the job level.
+# Put this file at  .github/workflows/build.yml  in the GIT ROOT.
+# It finds build.py by itself, so it works whether the git root is V2/
+# or a folder above it.
 
 on:
   push:
@@ -20,108 +18,126 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      # Second layer of defense alongside build.py's own stdout
-      # reconfigure() call: forces the whole interpreter into UTF-8
-      # mode before any code runs, so Windows' default cp1252 console
-      # can't choke on Unicode symbols (checkmarks etc.) in build
-      # output.
       PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Find app folder
+        shell: bash
+        run: |
+          f=$(find . -maxdepth 3 -name build.py -not -path "*/node_modules/*" | head -n1)
+          test -n "$f" || { echo "build.py not found"; exit 1; }
+          echo "APP_DIR=$(dirname "$f")" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Build Windows exe
+        working-directory: ${{ env.APP_DIR }}
         run: python build.py --target exe
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Blockliner-Windows
-          path: dist/Blockliner.exe
+          path: ${{ env.APP_DIR }}/dist/Blockliner.exe
+          if-no-files-found: error
 
   build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Find app folder
+        run: |
+          f=$(find . -maxdepth 3 -name build.py | head -n1)
+          test -n "$f" || { echo "build.py not found"; exit 1; }
+          echo "APP_DIR=$(dirname "$f")" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Build macOS binary
+        working-directory: ${{ env.APP_DIR }}
         run: python build.py --target binary-only
 
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Blockliner-macOS
-          path: dist/Blockliner
+          path: ${{ env.APP_DIR }}/dist/Blockliner
+          if-no-files-found: error
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Find app folder
+        run: |
+          f=$(find . -maxdepth 3 -name build.py | head -n1)
+          test -n "$f" || { echo "build.py not found"; exit 1; }
+          echo "APP_DIR=$(dirname "$f")" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # python3-tk is needed so PyInstaller can bundle tkinter.
+      # build.py handles a missing libfuse2 by itself (extract-and-run).
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-tk
-          # libfuse2/libfuse2t64 intentionally NOT installed here -
-          # build.py already detects if it's missing and falls back to
-          # APPIMAGE_EXTRACT_AND_RUN automatically, which is more
-          # robust across different Ubuntu runner versions than
-          # hardcoding one package name.
 
       - name: Install Python dependencies
+        working-directory: ${{ env.APP_DIR }}
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Build Linux AppImage
+        working-directory: ${{ env.APP_DIR }}
         run: python build.py --target appimage
 
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Blockliner-Linux
-          path: dist/Blockliner-x86_64.AppImage
+          path: ${{ env.APP_DIR }}/dist/Blockliner-x86_64.AppImage
+          if-no-files-found: error
 
   release:
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    # Without this the release step fails with "Resource not accessible
+    # by integration" (the default token is read-only).
+    permissions:
+      contents: write
     steps:
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: Blockliner-Windows
           path: dist-windows
 
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: Blockliner-macOS
           path: dist-macos
 
-      - name: Download Linux artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: Blockliner-Linux
           path: dist-linux

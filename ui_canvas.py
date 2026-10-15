@@ -1,9 +1,11 @@
 """Node/file canvas rendering, dragging and wires."""
+import keyword
 import tkinter as tk
+import node_ports
 from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
 
-SELECT_COLOR = "#ffd54f"
+SELECT_COLOR = "#00e5ff"  # cyan: selected file / node / block
 
 
 class CanvasMixin:
@@ -82,6 +84,8 @@ class CanvasMixin:
             tags=("fileview", "file_box")
         )
         self._filesview_boxes[index] = (win_id, box)
+        if getattr(self, "_selected_file_index", None) == index:
+            box.configure(highlightbackground=SELECT_COLOR)
         self._bind_context_recursive(
             box, lambda e, idx=index: self._on_file_box_right_click(e, idx))
 
@@ -92,6 +96,7 @@ class CanvasMixin:
                       "tab_x0": 0, "tab_y0": 0}
 
         def _press(e, idx=index):
+            self.select_file_box(idx)
             drag_state["dragging"] = False
             drag_state["start_x"] = e.x_root
             drag_state["start_y"] = e.y_root
@@ -332,6 +337,9 @@ class CanvasMixin:
         name_label.pack_forget()
         name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
+        if not is_container:
+            self._build_node_ports(box, node)
+
         body = tk.Frame(box, bg=BLOCK_BG)
         body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
         if is_container:
@@ -435,6 +443,99 @@ class CanvasMixin:
             port.bind("<B1-Motion>", self._port_motion)
             port.bind("<ButtonRelease-1>", self._port_release)
 
+    # ---- ports (inputs = function parameters, outputs = returned values) ----
+    def _build_node_ports(self, box, node):
+        """Coloured input ports on the left and output ports on the right,
+        derived from a def named like the node (node_ports.py). Click a dot
+        to pick its colour. Nothing is drawn when the node has no ports."""
+        ports = node_ports.node_ports(node)
+        if not ports:
+            return
+        row = tk.Frame(box, bg=BLOCK_BG)
+        row.pack(fill=tk.X, padx=self._zi(8), pady=(self._zi(6), 0))
+        left = tk.Frame(row, bg=BLOCK_BG)
+        left.pack(side=tk.LEFT, anchor="n")
+        right = tk.Frame(row, bg=BLOCK_BG)
+        right.pack(side=tk.RIGHT, anchor="n")
+        for p in ports:
+            line = tk.Frame(left if p["side"] == "in" else right, bg=BLOCK_BG)
+            line.pack(anchor="w" if p["side"] == "in" else "e")
+            dot = tk.Label(line, text="\u25cf", bg=BLOCK_BG, fg=p["color"],
+                           font=self._zfont(11, "bold"), cursor="hand2")
+            name = tk.Label(line, text=p["name"], bg=BLOCK_BG, fg="#bbbbbb",
+                            font=self._zfont(9))
+            if p["side"] == "in":
+                dot.pack(side=tk.LEFT)
+                name.pack(side=tk.LEFT, padx=(self._zi(2), 0))
+            else:
+                name.pack(side=tk.LEFT, padx=(0, self._zi(2)))
+                dot.pack(side=tk.LEFT)
+            if p["side"] == "out" and "func_call" in self.blocks:
+                # drag = pass this node's result into another node;
+                # a plain click still opens the colour menu
+                dot.configure(cursor="crosshair")
+                dot.bind("<ButtonPress-1>", lambda e, nid=node["id"], n=p["name"]:
+                         self._oport_press(e, nid, n))
+                dot.bind("<B1-Motion>", self._port_motion)
+                dot.bind("<ButtonRelease-1>", self._port_release)
+            else:
+                dot.bind("<Button-1>", lambda e, nid=node["id"], s=p["side"], n=p["name"]:
+                         self._popup(self.build_port_color_menu(nid, s, n), e))
+
+    def _oport_press(self, e, source_id, port_name):
+        """Start a data-direction wire: from this node's output port to the
+        node that should USE its result (the call is added to that node)."""
+        self._port_press(e, source_id)
+        if self._wire_drag_source is not None:
+            self._wire_drag_mode = ("out", port_name)
+            self._oport_press_xy = (e.x_root, e.y_root)
+
+    def add_port_wire(self, source_id, target_id):
+        """Output port dropped on another node: add to the TARGET node the
+        ready-made call of the source's function. If the source returns
+        values the call is stored in variables named like its output
+        ports ("approved, declined = verify(username, password)");
+        otherwise it is a plain call. The wire is derived as always
+        (target calls source), never stored."""
+        tab = self.tabs[self.active_tab_index]
+        source = find_node_by_id(tab["nodes"], source_id)
+        target = find_node_by_id(tab["nodes"], target_id)
+        if source is None or target is None:
+            return False
+        inputs, outputs = node_ports.node_interface(source)
+        call = {"name": source["name"], "args": ", ".join(inputs)}
+        names = [n for n in outputs if n.isidentifier() and not keyword.iskeyword(n)]
+        multi_ok = getattr(self, "current_language", None) in ("python", "go")
+        if "assign_variable" in self.blocks and names and len(names) == len(outputs) \
+                and (len(names) == 1 or multi_ok):
+            target["blocks"].append(("assign_variable", {
+                "variable": ", ".join(names),
+                "value": {"_nested_block": "func_call", "_nested_params": call}}))
+        else:
+            target["blocks"].append(("func_call", call))
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True
+
+    def build_port_color_menu(self, node_id, side, name):
+        menu = self._new_menu(self)
+        for label, col in node_ports.PORT_COLORS:
+            menu.add_command(label=label, foreground=col,
+                             command=lambda c=col: self.set_port_color(node_id, side, name, c))
+        menu.add_separator()
+        menu.add_command(label="Automatic",
+                         command=lambda: self.set_port_color(node_id, side, name, None))
+        return menu
+
+    def set_port_color(self, node_id, side, name, color):
+        tab = self.tabs[self.active_tab_index]
+        node = find_node_by_id(tab["nodes"], node_id)
+        if node is None:
+            return
+        node_ports.set_port_color(node, side, name, color)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+
     def _canvas_screen_from_event(self, e):
         """Mouse event -> canvas (screen-scale) coordinates, accounting for
         scroll offset. canvasx/canvasy expect a position relative to the
@@ -519,6 +620,18 @@ class CanvasMixin:
 
         target_id = self._node_box_at(cx, cy, exclude_id=source_id) if source_id is not None else None
         self._wire_drag_source = None
+        mode = getattr(self, "_wire_drag_mode", None)
+        self._wire_drag_mode = None
+        if mode is not None:
+            # output-port drag: connect to a node, or (a click that never
+            # left the dot) open the colour menu; empty canvas = cancel
+            if target_id is not None:
+                self.add_port_wire(source_id, target_id)
+            else:
+                x0, y0 = getattr(self, "_oport_press_xy", (e.x_root, e.y_root))
+                if abs(e.x_root - x0) <= 4 and abs(e.y_root - y0) <= 4:
+                    self._popup(self.build_port_color_menu(source_id, "out", mode[1]), e)
+            return
         if target_id is not None:
             self.add_wire_by_drag(source_id, target_id)
         elif source_id is not None:

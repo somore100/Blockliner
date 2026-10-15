@@ -22,6 +22,7 @@ in here raises on bad input - problems become diagnostics strings.
 import json
 import re
 
+import node_ports
 from nodes_model import function_nodes_in_tree_order
 
 META_VERSION = 1
@@ -78,6 +79,8 @@ def build_metadata(nodes, language, active_node_id=None):
             for key in ("category", "locked", "node_type_id", "ignored"):
                 if node.get(key):
                     entry[key] = node[key]
+            if node.get("port_colors"):
+                entry["port_colors"] = node["port_colors"]
             if "order" in node:
                 entry["order"] = node["order"]
             elif id(node) in tree_rank:
@@ -297,6 +300,9 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
         }
         if entry.get("ignored") is True:
             node["ignored"] = True
+        pc = node_ports.clean_port_colors(entry.get("port_colors"))
+        if pc:
+            node["port_colors"] = pc
         if kind == "function":
             node["code"] = code_by_id.get(node_id, "")
             if "order" in entry:

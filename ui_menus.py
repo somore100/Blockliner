@@ -233,6 +233,43 @@ class MenusMixin:
         except tk.TclError:
             pass
 
+    # ---- single selection of a file box / a block (cyan outline) ---------
+    def select_file_box(self, index):
+        old = getattr(self, "_selected_file_index", None)
+        self._selected_file_index = index
+        from ui_common import DARK_BORDER
+        from ui_canvas import SELECT_COLOR
+        boxes = getattr(self, "_filesview_boxes", {})
+        for i, color in ((old, DARK_BORDER), (index, SELECT_COLOR)):
+            entry = boxes.get(i)
+            if entry:
+                try:
+                    entry[1].configure(highlightbackground=color)
+                except tk.TclError:
+                    pass
+
+    def is_block_selected(self, index, container_list):
+        return (container_list is getattr(self, "_selected_block_list", None)
+                and index == getattr(self, "_selected_block_index", None))
+
+    def select_block(self, index, container_list):
+        self._selected_block_list = container_list
+        self._selected_block_index = index
+        self._repaint_block_selection()
+
+    def _repaint_block_selection(self):
+        from ui_widgets import BlockWidget
+
+        def walk(w):
+            for child in w.winfo_children():
+                if isinstance(child, BlockWidget):
+                    child.refresh_selection_border()
+                walk(child)
+        try:
+            walk(self.workspace_frame)
+        except (tk.TclError, AttributeError):
+            pass
+
     def toggle_node_selected(self, node_id):
         sel = self.selected_nodes()
         sel.symmetric_difference_update({node_id})

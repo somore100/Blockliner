@@ -12,6 +12,7 @@ old files.
 import json
 
 import groups_model
+import node_ports
 from nodes_model import make_node, normalize_orders, default_active_node_id
 
 FORMAT = "blockliner-project"
@@ -63,6 +64,9 @@ def _node_from_json(raw, seen_ids, notes):
     )
     if raw.get("ignored") is True:
         node["ignored"] = True
+    pc = node_ports.clean_port_colors(raw.get("port_colors"))
+    if pc:
+        node["port_colors"] = pc
     if "order" in raw and (raw["order"] is None or (isinstance(raw["order"], int)
                                                     and not isinstance(raw["order"], bool))):
         node["order"] = raw["order"]

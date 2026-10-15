@@ -186,6 +186,7 @@ class BlockWidget(tk.Frame):
         self.create_widgets()
         self.bind("<Enter>", self.on_hover)
         self.bind("<Leave>", self.on_leave)
+        self.refresh_selection_border()
 
         # Drag-reorder: only top-level blocks (a nested block keeps its
         # own up/down buttons). Grab anywhere except buttons and nested
@@ -233,6 +234,7 @@ class BlockWidget(tk.Frame):
         self._dragging = False
         self._drag_press_xy = None
         if not was_drag:
+            self.app.select_block(self.index, self.container_list)
             return
         self.app.block_drag_feedback(self.index, None, None)
         self.on_leave(None)
@@ -416,6 +418,15 @@ class BlockWidget(tk.Frame):
     
     def on_leave(self, event):
         self.configure(bg=BLOCK_BG, highlightbackground=DARK_BORDER, highlightthickness=2)
+        self.refresh_selection_border()
+
+    def refresh_selection_border(self):
+        """Cyan outline while this block is the selected one."""
+        selected = getattr(self.app, "is_block_selected", None)
+        if selected and selected(self.index, self.container_list):
+            self.configure(highlightbackground="#00e5ff", highlightthickness=3)
+        else:
+            self.configure(highlightbackground=DARK_BORDER, highlightthickness=2)
 
 class ExpressionSlot(tk.Frame):
     """

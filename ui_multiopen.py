@@ -30,6 +30,8 @@ class NodeMarkerRow(tk.Frame):
         text = f"\U0001F9E9 {node['name']}   {badge}   ({position}/{total})"
         if node.get("ignored"):
             text += "   · ignored"
+        if node.get("skipped"):
+            text += "   · skipped"
         tk.Label(self, text=text, bg=DARK_BG, fg=MARKER_COLOR,
                  font=("Segoe UI", 10, "bold"), anchor="w").pack(fill=tk.X, padx=2)
 

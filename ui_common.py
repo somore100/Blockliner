@@ -165,6 +165,9 @@ DEFAULT_SETTINGS = {
     "scroll_mode": "smooth",
     # Files/Nodes canvas: print x/y numbers along the coordinate grid.
     "show_coords": False,
+    # Files/Nodes canvas: when zoomed far out, draw boxes as just their
+    # coloured title (no ports, ids, buttons) like ComfyUI does.
+    "lod_hide_details": True,
     # Where node data (names, nesting, order, layout) is kept when saving:
     # "sidecar" = a <file>.blockliner.json next to the code file (code stays
     # clean apart from the node markers); "embedded" = a block at the end of

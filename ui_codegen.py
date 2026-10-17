@@ -6,7 +6,7 @@ import json
 import threading
 import subprocess
 import sys
-from nodes_model import make_node, sorted_function_nodes
+from nodes_model import make_node, skipped_names, sorted_function_nodes, strip_skipped_calls
 import portable
 import project_file
 import code_autoclose
@@ -32,9 +32,43 @@ class CodegenMixin:
         # tree position. Class/category nodes have empty blocks by
         # construction, so only function nodes contribute anyway.
         combined = []
+        skipped = skipped_names(nodes)
+        lang = tab.get("language") or getattr(self, "current_language", "python")
         for node in sorted_function_nodes(nodes):
-            combined.extend(node["blocks"])
+            combined.extend(self._node_blocks_for_gen(node, skipped, lang))
         return combined
+
+    def _comment_out(self, code, lang):
+        """Code as comment lines with a DOUBLE comment marker ("## x = 1"),
+        so a skipped node stays readable but never runs."""
+        tok = self.get_comment_token(lang) or "#"
+        out = []
+        for line in code.rstrip("\n").splitlines():
+            if isinstance(tok, (list, tuple)):
+                out.append(f"{tok[0]} skipped: {line} {tok[1]}" if line.strip() else "")
+            else:
+                out.append(f"{tok}{tok} {line}".rstrip())
+        return "\n".join(out) + "\n" if out else ""
+
+    def _node_blocks_for_gen(self, node, skipped, lang):
+        """The blocks that go into generated code for one node. Normally its
+        own; a SKIPPED node becomes its code as ## comments, and a call to a
+        skipped node (in any other node) becomes that call as a ## comment.
+        Nothing stored is changed - these are copies."""
+        blocks = node.get("blocks", [])
+        if not skipped:
+            return blocks
+        raw_id = self.get_raw_code_block_id(lang)
+        if node.get("skipped"):
+            if raw_id is None:
+                return []
+            text = self._comment_out("".join(self.render_block_list(blocks, lang)), lang)
+            return [(raw_id, {"code": text.rstrip("\n"), "_skip_comment": True})] if text else []
+        if raw_id is None:
+            return strip_skipped_calls(blocks, skipped)
+        return strip_skipped_calls(blocks, skipped, replace=lambda entry: (
+            raw_id, {"code": self._comment_out("".join(self.render_block_list([entry], lang)), lang).rstrip("\n"),
+                     "_skip_comment": True}))
 
     def all_tab_blocks_concatenated(self):
         """All blocks across every node in the active tab, concatenated
@@ -160,9 +194,10 @@ class CodegenMixin:
         token = self.get_comment_token(lang)
 
         chunks = []
+        skipped = skipped_names(nodes)
         for node in sorted_function_nodes(nodes):
             code = ""
-            for block_code in self.render_block_list(node.get("blocks", []), lang):
+            for block_code in self.render_block_list(self._node_blocks_for_gen(node, skipped, lang), lang):
                 if indent:
                     block_code = indent + block_code.replace("\n", "\n" + indent).rstrip() + "\n"
                 code += block_code

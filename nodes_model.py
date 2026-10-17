@@ -153,3 +153,49 @@ def default_active_node_id(nodes):
             if found:
                 return found
     return nodes[0]["id"] if nodes else None
+
+
+def skipped_names(nodes):
+    """Names of every function node marked `skipped` (right-click > Skip)."""
+    return {n.get("name") for n in function_nodes_in_tree_order(nodes)
+            if n.get("skipped") and n.get("name")}
+
+
+def _calls_skipped(value, names):
+    """True when a param value is (or holds) a call chip to a skipped node."""
+    if isinstance(value, dict):
+        if value.get("_nested_block") == "func_call":
+            p = value.get("_nested_params")
+            if isinstance(p, dict) and str(p.get("name") or "").strip() in names:
+                return True
+        return any(_calls_skipped(v, names) for v in value.values())
+    return False
+
+
+def strip_skipped_calls(blocks, names, replace=None):
+    """A copy of `blocks` without any call to a skipped node: a plain call
+    block of that name is dropped (or swapped for replace(entry) when a
+    replace function is given), and so is any block whose value holds such
+    a call (e.g. "text = gen_pw()"), nested containers included. The input
+    is never changed. With no names the list is returned as is."""
+    if not names:
+        return blocks
+    out = []
+    for entry in blocks or []:
+        try:
+            bid, params = entry
+        except (TypeError, ValueError):
+            out.append(entry)
+            continue
+        if isinstance(params, dict):
+            if (bid == "func_call" and str(params.get("name") or "").strip() in names) or \
+                    any(_calls_skipped(v, names) for k, v in params.items() if k != "_children"):
+                if replace is not None:
+                    out.append(replace(entry))
+                continue
+            kids = params.get("_children")
+            if isinstance(kids, list):
+                params = dict(params)
+                params["_children"] = strip_skipped_calls(kids, names, replace)
+        out.append((bid, params) if isinstance(entry, tuple) else [bid, params])
+    return out

@@ -3,11 +3,14 @@
 A node is not a function, but a node that holds a "Define Function" block
 named like the node has an interface: that function's parameters are the
 node's INPUT ports and the values it returns are its OUTPUT ports.
+A node WITHOUT such a function has no inputs, and its OUTPUT ports are the
+variables its top-level code assigns ("text = make_password()" -> port "text").
 Nothing here changes generated code - ports are derived from the blocks,
 never hand-authored. Only the colours can be set by hand
 (node["port_colors"] = {"out:user": "#rrggbb", ...}); everything else is
 recomputed every time.
 """
+import keyword
 import re
 import zlib
 
@@ -88,9 +91,33 @@ def _walk(blocks):
             yield from _walk(kids)
 
 
+def has_function(node):
+    """True when the node holds a func_def named like itself."""
+    name = (node.get("name") or "").strip()
+    return any(bid == "func_def" and isinstance(p, dict) and str(p.get("name") or "").strip() == name
+               for bid, p in _walk(node.get("blocks")))
+
+
+def assigned_names(node):
+    """Variables assigned by the node's TOP-LEVEL assign blocks, in order."""
+    out = []
+    for entry in node.get("blocks") or []:
+        try:
+            bid, p = entry
+        except (TypeError, ValueError):
+            continue
+        if bid != "assign_variable" or not isinstance(p, dict) or not isinstance(p.get("variable"), str):
+            continue
+        for n in return_names(p["variable"]):
+            if n.isidentifier() and not keyword.iskeyword(n) and n not in out:
+                out.append(n)
+    return out
+
+
 def node_interface(node):
-    """(inputs, outputs): names only. Both empty unless the node holds a
-    func_def named like itself."""
+    """(inputs, outputs): names only. With a func_def named like the node:
+    its parameters and returned values. Without one: no inputs, and the
+    variables the node assigns at its top level as outputs."""
     if node.get("kind", "function") != "function":
         return [], []
     name = (node.get("name") or "").strip()
@@ -107,7 +134,7 @@ def node_interface(node):
                     if n not in outputs:
                         outputs.append(n)
         return inputs, outputs
-    return [], []
+    return [], assigned_names(node)
 
 
 def auto_color(name, taken=()):

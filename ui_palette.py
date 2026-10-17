@@ -531,6 +531,14 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        lod_var = tk.BooleanVar(value=bool(self.settings.get("lod_hide_details", True)))
+        tk.Checkbutton(
+            body, text="Hide details when zoomed far out (boxes shrink to their title)",
+            variable=lod_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+
         # --- Order number already used ---
         row = add_row("Order number taken:")
         conflict_labels = dict((k, v) for k, v in ORDER_CONFLICT_CHOICES)
@@ -658,6 +666,7 @@ class PaletteMixin:
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
             self.settings["show_coords"] = bool(coords_var.get())
+            self.settings["lod_hide_details"] = bool(lod_var.get())
             self.settings["order_conflict"] = next(
                 (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
             self.settings["scroll_mode"] = next(

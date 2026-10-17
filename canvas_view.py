@@ -11,6 +11,19 @@ GRID_STEPS = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 100000]
 MIN_GRID_PX = 40
 
 
+# Below this zoom, boxes are drawn compact (coloured title only) when the
+# "hide details when zoomed out" setting is on - fonts and paddings stop
+# shrinking at small sizes, so full boxes would balloon and overlap.
+LOD_ZOOM = 0.6
+
+
+def compact_at(zoom, enabled=True):
+    try:
+        return bool(enabled) and float(zoom) < LOD_ZOOM
+    except (TypeError, ValueError):
+        return False
+
+
 def clamp_zoom(z):
     try:
         z = float(z)

@@ -208,10 +208,10 @@ def main():
         app.refresh_workspace(); app.update()
         m = app.build_node_menu("a1")
         e = entries(m)
-        check("node menu: Open, Ignore, Rename, Set order, Save as template, Move to, sep, Delete",
-              [x[0] for x in e] == ["Open", "Ignore", "Rename\u2026", "Set order\u2026", "Save as node template\u2026", "Move to", "-", "Delete\u2026"])
+        check("node menu: Open, Ignore, Skip, Rename, Set order, Save as template, Move to, sep, Delete",
+              [x[0] for x in e] == ["Open", "Ignore", "Skip", "Rename\u2026", "Set order\u2026", "Save as node template\u2026", "Move to", "-", "Delete\u2026"])
         check("normal node: all enabled", all(s == "normal" for l, s in e if l != "-"))
-        ml = entries(m.nametowidget(m.entrycget(5, "menu")))
+        ml = entries(m.nametowidget(m.entrycget(6, "menu")))
         check("Move to lists the category", [l for l, _ in ml] == ["Folder"])
         lm = entries(app.build_node_menu("L3"))
         d = dict(lm)
@@ -222,12 +222,12 @@ def main():
         check("stale node id gives an empty menu, no crash", entries(app.build_node_menu("zzz")) == [])
 
         stub_ask("Zed")
-        m.invoke(2)
+        m.invoke(3)
         check("menu Rename entry runs the rename", alpha["name"] == "Zed")
-        m.nametowidget(m.entrycget(5, "menu")).invoke(0)
+        m.nametowidget(m.entrycget(6, "menu")).invoke(0)
         check("menu Move-to entry moves the node", alpha in folder["child_nodes"])
         stub_yes(True)
-        app.build_node_menu("b1").invoke(7)
+        app.build_node_menu("b1").invoke(8)
         check("menu Delete entry deletes (after confirm)", find_node_by_id(tab["nodes"], "b1") is None)
         opened = []
         real_open = app.open_node

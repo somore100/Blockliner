@@ -337,6 +337,7 @@ class BlockEditMixin:
         rendered = []
         prev_id = None
         for block_id, params in block_list:
+            trailing = []
             module = self.blocks.get(block_id)
             if not module:
                 rendered.append(f"// ERROR: Block '{block_id}' not found\n")
@@ -351,8 +352,17 @@ class BlockEditMixin:
             try:
                 if get_block_attr(module, "is_container", False):
                     child_list = params.get("_children", [])
-                    child_rendered = self.render_block_list(child_list, lang)
-                    code = gen_func(params, child_rendered, lang=lang)
+                    if child_list and all(isinstance(c, (tuple, list)) and len(c) == 2
+                                          and isinstance(c[1], dict) and c[1].get("_skip_comment")
+                                          for c in child_list):
+                        # only "## skipped call" comments inside: a comment-only
+                        # body is invalid (Python), so the container keeps its
+                        # normal empty body and the comments follow it
+                        code = gen_func(params, [], lang=lang)
+                        trailing = self.render_block_list(child_list, lang)
+                    else:
+                        child_rendered = self.render_block_list(child_list, lang)
+                        code = gen_func(params, child_rendered, lang=lang)
                 else:
                     code = gen_func(params, [], lang=lang)
             except Exception as e:
@@ -373,5 +383,6 @@ class BlockEditMixin:
                 rendered[-1] = rendered[-1][:-1] + " " + code
             else:
                 rendered.append(code)
+            rendered.extend(trailing)
             prev_id = block_id
         return rendered

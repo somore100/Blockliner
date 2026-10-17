@@ -1,6 +1,7 @@
 """Files/Nodes canvas: wheel zoom, coordinate grid, view anchoring."""
 import tkinter as tk
-from canvas_view import anchor_view_origin, clamp_zoom, grid_step, grid_values, zoom_after_wheel
+from canvas_view import (anchor_view_origin, clamp_zoom, compact_at, grid_step, grid_values,
+                         zoom_after_wheel)
 
 GRID_COLOR = "#262626"
 GRID_MAJOR_COLOR = "#2f2f2f"
@@ -23,6 +24,49 @@ class CanvasViewMixin:
 
     def _zfont(self, size, *style):
         return ("Segoe UI", max(5, int(round(size * self.canvas_zoom))), *style)
+
+    def _lod_compact(self):
+        """True when boxes should be drawn as just their title (zoomed far out)."""
+        return compact_at(self.canvas_zoom, self.settings.get("lod_hide_details", True))
+
+    def _fix_compact_size(self, box, header, model_width):
+        """Give a compact box an exact size (title strip only), so zoomed-out
+        boxes scale with the zoom instead of ballooning around their text."""
+        w, h = self._zi(model_width), self._zi(36)
+        header.configure(width=w, height=h)
+        box.configure(width=w + 4, height=h + 4)
+        box.pack_propagate(False)
+
+    # ---- cheap zoom preview: coloured rectangles instead of live widgets ----
+    def _start_zoom_proxies(self):
+        c = self.workspace_canvas
+        c.delete("zoom_proxy")
+        for win in c.find_withtag("node_box") + c.find_withtag("file_box"):
+            try:
+                widget = self.nametowidget(c.itemcget(win, "window"))
+                x, y = c.coords(win)[:2]
+                w, h = widget.winfo_width(), widget.winfo_height()
+                kids = widget.winfo_children()
+                color = kids[0].cget("bg") if kids else "#4a4a4a"
+                title = ""
+                for ch in (kids[0].winfo_children() if kids else []):
+                    if isinstance(ch, tk.Label) and ch.cget("text") and ch.cget("text") != "\u25cf":
+                        title = ch.cget("text")
+                        break
+            except (tk.TclError, KeyError):
+                continue
+            c.itemconfigure(win, state="hidden")
+            c.create_rectangle(x, y, x + w, y + h, fill="#1e1e1e", outline="#555555",
+                               tags=("fileview", "zoom_proxy"))
+            c.create_rectangle(x, y, x + w, y + min(h, 36 * (self._preview_zoom or self._rendered_zoom or 1)),
+                               fill=color, outline="", tags=("fileview", "zoom_proxy"))
+            if title:
+                c.create_text(x + 6, y + 4, text=title, anchor="nw", fill="#ffffff",
+                              tags=("fileview", "zoom_proxy", "zoom_proxy_text"))
+
+    def _update_proxy_text(self):
+        size = max(5, int(round(10 * self.canvas_zoom)))
+        self.workspace_canvas.itemconfigure("zoom_proxy_text", font=("Segoe UI", size, "bold"))
 
     def canvas_layer_active(self):
         """True on the Files and Nodes layers' canvas (not their code views)."""
@@ -51,6 +95,8 @@ class CanvasViewMixin:
         # Zoom the canvas geometry the geometry is currently drawn at: the
         # last rendered zoom, or the running preview while the wheel spins.
         gz = self._preview_zoom or self._rendered_zoom or 1.0
+        if self._preview_zoom is None:
+            self._start_zoom_proxies()
         mx, my = c.canvasx(sx) / gz, c.canvasy(sy) / gz
         self._zoom_anchor = (mx, my, sx, sy)
         self.canvas_zoom = z1
@@ -60,6 +106,7 @@ class CanvasViewMixin:
         # once the wheel has been still for ZOOM_SETTLE_MS.
         c.scale("all", 0, 0, z1 / gz, z1 / gz)
         self._preview_zoom = z1
+        self._update_proxy_text()
         self._set_view_origin(anchor_view_origin(mx, sx, z1), anchor_view_origin(my, sy, z1))
         self.schedule_grid()
         if self._zoom_job is not None:
@@ -84,6 +131,7 @@ class CanvasViewMixin:
             self._zoom_job = None
         anchor, self._zoom_anchor = self._zoom_anchor, None
         self._preview_zoom = None
+        self.workspace_canvas.delete("zoom_proxy")
         if not self.canvas_layer_active():
             return
         c = self.workspace_canvas

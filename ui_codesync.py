@@ -5,7 +5,7 @@ from tkinter import messagebox
 
 import code_sync
 import portable
-from nodes_model import function_nodes_in_tree_order, make_node
+from nodes_model import function_nodes_in_tree_order, make_node, skipped_names, strip_skipped_calls
 from ui_common import DARK_BG, DARK_FG, DARK_PANEL, safe_grab_set
 
 SYNC_BANNER_BG = "#5a4500"     # amber: "this needs your decision"
@@ -113,7 +113,8 @@ class CodeSyncMixin:
         old = self._chunks_by_id(old_text, lang)
         nodes = {n["id"]: n for n in function_nodes_in_tree_order(tab["nodes"])}
         plan = {"status": "ok", "tab": tab, "lang": lang, "nodes": [], "adds": [], "hunks": [],
-                "missing": [i for i in nodes if i not in panel]}
+                "missing": [i for i in nodes if i not in panel], "frozen": []}
+        skipped = skipped_names(tab["nodes"])
         can_import = self.get_raw_code_block_id(lang) is not None
         with self._language_scope(lang):
             for node_id, code in panel.items():
@@ -123,6 +124,12 @@ class CodeSyncMixin:
                         plan["adds"].append((node_id, self.import_code_to_blocks(code)[0]))
                     continue
                 if code_sync.same_code(old.get(node_id, ""), code):
+                    continue
+                if skipped and (node.get("skipped") or
+                                strip_skipped_calls(node.get("blocks", []), skipped) != node.get("blocks", [])):
+                    # shown as ## comments: reading them back would turn real
+                    # blocks into comments, so these edits are not synced
+                    plan["frozen"].append(node.get("name") or node_id)
                     continue
                 new_blocks = self.import_code_to_blocks(code)[0] if can_import else None
                 if new_blocks is None:
@@ -161,6 +168,10 @@ class CodeSyncMixin:
                         if status == "hidden" else "The code panel has no node markers to sync.")
                 return
             self._code_dirty = False
+            if plan.get("frozen"):
+                self.maybe_notify("Skipped code not synced", "Edits to " + ", ".join(plan["frozen"]) +
+                                  " were not synced: it is skipped (or calls a skipped node). "
+                                  "Stop skipping to edit it.")
             if not plan["nodes"] and not plan["adds"]:
                 self.hide_sync_banner()
                 if manual:

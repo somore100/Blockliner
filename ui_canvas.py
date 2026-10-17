@@ -55,6 +55,7 @@ class CanvasMixin:
             self.open_file_from_files_view(idx)
 
         z = self.canvas_zoom
+        compact = self._lod_compact()
         header = tk.Frame(box, bg=box_color, height=self._zi(36), cursor="fleur")
         header.pack(fill=tk.X)
         header.pack_propagate(False)
@@ -66,18 +67,21 @@ class CanvasMixin:
         )
         name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
-        body = tk.Frame(box, bg=BLOCK_BG)
-        body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
-        node_count = len(tab.get("nodes", []))
-        tk.Label(
-            body, text=f"{node_count} node{'s' if node_count != 1 else ''} \u2022 {tab['language']}",
-            bg=BLOCK_BG, fg="#888888", font=self._zfont(9)
-        ).pack(side=tk.LEFT)
-        tk.Button(
-            body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
-            relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
-            command=_open
-        ).pack(side=tk.RIGHT)
+        if compact:
+            self._fix_compact_size(box, header, 190)
+        else:
+            body = tk.Frame(box, bg=BLOCK_BG)
+            body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
+            node_count = len(tab.get("nodes", []))
+            tk.Label(
+                body, text=f"{node_count} node{'s' if node_count != 1 else ''} \u2022 {tab['language']}",
+                bg=BLOCK_BG, fg="#888888", font=self._zfont(9)
+            ).pack(side=tk.LEFT)
+            tk.Button(
+                body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
+                relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
+                command=_open
+            ).pack(side=tk.RIGHT)
 
         win_id = self.workspace_canvas.create_window(
             tab["canvas_x"] * z, tab["canvas_y"] * z, anchor="nw", window=box,
@@ -262,6 +266,9 @@ class CanvasMixin:
         ignored = bool(node.get("ignored"))
         if ignored:
             box_color, text_fg = "#555555", "#cccccc"
+        skipped = bool(node.get("skipped"))
+        if skipped:
+            box_color, text_fg = "#7b3fb0", "#ffffff"
         box = tk.Frame(
             self.workspace_canvas, bg=BLOCK_BG, highlightthickness=2,
             highlightbackground=DARK_BORDER
@@ -277,11 +284,12 @@ class CanvasMixin:
         else:
             icon = "\U0001F9E9"  # puzzle piece
         z = self.canvas_zoom
+        compact = self._lod_compact()
         header = tk.Frame(box, bg=box_color, width=self._zi(215), height=self._zi(36), cursor="fleur")
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
-            header, text=f"{'\u2298 ' if ignored else ''}{icon} {node['name']}",
+            header, text=f"{'\u2298 ' if ignored else ''}{'\u23ed ' if skipped else ''}{icon} {node['name']}",
             bg=box_color, fg=text_fg,
             font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
@@ -291,7 +299,7 @@ class CanvasMixin:
         # node's place in the generated file; "#?" + a red outline
         # means it's unassigned and must be given a number. Click to
         # change it (locked nodes' badges are fixed).
-        if not is_container:
+        if not is_container and not compact:
             order_val = node.get("order")
             unassigned = "order" in node and order_val is None
             badge = tk.Label(
@@ -316,7 +324,7 @@ class CanvasMixin:
         # category nodes wire directly - they hold other nodes, not
         # blocks. Dragging from this handle to another node's box calls
         # that node - see _port_press/_port_motion/_port_release below.
-        can_wire = (not is_container) and "func_call" in self.blocks
+        can_wire = (not is_container) and "func_call" in self.blocks and not compact
         port = None
         if can_wire:
             port = tk.Label(
@@ -325,7 +333,7 @@ class CanvasMixin:
             )
             port.pack(side=tk.RIGHT, padx=(self._zi(4), self._zi(8)))
 
-        if node.get("locked"):
+        if node.get("locked") and not compact:
             tk.Label(
                 header, text="\U0001F512", bg=box_color, fg=text_fg,
                 font=self._zfont(9),
@@ -337,34 +345,37 @@ class CanvasMixin:
         name_label.pack_forget()
         name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
 
-        if not is_container:
-            self._build_node_ports(box, node)
-
-        body = tk.Frame(box, bg=BLOCK_BG)
-        body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
-        if is_container:
-            count = len(node.get("child_nodes", []))
-            label_text = f"{count} node{'s' if count != 1 else ''} inside"
+        if compact:
+            self._fix_compact_size(box, header, 215)
         else:
-            count = len(node["blocks"])
-            label_text = f"{count} block{'s' if count != 1 else ''}"
-        info = tk.Frame(body, bg=BLOCK_BG)
-        info.pack(side=tk.LEFT)
-        tk.Label(
-            info, text=label_text + ("  \u00b7  ignored" if ignored else ""),
-            bg=BLOCK_BG, fg="#888888", font=self._zfont(9), anchor="w"
-        ).pack(anchor="w")
-        # The id is NOT the run order (the \u25b6N badge in the header is);
-        # it is the stable name wires and saved files refer to.
-        tk.Label(
-            info, text=f"id {node['id']}",
-            bg=BLOCK_BG, fg="#7a7a7a", font=self._zfont(7), anchor="w"
-        ).pack(anchor="w")
-        tk.Button(
-            body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
-            relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
-            command=_open
-        ).pack(side=tk.RIGHT)
+            if not is_container:
+                self._build_node_ports(box, node)
+
+            body = tk.Frame(box, bg=BLOCK_BG)
+            body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
+            if is_container:
+                count = len(node.get("child_nodes", []))
+                label_text = f"{count} node{'s' if count != 1 else ''} inside"
+            else:
+                count = len(node["blocks"])
+                label_text = f"{count} block{'s' if count != 1 else ''}"
+            info = tk.Frame(body, bg=BLOCK_BG)
+            info.pack(side=tk.LEFT)
+            tk.Label(
+                info, text=label_text + ("  \u00b7  ignored" if ignored else "") + ("  \u00b7  skipped" if skipped else ""),
+                bg=BLOCK_BG, fg="#888888", font=self._zfont(9), anchor="w"
+            ).pack(anchor="w")
+            # The id is NOT the run order (the \u25b6N badge in the header is);
+            # it is the stable name wires and saved files refer to.
+            tk.Label(
+                info, text=f"id {node['id']}",
+                bg=BLOCK_BG, fg="#7a7a7a", font=self._zfont(7), anchor="w"
+            ).pack(anchor="w")
+            tk.Button(
+                body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
+                relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
+                command=_open
+            ).pack(side=tk.RIGHT)
 
         win_id = self.workspace_canvas.create_window(
             node["canvas_x"] * z, node["canvas_y"] * z, anchor="nw", window=box,
@@ -473,7 +484,7 @@ class CanvasMixin:
             else:
                 name.pack(side=tk.LEFT, padx=(0, self._zi(2)))
                 dot.pack(side=tk.LEFT)
-            if p["side"] == "out" and "func_call" in self.blocks:
+            if p["side"] == "out" and ("func_call" in self.blocks or "print_output" in self.blocks):
                 # drag = pass this node's result into another node;
                 # a plain click still opens the colour menu
                 dot.configure(cursor="crosshair")
@@ -542,6 +553,8 @@ class CanvasMixin:
         if source is None or target is None:
             return False
         inputs, outputs = node_ports.node_interface(source)
+        if not node_ports.has_function(source):
+            return self._add_variable_use(source, target, outputs, input_name, output_name)
         call = {"name": source["name"], "args": ", ".join(inputs)}
         names = [n for n in outputs if n.isidentifier() and not keyword.iskeyword(n)]
         multi_ok = getattr(self, "current_language", None) in ("python", "go")
@@ -563,6 +576,27 @@ class CanvasMixin:
                 "value": {"_nested_block": "func_call", "_nested_params": call}}))
         else:
             target["blocks"].append(("func_call", call))
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        return True
+
+    def _add_variable_use(self, source, target, outputs, input_name, output_name):
+        """Output port of a node WITHOUT a function = a variable its code
+        assigns. Dropped on a node, the target gets a print of it (change it
+        however you like); dropped on a specific input port it gets
+        "<input> = <variable>". The variable is visible there because nodes
+        run in order in one file - keep the source's run order lower."""
+        var = output_name if output_name in outputs else (outputs[0] if outputs else None)
+        if var is None:
+            return False
+        target_inputs = node_ports.node_interface(target)[0]
+        if input_name in target_inputs and input_name != var and input_name.isidentifier() \
+                and not keyword.iskeyword(input_name) and "assign_variable" in self.blocks:
+            target["blocks"].append(("assign_variable", {"variable": input_name, "value": var}))
+        elif "print_output" in self.blocks:
+            target["blocks"].append(("print_output", {"value": var}))
+        else:
+            return False
         self.mark_active_tab_dirty()
         self.refresh_workspace()
         return True

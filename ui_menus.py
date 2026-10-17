@@ -304,8 +304,31 @@ class MenusMixin:
         for n in nodes:
             if make_ignored:
                 n["ignored"] = True
+                n.pop("skipped", None)
             else:
                 n.pop("ignored", None)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+
+    def toggle_skip_node(self, node_id):
+        """Right-click > Skip (purple): bypass - the node is left out of the
+        generated code AND so is every call to it, so the program still runs
+        without it. Skip and Ignore exclude each other. Applies to every
+        selected node when the clicked one is part of a multi-selection."""
+        tab = self.tabs[self.active_tab_index]
+        sel = self.selected_nodes()
+        ids = list(sel) if node_id in sel and len(sel) > 1 else [node_id]
+        nodes = [n for n in (find_node_by_id(tab["nodes"], i) for i in ids)
+                 if n is not None and n.get("kind", "function") == "function"]
+        if not nodes:
+            return
+        make_skipped = not all(n.get("skipped") for n in nodes)
+        for n in nodes:
+            if make_skipped:
+                n["skipped"] = True
+                n.pop("ignored", None)
+            else:
+                n.pop("skipped", None)
         self.mark_active_tab_dirty()
         self.refresh_workspace()
 
@@ -332,6 +355,11 @@ class MenusMixin:
             menu.add_command(
                 label=("Stop ignoring" if all_ign else "Ignore") + (f" ({len(sel)} selected)" if multi else ""),
                 command=lambda: self.toggle_ignore_node(node_id))
+            all_skip = bool(node.get("skipped")) if not multi else all(
+                (find_node_by_id(tab["nodes"], i) or {}).get("skipped") for i in sel)
+            menu.add_command(
+                label=("Stop skipping" if all_skip else "Skip") + (f" ({len(sel)} selected)" if multi else ""),
+                command=lambda: self.toggle_skip_node(node_id))
         menu.add_command(label="Rename\u2026", state=off,
                          command=lambda: self.rename_node_dialog(node_id))
         if node.get("kind", "function") == "function":

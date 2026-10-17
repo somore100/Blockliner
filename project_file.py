@@ -64,6 +64,8 @@ def _node_from_json(raw, seen_ids, notes):
     )
     if raw.get("ignored") is True:
         node["ignored"] = True
+    if raw.get("skipped") is True:
+        node["skipped"] = True
     pc = node_ports.clean_port_colors(raw.get("port_colors"))
     if pc:
         node["port_colors"] = pc

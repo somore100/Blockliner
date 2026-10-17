@@ -76,7 +76,7 @@ def build_metadata(nodes, language, active_node_id=None):
                 "parent": parent_id,
                 "index": index,
             }
-            for key in ("category", "locked", "node_type_id", "ignored"):
+            for key in ("category", "locked", "node_type_id", "ignored", "skipped"):
                 if node.get(key):
                     entry[key] = node[key]
             if node.get("port_colors"):
@@ -300,6 +300,8 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
         }
         if entry.get("ignored") is True:
             node["ignored"] = True
+        if entry.get("skipped") is True:
+            node["skipped"] = True
         pc = node_ports.clean_port_colors(entry.get("port_colors"))
         if pc:
             node["port_colors"] = pc

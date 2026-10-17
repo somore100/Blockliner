@@ -2,6 +2,8 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import contextlib
+import nodes_model
+import node_ports
 from nodes_model import default_active_node_id, find_node_by_id, function_nodes_in_tree_order, normalize_orders
 from ui_common import BLOCK_BG, DARK_BG, DARK_BORDER, DARK_FG
 
@@ -608,6 +610,12 @@ class NodeOpsMixin:
                     if target_id and target_id not in refs:
                         refs.append(target_id)
             node["references"] = refs
+            node["data_uses"] = []
+        live = [n for n in nodes_model.sorted_function_nodes(tab.get("nodes", []))
+                if not n.get("skipped")]
+        by_id = {n["id"]: n for n in live}
+        for producer_id, user_id, names in node_ports.data_wires(live):
+            by_id[user_id]["data_uses"].append({"id": producer_id, "vars": names})
 
     def recompute_file_references(self):
         """Files-layer: after any edit, rescan every tab's blocks for

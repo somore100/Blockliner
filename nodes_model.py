@@ -57,6 +57,9 @@ def make_node(name, node_id=None, blocks=None, category=None,
         # recompute_references(), never hand-authored or edited
         # directly. Wires are drawn from this, never the reverse.
         "references": [],
+        # Derived like references: [{"id": producer node id, "vars": [names]}]
+        # = variables this node reads that an earlier node assigns.
+        "data_uses": [],
     }
     # Execution order (function-kind nodes only): the position this
     # node's blocks take in the generated file. The key is left OUT

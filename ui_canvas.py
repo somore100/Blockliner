@@ -348,7 +348,7 @@ class CanvasMixin:
         if compact:
             self._fix_compact_size(box, header, 215)
         else:
-            if not is_container:
+            if not is_class:
                 self._build_node_ports(box, node)
 
             body = tk.Frame(box, bg=BLOCK_BG)
@@ -459,7 +459,8 @@ class CanvasMixin:
         """Coloured input ports on the left and output ports on the right,
         derived from a def named like the node (node_ports.py). Click a dot
         to pick its colour. Nothing is drawn when the node has no ports."""
-        ports = node_ports.node_ports(node)
+        ports = node_ports.category_ports(node) if node.get("kind") == "category" \
+            else node_ports.node_ports(node)
         if not ports:
             return
         row = tk.Frame(box, bg=BLOCK_BG)
@@ -476,8 +477,11 @@ class CanvasMixin:
                 box._in_port_lines.append((p["name"], line))
             dot = tk.Label(line, text="\u25cf", bg=BLOCK_BG, fg=p["color"],
                            font=self._zfont(11, "bold"), cursor="hand2")
-            name = tk.Label(line, text=p["name"], bg=BLOCK_BG, fg="#bbbbbb",
+            name = tk.Label(line, text=p.get("label", p["name"]), bg=BLOCK_BG, fg="#bbbbbb",
                             font=self._zfont(9))
+            # a category's port belongs to a node inside it: that node is the
+            # real source of a drag and the owner of the port colour
+            owner = p.get("src") or node["id"]
             if p["side"] == "in":
                 dot.pack(side=tk.LEFT)
                 name.pack(side=tk.LEFT, padx=(self._zi(2), 0))
@@ -488,18 +492,21 @@ class CanvasMixin:
                 # drag = pass this node's result into another node;
                 # a plain click still opens the colour menu
                 dot.configure(cursor="crosshair")
-                dot.bind("<ButtonPress-1>", lambda e, nid=node["id"], n=p["name"]:
-                         self._oport_press(e, nid, n))
+                dot.bind("<ButtonPress-1>", lambda e, nid=node["id"], n=p["name"], o=owner:
+                         self._oport_press(e, nid, n, owner=o))
                 dot.bind("<B1-Motion>", self._port_motion)
                 dot.bind("<ButtonRelease-1>", self._port_release)
             else:
-                dot.bind("<Button-1>", lambda e, nid=node["id"], s=p["side"], n=p["name"]:
+                dot.bind("<Button-1>", lambda e, nid=owner, s=p["side"], n=p["name"]:
                          self._popup(self.build_port_color_menu(nid, s, n), e))
 
-    def _oport_press(self, e, source_id, port_name):
+    def _oport_press(self, e, source_id, port_name, owner=None):
         """Start a data-direction wire: from this node's output port to the
-        node that should USE its result (the call is added to that node)."""
+        node that should USE its result (the call is added to that node).
+        `owner` = the node inside a category that really owns the port (the
+        wire is drawn from the category's box, the call comes from `owner`)."""
         self._port_press(e, source_id)
+        self._wire_drag_owner = owner
         if self._wire_drag_source is not None:
             self._wire_drag_mode = ("out", port_name)
             self._oport_press_xy = (e.x_root, e.y_root)
@@ -713,13 +720,15 @@ class CanvasMixin:
             # output-port drag: connect to a node, or (a click that never
             # left the dot) open the colour menu; empty canvas = cancel
             self._highlight_input_port(None, None)
+            real_source = getattr(self, "_wire_drag_owner", None) or source_id
+            self._wire_drag_owner = None
             if target_id is not None:
-                self.add_port_wire(source_id, target_id,
+                self.add_port_wire(real_source, target_id,
                                    self._input_port_at(target_id, e.x_root, e.y_root), mode[1])
             else:
                 x0, y0 = getattr(self, "_oport_press_xy", (e.x_root, e.y_root))
                 if abs(e.x_root - x0) <= 4 and abs(e.y_root - y0) <= 4:
-                    self._popup(self.build_port_color_menu(source_id, "out", mode[1]), e)
+                    self._popup(self.build_port_color_menu(real_source, "out", mode[1]), e)
             return
         if target_id is not None:
             self.add_wire_by_drag(source_id, target_id)
@@ -789,6 +798,9 @@ class CanvasMixin:
                 if target_id not in shown_ids or target_id not in self._fileview_boxes:
                     continue
                 self._draw_one_wire(node["id"], target_id)
+            for use in node.get("data_uses", []):
+                if use["id"] in shown_ids and use["id"] in self._fileview_boxes:
+                    self._draw_one_wire(use["id"], node["id"], data_vars=use["vars"])
 
     def draw_wires_for(self, node_id):
         """Redraw only the wires touching `node_id` (drag-motion fast path).
@@ -809,12 +821,29 @@ class CanvasMixin:
                     continue
                 if node["id"] == node_id or target_id == node_id:
                     edges.append((node["id"], target_id))
+        data_edges = []
+        for node in nodes_shown:
+            if node["id"] not in self._fileview_boxes:
+                continue
+            for use in node.get("data_uses", []):
+                if use["id"] in shown_ids and use["id"] in self._fileview_boxes \
+                        and node_id in (use["id"], node["id"]):
+                    data_edges.append((use["id"], node["id"], use["vars"]))
         for source_id, target_id in edges:
             self.workspace_canvas.delete(f"wire_{source_id}_{target_id}")
+        for source_id, target_id, _v in data_edges:
+            self.workspace_canvas.delete(f"dwire_{source_id}_{target_id}")
         for source_id, target_id in edges:
             self._draw_one_wire(source_id, target_id)
+        for source_id, target_id, names in data_edges:
+            self._draw_one_wire(source_id, target_id, data_vars=names)
 
-    def _draw_one_wire(self, source_id, target_id):
+    DATA_WIRE_COLOR = "#4f8fd6"
+
+    def _draw_one_wire(self, source_id, target_id, data_vars=None):
+        """data_vars given = a DATA wire (dashed blue, labelled with the
+        variable names): the producer's variable is read in the target's code.
+        Derived only, nothing to select or delete here - change the code."""
         _, src_widget = self._fileview_boxes[source_id]
         _, dst_widget = self._fileview_boxes[target_id]
         sw = src_widget.winfo_width() or 220
@@ -830,6 +859,9 @@ class CanvasMixin:
         y0 = src_node["canvas_y"] * z + sh / 2
         x1 = dst_node["canvas_x"] * z
         y1 = dst_node["canvas_y"] * z + dh / 2
+        if data_vars is not None:       # sit a little below a call wire
+            y0 += 8 * z
+            y1 += 8 * z
 
         # ComfyUI-style cubic bezier: control points pulled
         # horizontally outward from each endpoint, so the curve leaves
@@ -842,6 +874,23 @@ class CanvasMixin:
         p2 = (x1 - pull, y1)
         p3 = (x1, y1)
 
+        if data_vars is not None:
+            tag = f"dwire_{source_id}_{target_id}"
+            color = self.DATA_WIRE_COLOR
+            self.workspace_canvas.create_line(
+                *self._bezier_points(p0, p1, p2, p3), smooth=True, fill=color,
+                width=2, dash=(6, 4), tags=("fileview", "wire", tag))
+            self.workspace_canvas.create_oval(
+                x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=color, outline="",
+                tags=("fileview", "wire", tag))
+            label = ", ".join(data_vars)
+            if len(label) > 28:
+                label = label[:27] + "…"
+            self.workspace_canvas.create_text(
+                (x0 + x1) / 2, (y0 + y1) / 2 - 8, text=label, fill=color,
+                font=("TkDefaultFont", max(7, int(9 * z))),
+                tags=("fileview", "wire", tag))
+            return
         tag = f"wire_{source_id}_{target_id}"
         selected = self._fileview_selected_wire == (source_id, target_id)
         color = "#e8a33d" if selected else "#6a9955"

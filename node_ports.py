@@ -1,5 +1,8 @@
 """Node ports (ComfyUI style). Pure module (no Tk).
 
+A CATEGORY has OUTPUT ports too: every output port of the nodes inside it
+(any depth) that no other node inside it uses (see category_ports).
+
 A node is not a function, but a node that holds a "Define Function" block
 named like the node has an interface: that function's parameters are the
 node's INPUT ports and the values it returns are its OUTPUT ports.
@@ -89,6 +92,31 @@ def _walk(blocks):
         kids = params.get("_children") if isinstance(params, dict) else None
         if isinstance(kids, list):
             yield from _walk(kids)
+
+
+_STRING = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
+_NAME = re.compile(r"(?<![\w.])[A-Za-z_]\w*")
+_NOT_CODE_KEYS = {"name", "params", "variable", "_children", "_nested_block"}
+
+
+def idents(text):
+    """Bare identifiers in a piece of code: string literals and attribute
+    names (obj.x) are ignored."""
+    return _NAME.findall(_STRING.sub('""', text or ""))
+
+
+def _value_idents(value):
+    if isinstance(value, str):
+        return idents(value)
+    if isinstance(value, dict):
+        out = []
+        for k, v in value.items():
+            if k not in _NOT_CODE_KEYS:
+                out += _value_idents(v)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [i for v in value for i in _value_idents(v)]
+    return []
 
 
 def has_function(node):
@@ -190,3 +218,94 @@ def clean_port_colors(raw):
     return {k: v for k, v in raw.items()
             if isinstance(k, str) and (k.startswith("in:") or k.startswith("out:"))
             and valid_color(v)}
+
+
+def data_wires(ordered_nodes):
+    """Derived DATA wires between function nodes. `ordered_nodes` = the live
+    nodes (not ignored/skipped) in run order. A node that assigns a variable
+    at its top level and has no function of its own PRODUCES it; a later node
+    whose code reads that name (and has not assigned/declared it itself first)
+    USES it. The producer is the nearest earlier node that assigns the name.
+    Returns [(producer_id, user_id, [names])], one entry per pair, in run
+    order. Nothing is stored - recomputed from the blocks every time."""
+    latest = {}                         # variable -> producing node
+    found = {}                          # (producer id, user id) -> [names]
+    pairs = []
+    for node in ordered_nodes:
+        if node.get("kind", "function") != "function":
+            continue
+        local = set(node_interface(node)[0])          # its own parameters
+        for _bid, params in _walk(node.get("blocks")):
+            if not isinstance(params, dict):
+                continue
+            for key, value in params.items():
+                if key in _NOT_CODE_KEYS:
+                    continue
+                for name in _value_idents(value):
+                    prod = latest.get(name)
+                    if name in local or prod is None:
+                        continue
+                    key2 = (prod["id"], node["id"])
+                    if key2 not in found:
+                        found[key2] = []
+                        pairs.append(key2)
+                    if name not in found[key2]:
+                        found[key2].append(name)
+            var = params.get("variable")
+            if isinstance(var, str):
+                local.update(idents(var))
+        if not has_function(node):
+            for name in assigned_names(node):
+                latest[name] = node
+    return [(a, b, found[(a, b)]) for a, b in pairs]
+
+
+def _live_functions(nodes):
+    """Function nodes (any depth) that take part in the generated code."""
+    out = []
+    for n in nodes or []:
+        if not isinstance(n, dict):
+            continue
+        if n.get("kind", "function") == "function":
+            if not n.get("ignored") and not n.get("skipped"):
+                out.append(n)
+        out.extend(_live_functions(n.get("child_nodes")))
+    return out
+
+
+def category_ports(category):
+    """OUTPUT ports of a category: each output port of a node inside it that
+    NO OTHER node inside it uses. A function node's outputs count as used when
+    another inner node calls it (node["references"]); a variable port counts as
+    used when another inner node reads it (node["data_uses"]). Uses from
+    outside the category do not hide a port. Ignored/skipped nodes take no part.
+    [{"side": "out", "name", "label", "color", "manual", "src": inner node id}]
+    - `label` gets the node name in front only when two ports share a name."""
+    if not isinstance(category, dict) or category.get("kind") != "category":
+        return []
+    inner = _live_functions(category.get("child_nodes"))
+    called = set()
+    read = set()
+    for n in inner:
+        for ref in n.get("references") or []:
+            if ref != n.get("id"):
+                called.add(ref)
+        for use in n.get("data_uses") or []:
+            if isinstance(use, dict) and use.get("id") != n.get("id"):
+                for v in use.get("vars") or []:
+                    read.add((use.get("id"), v))
+    ports = []
+    for n in inner:
+        function = has_function(n)
+        for p in node_ports(n):
+            if p["side"] != "out":
+                continue
+            used = n.get("id") in called if function else (n.get("id"), p["name"]) in read
+            if not used:
+                ports.append(dict(p, src=n.get("id"), node=n.get("name") or n.get("id")))
+    counts = {}
+    for p in ports:
+        counts[p["name"]] = counts.get(p["name"], 0) + 1
+    for p in ports:
+        p["label"] = f"{p.pop('node')}.{p['name']}" if counts[p["name"]] > 1 else p["name"]
+    return ports

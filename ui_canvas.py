@@ -7,6 +7,7 @@ from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
 
 SELECT_COLOR = "#00e5ff"  # cyan: selected file / node / block
+GRAY_BOX = "#5a5a5a"      # "plain gray boxes" zoomed-out look
 
 
 class CanvasMixin:
@@ -21,6 +22,7 @@ class CanvasMixin:
         wires purely so _update_fileview_scrollregion's bbox lookup
         works unchanged for either layer."""
         self._filesview_boxes = {}
+        self._begin_canvas_render()
         self.workspace_canvas.delete("wire_drag_temp")
 
         if not self.tabs:
@@ -57,22 +59,26 @@ class CanvasMixin:
 
         z = self.canvas_zoom
         compact = self._lod_compact()
-        header = tk.Frame(box, bg=box_color, height=self._zi(36), cursor="fleur")
+        gray = self._lod_gray()
+        if gray:
+            box_color = GRAY_BOX
+        header = tk.Frame(box, bg=box_color, cursor="fleur")
+        self._zconf(header, height=36)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         label_text = tab["title"] + (" \u25CF" if tab.get("dirty") else "")
         name_label = tk.Label(
-            header, text=f"\U0001F4C4 {label_text}",
+            header, text="" if gray else f"\U0001F4C4 {label_text}",
             bg=box_color, fg="#ffffff",
             font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
-        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
+        self._zpack(name_label, side=tk.LEFT, padx=8, fill=tk.X, expand=True)
 
         if compact:
             self._fix_compact_size(box, header, 190)
         else:
             body = tk.Frame(box, bg=BLOCK_BG)
-            body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
+            self._zpack(body, fill=tk.X, padx=10, pady=8)
             node_count = len(tab.get("nodes", []))
             tk.Label(
                 body, text=f"{node_count} node{'s' if node_count != 1 else ''} \u2022 {tab['language']}",
@@ -202,6 +208,7 @@ class CanvasMixin:
         nodes = self.get_current_node_list(tab)
 
         self._fileview_boxes = {}
+        self._begin_canvas_render()
         # Defensive: a refresh mid wire-drag (e.g. triggered by something
         # else while dragging) would otherwise leave a dangling temp line
         # and stale hover state pointing at boxes that are about to be
@@ -288,15 +295,20 @@ class CanvasMixin:
             icon = "\U0001F9E9"  # puzzle piece
         z = self.canvas_zoom
         compact = self._lod_compact()
-        header = tk.Frame(box, bg=box_color, width=self._zi(215), height=self._zi(36), cursor="fleur")
+        gray = self._lod_gray()
+        if gray:
+            box_color, text_fg = GRAY_BOX, "#ffffff"
+        header = tk.Frame(box, bg=box_color, cursor="fleur")
+        self._zconf(header, width=215, height=36)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
-            header, text=("\u2298 " if ignored else "") + ("\u23ed " if skipped else "") + f"{icon} {node['name']}",
+            header, text="" if gray else
+            ("\u2298 " if ignored else "") + ("\u23ed " if skipped else "") + f"{icon} {node['name']}",
             bg=box_color, fg=text_fg,
             font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
-        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
+        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Execution order badge (function nodes only): "#N" is this
         # node's place in the generated file; "#?" + a red outline
@@ -311,7 +323,7 @@ class CanvasMixin:
                 fg="#ffffff" if unassigned else text_fg,
                 font=self._zfont(10, "bold"),
                 cursor="arrow" if node.get("locked") else "hand2")
-            badge.pack(side=tk.LEFT, padx=(self._zi(8), 0))
+            self._zpack(badge, side=tk.LEFT, padx=(8, 0))
             if not node.get("locked"):
                 badge.bind("<Button-1>",
                            lambda e, nid=node["id"]: self.set_node_order_dialog(nid))
@@ -334,19 +346,19 @@ class CanvasMixin:
                 header, text="\u25cf", bg=box_color, fg=text_fg,
                 font=self._zfont(12, "bold"), cursor="crosshair"
             )
-            port.pack(side=tk.RIGHT, padx=(self._zi(4), self._zi(8)))
+            self._zpack(port, side=tk.RIGHT, padx=(4, 8))
 
         if node.get("locked") and not compact:
-            tk.Label(
+            self._zpack(tk.Label(
                 header, text="\U0001F512", bg=box_color, fg=text_fg,
                 font=self._zfont(9),
-            ).pack(side=tk.RIGHT, padx=self._zi(8))
+            ), side=tk.RIGHT, padx=8)
 
         # Re-pack the name last so the badge, lock and port get their
         # full width first (the header has a fixed width, so a short
         # box would otherwise squeeze them out).
         name_label.pack_forget()
-        name_label.pack(side=tk.LEFT, padx=self._zi(8), fill=tk.X, expand=True)
+        self._zpack(name_label, side=tk.LEFT, padx=8, fill=tk.X, expand=True)
 
         if compact:
             self._fix_compact_size(box, header, 215)
@@ -355,7 +367,7 @@ class CanvasMixin:
                 self._build_node_ports(box, node)
 
             body = tk.Frame(box, bg=BLOCK_BG)
-            body.pack(fill=tk.X, padx=self._zi(10), pady=self._zi(8))
+            self._zpack(body, fill=tk.X, padx=10, pady=8)
             if is_container:
                 count = len(node.get("child_nodes", []))
                 label_text = f"{count} node{'s' if count != 1 else ''} inside"
@@ -467,7 +479,7 @@ class CanvasMixin:
         if not ports:
             return
         row = tk.Frame(box, bg=BLOCK_BG)
-        row.pack(fill=tk.X, padx=self._zi(8), pady=(self._zi(6), 0))
+        self._zpack(row, fill=tk.X, padx=8, pady=(6, 0))
         left = tk.Frame(row, bg=BLOCK_BG)
         left.pack(side=tk.LEFT, anchor="n")
         right = tk.Frame(row, bg=BLOCK_BG)
@@ -487,9 +499,9 @@ class CanvasMixin:
             owner = p.get("src") or node["id"]
             if p["side"] == "in":
                 dot.pack(side=tk.LEFT)
-                name.pack(side=tk.LEFT, padx=(self._zi(2), 0))
+                self._zpack(name, side=tk.LEFT, padx=(2, 0))
             else:
-                name.pack(side=tk.LEFT, padx=(0, self._zi(2)))
+                self._zpack(name, side=tk.LEFT, padx=(0, 2))
                 dot.pack(side=tk.LEFT)
             if p["side"] == "out" and ("func_call" in self.blocks or "print_output" in self.blocks):
                 # drag = pass this node's result into another node;

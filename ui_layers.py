@@ -651,6 +651,13 @@ class LayersMixin:
         # instead of pack()-stacked) - clear them here unconditionally
         # so switching to the block editor view never leaves stale
         # boxes/wires behind.
+        # Deleting a window item does not destroy its widget: destroy the
+        # old boxes too (after the current event - a box's own handler may
+        # be what triggered this refresh), or they pile up for ever.
+        old_boxes = self._canvas_box_widgets()
+        self._fileview_boxes, self._filesview_boxes = {}, {}
+        if old_boxes:
+            self.after_idle(lambda ws=old_boxes: [w.destroy() for w in ws if w.winfo_exists()])
         self.workspace_canvas.delete("fileview")
         self.workspace_canvas.delete("grid")
 

@@ -168,6 +168,10 @@ DEFAULT_SETTINGS = {
     # Files/Nodes canvas: when zoomed far out, draw boxes as just their
     # coloured title (no ports, ids, buttons) like ComfyUI does.
     "lod_hide_details": True,
+    # What boxes look like then is "lod_mode": "details" (full, just smaller),
+    # "names" (title strip) or "gray" (plain grey boxes). It has NO default
+    # here on purpose: canvas_view.lod_mode() falls back to lod_hide_details,
+    # so an older settings file with the checkbox off keeps full boxes.
     # Where node data (names, nesting, order, layout) is kept when saving:
     # "sidecar" = a <file>.blockliner.json next to the code file (code stays
     # clean apart from the node markers); "embedded" = a block at the end of

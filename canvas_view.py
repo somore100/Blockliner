@@ -24,6 +24,34 @@ def compact_at(zoom, enabled=True):
         return False
 
 
+# What a box looks like when zoomed out past LOD_ZOOM (setting "lod_mode"):
+# "details" = the full box, just smaller; "names" = coloured title strip only;
+# "gray" = a plain grey box, no text (quietest overview).
+LOD_MODE_CHOICES = [
+    ("details", "Show all details (boxes just get smaller)"),
+    ("names", "Names only (coloured title strip)"),
+    ("gray", "Plain gray boxes (no text)"),
+]
+LOD_MODES = tuple(k for k, _v in LOD_MODE_CHOICES)
+
+
+def lod_mode(settings):
+    """The zoomed-out look from the settings. Older settings only had the
+    checkbox "lod_hide_details": on = "names", off = "details"."""
+    settings = settings if isinstance(settings, dict) else {}
+    mode = settings.get("lod_mode")
+    if mode in LOD_MODES:
+        return mode
+    return "details" if settings.get("lod_hide_details") is False else "names"
+
+
+def box_look(zoom, mode):
+    """How boxes are drawn at this zoom: "full", "names" or "gray"."""
+    if mode not in ("names", "gray") or not compact_at(zoom):
+        return "full"
+    return mode
+
+
 def clamp_zoom(z):
     try:
         z = float(z)

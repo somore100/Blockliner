@@ -5,6 +5,7 @@ import os
 import shutil
 from block_templates import make_raw_code_block_source
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
+from canvas_view import LOD_MODE_CHOICES, lod_mode
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
 from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
@@ -531,13 +532,16 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
-        lod_var = tk.BooleanVar(value=bool(self.settings.get("lod_hide_details", True)))
-        tk.Checkbutton(
-            body, text="Hide details when zoomed far out (boxes shrink to their title)",
-            variable=lod_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
-            activebackground=DARK_PANEL, activeforeground=DARK_FG,
-            font=("Segoe UI", 9)
-        ).pack(anchor="w", pady=(5, 0))
+        # --- Zoomed far out: what boxes look like ---
+        row = add_row("Zoomed far out:")
+        row.pack_configure(pady=(8, 4))
+        lod_labels = dict(LOD_MODE_CHOICES)
+        lod_var = tk.StringVar(value=lod_labels[lod_mode(self.settings)])
+        ttk.Combobox(
+            row, textvariable=lod_var, values=[v for _k, v in LOD_MODE_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("How node and file boxes look on the Files/Nodes canvas when you zoom far out.")
 
         # --- Order number already used ---
         row = add_row("Order number taken:")
@@ -666,7 +670,9 @@ class PaletteMixin:
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
             self.settings["show_coords"] = bool(coords_var.get())
-            self.settings["lod_hide_details"] = bool(lod_var.get())
+            self.settings["lod_mode"] = next(
+                (k for k, v in LOD_MODE_CHOICES if v == lod_var.get()), "names")
+            self.settings["lod_hide_details"] = self.settings["lod_mode"] != "details"
             self.settings["order_conflict"] = next(
                 (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
             self.settings["scroll_mode"] = next(
@@ -678,7 +684,10 @@ class PaletteMixin:
             self.settings["code_sync_confirm"] = bool(confirm_var.get())
             self.save_app_settings()
             dialog.destroy()
-            self.redraw_grid()
+            if self.canvas_layer_active():
+                self.apply_zoom()     # a new zoomed-out look shows at once
+            else:
+                self.redraw_grid()
 
         def on_cancel():
             dialog.destroy()

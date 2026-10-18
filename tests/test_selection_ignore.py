@@ -136,21 +136,25 @@ def main():
         check(f"palette visible on {layer} layer == {want}", app.panels.is_visible("palette") == want)
     app.goto_layer("nodes"); app.update()
 
-    # ---- zoom: wheel steps only preview; one real re-render when it settles
+    # ---- zoom: wheel steps collapse into ONE in-place resize, no rebuild
     app.set_zoom(1.0); app.update()
-    calls = []
-    orig_r = app.rerender_canvas_layer
+    calls, rescales = [], []
+    orig_r, orig_s = app.rerender_canvas_layer, app.rescale_canvas_layer
     app.rerender_canvas_layer = lambda: (calls.append(1), orig_r())[1]
-    w0 = app._fileview_boxes["a1"][1].winfo_reqwidth()
+    app.rescale_canvas_layer = lambda: (rescales.append(1), orig_s())[1]
+    box0 = app._fileview_boxes["a1"][1]
+    w0 = box0.winfo_reqwidth()
     for _ in range(6): app.zoom_step(-1, 300, 200)
-    check("no re-render while the wheel is spinning", calls == [])
     check("zoom value follows the wheel at once", app.canvas_zoom > 1.5)
-    check("items were moved by the preview", app.workspace_canvas.coords(app._fileview_boxes["a1"][0])[0] != a["canvas_x"] * 1.0)
-    app.apply_zoom(); app.update()
-    check("exactly one re-render when it settles", len(calls) == 1)
-    check("boxes now drawn at the new size", app._fileview_boxes["a1"][1].winfo_reqwidth() > w0 * 1.4)
+    check("nothing resized before the event loop runs", rescales == [])
+    app.update()
+    check("six wheel steps = exactly one resize", len(rescales) == 1)
+    check("no rebuild at all while zooming", calls == [])
+    check("the very same box widget is still shown", app._fileview_boxes["a1"][1] is box0 and box0.winfo_exists())
+    check("boxes now drawn at the new size", box0.winfo_reqwidth() > w0 * 1.4)
     wx = app.workspace_canvas.coords(app._fileview_boxes["a1"][0])[0]
     check("box positions match the final zoom", abs(wx - a["canvas_x"] * app.canvas_zoom) < 1)
+    app.rescale_canvas_layer = orig_s
     app.rerender_canvas_layer = orig_r
     app.set_zoom(1.0); app.update()
 

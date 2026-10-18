@@ -1,7 +1,9 @@
 """Files/Nodes canvas: wheel zoom, coordinate grid, view anchoring."""
 import tkinter as tk
-from canvas_view import (anchor_view_origin, clamp_zoom, compact_at, grid_step, grid_values,
-                         zoom_after_wheel)
+import tkinter.font as tkfont
+from canvas_view import (anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
+                         lod_mode, zoom_after_wheel)
+from nodes_model import find_node_by_id
 
 GRID_COLOR = "#262626"
 GRID_MAJOR_COLOR = "#2f2f2f"
@@ -15,58 +17,90 @@ class CanvasViewMixin:
     _zoom_job = None
     _zoom_anchor = None
     _grid_job = None
-    _preview_zoom = None
-    ZOOM_SETTLE_MS = 110
+    _zoom_fonts = None
+    _zoom_hooks = None
+    _rendered_look = None
 
     # ---- scaling helpers used when building boxes ------------------------
+    # Boxes are NOT rebuilt on zoom: their fonts are shared Font objects
+    # (one per base size/style) that are resized in place, and every other
+    # zoom-dependent size (header width/height, paddings) is registered as a
+    # "zoom hook" that is re-run on zoom. Only a change of LOOK (full box <->
+    # names-only/gray when crossing LOD_ZOOM) rebuilds the boxes.
     def _zi(self, n):
         return max(1, int(round(n * self.canvas_zoom)))
 
+    def _zpad(self, v):
+        return tuple(self._zi(x) if x else 0 for x in v) if isinstance(v, (tuple, list)) else \
+            (self._zi(v) if v else 0)
+
+    def _zfont_size(self, size):
+        return max(5, int(round(size * self.canvas_zoom)))
+
     def _zfont(self, size, *style):
-        return ("Segoe UI", max(5, int(round(size * self.canvas_zoom))), *style)
+        """Shared, zoom-following font for canvas boxes and group titles."""
+        if self._zoom_fonts is None:
+            self._zoom_fonts = {}
+        key = (size,) + tuple(style)
+        f = self._zoom_fonts.get(key)
+        want = self._zfont_size(size)
+        if f is None:
+            f = tkfont.Font(self, family="Segoe UI", size=want,
+                            weight="bold" if "bold" in style else "normal",
+                            slant="italic" if "italic" in style else "roman")
+            self._zoom_fonts[key] = f
+        elif int(f.cget("size")) != want:
+            f.configure(size=want)
+        return f
+
+    def _zhook(self, widget, fn):
+        """Run fn now and again after every zoom (while widget lives)."""
+        fn()
+        if self._zoom_hooks is None:
+            self._zoom_hooks = []
+        self._zoom_hooks.append((widget, fn))
+
+    def _zpack(self, widget, **opts):
+        """pack() whose padx/pady/ipadx/ipady follow the zoom."""
+        scaled = {k: opts.pop(k) for k in ("padx", "pady", "ipadx", "ipady") if k in opts}
+        widget.pack(**opts)
+        if scaled:
+            self._zhook(widget, lambda: widget.pack_configure(
+                **{k: self._zpad(v) for k, v in scaled.items()}))
+
+    def _zconf(self, widget, add=0, **sizes):
+        """configure(width=..., height=...) that follows the zoom (+add px)."""
+        self._zhook(widget, lambda: widget.configure(
+            **{k: self._zi(v) + add for k, v in sizes.items()}))
+
+    def _look_now(self):
+        """"full", "names" or "gray" for the current zoom and setting."""
+        return box_look(self.canvas_zoom, lod_mode(getattr(self, "settings", {})))
 
     def _lod_compact(self):
-        """True when boxes should be drawn as just their title (zoomed far out)."""
-        return compact_at(self.canvas_zoom, self.settings.get("lod_hide_details", True))
+        """True when boxes should be drawn as just a title strip (zoomed far out)."""
+        return self._look_now() != "full"
+
+    def _lod_gray(self):
+        return self._look_now() == "gray"
 
     def _fix_compact_size(self, box, header, model_width):
         """Give a compact box an exact size (title strip only), so zoomed-out
         boxes scale with the zoom instead of ballooning around their text."""
-        w, h = self._zi(model_width), self._zi(36)
-        header.configure(width=w, height=h)
-        box.configure(width=w + 4, height=h + 4)
+        self._zconf(header, width=model_width, height=36)
+        self._zconf(box, add=4, width=model_width, height=36)
         box.pack_propagate(False)
 
-    # ---- cheap zoom preview: coloured rectangles instead of live widgets ----
-    def _start_zoom_proxies(self):
-        c = self.workspace_canvas
-        c.delete("zoom_proxy")
-        for win in c.find_withtag("node_box") + c.find_withtag("file_box"):
-            try:
-                widget = self.nametowidget(c.itemcget(win, "window"))
-                x, y = c.coords(win)[:2]
-                w, h = widget.winfo_width(), widget.winfo_height()
-                kids = widget.winfo_children()
-                color = kids[0].cget("bg") if kids else "#4a4a4a"
-                title = ""
-                for ch in (kids[0].winfo_children() if kids else []):
-                    if isinstance(ch, tk.Label) and ch.cget("text") and ch.cget("text") != "\u25cf":
-                        title = ch.cget("text")
-                        break
-            except (tk.TclError, KeyError):
-                continue
-            c.itemconfigure(win, state="hidden")
-            c.create_rectangle(x, y, x + w, y + h, fill="#1e1e1e", outline="#555555",
-                               tags=("fileview", "zoom_proxy"))
-            c.create_rectangle(x, y, x + w, y + min(h, 36 * (self._preview_zoom or self._rendered_zoom or 1)),
-                               fill=color, outline="", tags=("fileview", "zoom_proxy"))
-            if title:
-                c.create_text(x + 6, y + 4, text=title, anchor="nw", fill="#ffffff",
-                              tags=("fileview", "zoom_proxy", "zoom_proxy_text"))
+    def _begin_canvas_render(self):
+        """Called by render_file_view/render_files_view before building."""
+        self._zoom_hooks = []
+        self._rendered_zoom = self.canvas_zoom
+        self._rendered_look = self._look_now()
 
-    def _update_proxy_text(self):
-        size = max(5, int(round(10 * self.canvas_zoom)))
-        self.workspace_canvas.itemconfigure("zoom_proxy_text", font=("Segoe UI", size, "bold"))
+    def _canvas_box_widgets(self):
+        out = [b for _w, b in (getattr(self, "_fileview_boxes", None) or {}).values()]
+        out += [b for _w, b in (getattr(self, "_filesview_boxes", None) or {}).values()]
+        return out
 
     def canvas_layer_active(self):
         """True on the Files and Nodes layers' canvas (not their code views)."""
@@ -92,29 +126,23 @@ class CanvasViewMixin:
         if z1 == z0:
             return
         c = self.workspace_canvas
-        # Zoom the canvas geometry the geometry is currently drawn at: the
-        # last rendered zoom, or the running preview while the wheel spins.
-        gz = self._preview_zoom or self._rendered_zoom or 1.0
-        if self._preview_zoom is None:
-            self._start_zoom_proxies()
+        # The canvas is still laid out at the last applied zoom until the
+        # pending resize runs, so the model point under the pointer is read
+        # at that zoom. Several fast wheel steps collapse into ONE resize.
+        gz = self._rendered_zoom or 1.0
         mx, my = c.canvasx(sx) / gz, c.canvasy(sy) / gz
         self._zoom_anchor = (mx, my, sx, sy)
         self.canvas_zoom = z1
-        # Cheap preview: move every item to its new place at once (boxes keep
-        # their old size for now) - nothing is destroyed or rebuilt while the
-        # wheel is spinning, so nothing flinches. The real re-render follows
-        # once the wheel has been still for ZOOM_SETTLE_MS.
-        c.scale("all", 0, 0, z1 / gz, z1 / gz)
-        self._preview_zoom = z1
-        self._update_proxy_text()
-        self._set_view_origin(anchor_view_origin(mx, sx, z1), anchor_view_origin(my, sy, z1))
-        self.schedule_grid()
+        self._cancel_zoom_job()
+        self._zoom_job = self.after_idle(self.apply_zoom)
+
+    def _cancel_zoom_job(self):
         if self._zoom_job is not None:
             try:
                 self.after_cancel(self._zoom_job)
             except tk.TclError:
                 pass
-        self._zoom_job = self.after(self.ZOOM_SETTLE_MS, self.apply_zoom)
+            self._zoom_job = None
 
     def set_zoom(self, z):
         """Programmatic zoom (keeps the view's top-left model point)."""
@@ -123,36 +151,81 @@ class CanvasViewMixin:
         self.apply_zoom()
 
     def apply_zoom(self):
-        if self._zoom_job is not None:
-            try:
-                self.after_cancel(self._zoom_job)
-            except tk.TclError:
-                pass
-            self._zoom_job = None
+        self._cancel_zoom_job()
         anchor, self._zoom_anchor = self._zoom_anchor, None
-        self._preview_zoom = None
-        self.workspace_canvas.delete("zoom_proxy")
         if not self.canvas_layer_active():
             return
         c = self.workspace_canvas
         if anchor is None:
             rz = self._rendered_zoom or 1.0
             anchor = (c.canvasx(0) / rz, c.canvasy(0) / rz, 0, 0)
-        self.rerender_canvas_layer()
+        if self._look_now() != self._rendered_look or not self._canvas_box_widgets():
+            self.rerender_canvas_layer()
+        else:
+            self.rescale_canvas_layer()
         mx, my, sx, sy = anchor
         z = self.canvas_zoom
         self._set_view_origin(anchor_view_origin(mx, sx, z), anchor_view_origin(my, sy, z))
         self.redraw_grid()
 
-    def rerender_canvas_layer(self):
-        """Rebuild only the canvas boxes/wires (cheaper than refresh_workspace)."""
+    def rescale_canvas_layer(self):
+        """Resize the boxes that are already on the canvas to the current
+        zoom - nothing is destroyed or rebuilt, so nothing flashes."""
+        z = self.canvas_zoom
+        for key, f in (self._zoom_fonts or {}).items():
+            want = self._zfont_size(key[0])
+            if int(f.cget("size")) != want:
+                f.configure(size=want)
+        alive = []
+        for w, fn in (self._zoom_hooks or []):
+            try:
+                if w.winfo_exists():
+                    fn()
+                    alive.append((w, fn))
+            except tk.TclError:
+                pass
+        self._zoom_hooks = alive
         c = self.workspace_canvas
-        c.delete("fileview")
+        if self.view_mode == "files":
+            for idx, (win, _b) in self._filesview_boxes.items():
+                if 0 <= idx < len(self.tabs):
+                    t = self.tabs[idx]
+                    c.coords(win, t["canvas_x"] * z, t["canvas_y"] * z)
+        else:
+            tab = self.tabs[self.active_tab_index]
+            for nid, (win, _b) in self._fileview_boxes.items():
+                n = find_node_by_id(tab["nodes"], nid)
+                if n:
+                    c.coords(win, n["canvas_x"] * z, n["canvas_y"] * z)
+        c.delete("group")
+        self.draw_groups()
+        self.update_idletasks()      # widgets take their new sizes before wires use them
+        if self.view_mode == "files":
+            self.draw_file_wires()
+        else:
+            self.draw_wires()
+        self._update_fileview_scrollregion()
+        self._rendered_zoom = z
+
+    def rerender_canvas_layer(self):
+        """Rebuild the canvas boxes/wires (cheaper than refresh_workspace).
+        The new boxes are built and drawn BEFORE the old ones are removed,
+        so the switch does not flash an empty canvas."""
+        c = self.workspace_canvas
+        old = self._canvas_box_widgets()
+        c.addtag_withtag("fileview_old", "fileview")
+        c.dtag("fileview_old", "fileview")
         if self.view_mode == "files":
             self.render_files_view()
         else:
             self.render_file_view()
-        self._rendered_zoom = self.canvas_zoom
+        self.update_idletasks()
+        c.delete("fileview_old")
+        for w in old:
+            try:
+                w.destroy()
+            except tk.TclError:
+                pass
 
     def _set_view_origin(self, tlx, tly):
         c = self.workspace_canvas

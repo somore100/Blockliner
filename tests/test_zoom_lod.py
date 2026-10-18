@@ -111,6 +111,32 @@ def main():
           len(c.find_withtag("wire")) == len(set(c.find_withtag("wire"))))
     check("zoom hooks do not pile up on resize", n_hooks > 10 and len(app._zoom_hooks) == n_hooks)
 
+    # ---- no in-between frame: when the resize forces its screen update, the
+    # view is already scrolled to its final place (else the box is drawn
+    # resized-but-not-moved for a frame = the stutter seen when zooming fast)
+    snaps = []
+    orig_ui = app.update_idletasks
+    def spy():
+        if not snaps:
+            win = app._fileview_boxes["verify"][0]
+            snaps.append((c.canvasx(0), c.canvasy(0), tuple(c.coords(win)),
+                          len(c.find_withtag("grid")), app.canvas_zoom))
+        orig_ui()
+    app.update_idletasks = spy
+    for _ in range(3): app.zoom_step(-1, 500, 300)
+    app.update()
+    app.update_idletasks = orig_ui
+    final = (c.canvasx(0), c.canvasy(0), tuple(c.coords(app._fileview_boxes["verify"][0])))
+    check("first screen update already has the final view origin",
+          bool(snaps) and abs(snaps[0][0] - final[0]) < 1 and abs(snaps[0][1] - final[1]) < 1)
+    check("...and the box already at its final place", bool(snaps) and snaps[0][2] == final[2])
+    check("...and the grid already drawn for the new zoom", bool(snaps) and snaps[0][3] > 0)
+    gsnap = sorted(c.coords(i)[0] for i in c.find_withtag("grid") if c.type(i) == "line")[:3]
+    app.redraw_grid()
+    check("grid drawn before the update equals the final grid",
+          gsnap == sorted(c.coords(i)[0] for i in c.find_withtag("grid") if c.type(i) == "line")[:3])
+    boxes = {n: app._fileview_boxes[n][1] for n in ("verify", "gen_pw", "ui")}
+
     # ---- crossing into the names-only look: ONE rebuild, old widgets destroyed
     old = list(boxes.values())
     app.set_zoom(0.3); app.update(); app.update()
@@ -138,7 +164,8 @@ def main():
     gb = app._fileview_boxes["verify"][1]
     check("gray look: no text at all", [t for t in texts(gb) if t] == [])
     check("gray look: grey header", gb.winfo_children()[0].cget("bg") == "#5a5a5a")
-    check("gray look: same compact size as names", 190 <= size(app, "verify")[0] <= 260 and size(app, "verify")[1] <= 70)
+    rw, rh = gb.winfo_reqwidth() / app.canvas_zoom, gb.winfo_reqheight() / app.canvas_zoom   # may be scrolled off-screen
+    check("gray look: same compact size as names", 190 <= rw <= 260 and rh <= 70)
     check("gray look: header still drags", bool(gb.winfo_children()[0].bind("<ButtonPress-1>")))
 
     app.settings["lod_mode"] = "details"

@@ -159,14 +159,18 @@ class CanvasViewMixin:
         if anchor is None:
             rz = self._rendered_zoom or 1.0
             anchor = (c.canvasx(0) / rz, c.canvasy(0) / rz, 0, 0)
-        if self._look_now() != self._rendered_look or not self._canvas_box_widgets():
-            self.rerender_canvas_layer()
-        else:
-            self.rescale_canvas_layer()
+        # Scroll to the new view FIRST: the resize below forces one screen
+        # update, and everything on screen must already be final by then -
+        # otherwise a frame shows the box resized but not yet moved (the
+        # "stutter" when zooming fast).
         mx, my, sx, sy = anchor
         z = self.canvas_zoom
         self._set_view_origin(anchor_view_origin(mx, sx, z), anchor_view_origin(my, sy, z))
-        self.redraw_grid()
+        if self._look_now() != self._rendered_look or not self._canvas_box_widgets():
+            self.rerender_canvas_layer()
+            self.redraw_grid()
+        else:
+            self.rescale_canvas_layer()
 
     def rescale_canvas_layer(self):
         """Resize the boxes that are already on the canvas to the current
@@ -199,6 +203,12 @@ class CanvasViewMixin:
                     c.coords(win, n["canvas_x"] * z, n["canvas_y"] * z)
         c.delete("group")
         self.draw_groups()
+        # Wires need the boxes' real sizes, which only exist after the
+        # update below. Until then, scale the old wires to about the right
+        # place, so the one frame drawn in between already looks right.
+        f = z / (self._rendered_zoom or z)
+        c.scale("wire", 0, 0, f, f)
+        self.redraw_grid()
         self.update_idletasks()      # widgets take their new sizes before wires use them
         if self.view_mode == "files":
             self.draw_file_wires()

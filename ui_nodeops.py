@@ -4,6 +4,7 @@ from tkinter import messagebox, simpledialog
 import contextlib
 import nodes_model
 import node_ports
+import wire_kinds
 from nodes_model import default_active_node_id, find_node_by_id, function_nodes_in_tree_order, normalize_orders
 from ui_common import BLOCK_BG, DARK_BG, DARK_BORDER, DARK_FG
 
@@ -610,6 +611,9 @@ class NodeOpsMixin:
                     if target_id and target_id not in refs:
                         refs.append(target_id)
             node["references"] = refs
+            kinds = wire_kinds.call_kinds(node["blocks"])
+            node["ref_kinds"] = {t: kinds.get(n, "call") for n, t in name_to_id.items()
+                                 if t in refs}
             node["data_uses"] = []
         live = [n for n in nodes_model.sorted_function_nodes(tab.get("nodes", []))
                 if not n.get("skipped")]

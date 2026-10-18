@@ -60,6 +60,9 @@ def make_node(name, node_id=None, blocks=None, category=None,
         # Derived like references: [{"id": producer node id, "vars": [names]}]
         # = variables this node reads that an earlier node assigns.
         "data_uses": [],
+        # Derived like references: {target node id: "call" | "data"} - how this
+        # node uses each node it calls (see wire_kinds.py). Never saved.
+        "ref_kinds": {},
     }
     # Execution order (function-kind nodes only): the position this
     # node's blocks take in the generated file. The key is left OUT

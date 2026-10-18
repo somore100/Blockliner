@@ -87,7 +87,7 @@ def _node_from_json(raw, seen_ids, notes):
 def build_project_data(language, nodes, active_node_id):
     """Plain dict ready for json.dump (references are derived, so left out)."""
     def clean(node):
-        d = {k: v for k, v in node.items() if k not in ("references", "data_uses", "child_nodes")}
+        d = {k: v for k, v in node.items() if k not in ("references", "data_uses", "ref_kinds", "child_nodes")}
         d["child_nodes"] = [clean(c) for c in node.get("child_nodes", [])]
         return d
     return {

@@ -2,6 +2,7 @@
 import keyword
 import tkinter as tk
 import node_ports
+import wire_kinds
 from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
 
@@ -173,12 +174,14 @@ class CanvasMixin:
         p3 = (x1, y1)
 
         tag = f"file_wire_{source_index}_{target_index}"
+        st = wire_kinds.style_for("import")
         self.workspace_canvas.create_line(
             *self._bezier_points(p0, p1, p2, p3), smooth=True,
-            fill="#4a90d9", width=2, tags=("fileview", "wire", tag)
+            fill=st["color"], width=st["width"], dash=st["dash"],
+            tags=("fileview", "wire", tag)
         )
         self.workspace_canvas.create_oval(
-            x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill="#4a90d9", outline="",
+            x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=st["color"], outline="",
             tags=("fileview", "wire", tag)
         )
 
@@ -289,7 +292,7 @@ class CanvasMixin:
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
-            header, text=f"{'\u2298 ' if ignored else ''}{'\u23ed ' if skipped else ''}{icon} {node['name']}",
+            header, text=("\u2298 " if ignored else "") + ("\u23ed " if skipped else "") + f"{icon} {node['name']}",
             bg=box_color, fg=text_fg,
             font=self._zfont(10, "bold"), anchor="w", cursor="fleur"
         )
@@ -838,8 +841,6 @@ class CanvasMixin:
         for source_id, target_id, names in data_edges:
             self._draw_one_wire(source_id, target_id, data_vars=names)
 
-    DATA_WIRE_COLOR = "#4f8fd6"
-
     def _draw_one_wire(self, source_id, target_id, data_vars=None):
         """data_vars given = a DATA wire (dashed blue, labelled with the
         variable names): the producer's variable is read in the target's code.
@@ -876,10 +877,11 @@ class CanvasMixin:
 
         if data_vars is not None:
             tag = f"dwire_{source_id}_{target_id}"
-            color = self.DATA_WIRE_COLOR
+            st = wire_kinds.style_for("data")
+            color = st["color"]
             self.workspace_canvas.create_line(
                 *self._bezier_points(p0, p1, p2, p3), smooth=True, fill=color,
-                width=2, dash=(6, 4), tags=("fileview", "wire", tag))
+                width=st["width"], dash=st["dash"], tags=("fileview", "wire", tag))
             self.workspace_canvas.create_oval(
                 x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=color, outline="",
                 tags=("fileview", "wire", tag))
@@ -893,11 +895,12 @@ class CanvasMixin:
             return
         tag = f"wire_{source_id}_{target_id}"
         selected = self._fileview_selected_wire == (source_id, target_id)
-        color = "#e8a33d" if selected else "#6a9955"
-        width = 3 if selected else 2
+        kind = (src_node.get("ref_kinds") or {}).get(target_id, "call")
+        st = wire_kinds.style_for(kind, selected)
+        color, width = st["color"], st["width"]
         self.workspace_canvas.create_line(
             *self._bezier_points(p0, p1, p2, p3), smooth=True,
-            fill=color, width=width, tags=("fileview", "wire", tag)
+            fill=color, width=width, dash=st["dash"], tags=("fileview", "wire", tag)
         )
         self.workspace_canvas.create_oval(
             x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=color, outline="",

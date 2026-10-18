@@ -5,7 +5,7 @@ tag (without the leading "v"), then commit.
 """
 import os
 
-APP_VERSION = "2.4.2"
+APP_VERSION = "2.4.3"
 BUILD_NUMBER = 1  # bump by hand for a meaningfully new build (shown in About)
 
 APP_NAME = "Blockliner"

@@ -8,3 +8,4 @@ build/
 .syncthing.*.tmp
 .stfolder
 *.sync-conflict-*
+blockliner_script.*

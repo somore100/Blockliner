@@ -22,6 +22,19 @@ PORT_COLORS = [
     ("Red", "#d65a5a"), ("Purple", "#a070d0"), ("Cyan", "#3fc4d6"),
     ("Pink", "#d670b0"), ("Yellow", "#d6c84f"),
 ]
+# Port colour = MEANING when the type is known for certain (annotation or a
+# literal assignment), otherwise a stable colour from the name. The type
+# colours are never used for untyped ports (while a side has <= 3 of them).
+TYPE_COLORS = {
+    "text": "#4f8fd6",      # blue
+    "number": "#e0953f",    # orange
+    "bool": "#d65a5a",      # red
+    "list": "#a070d0",      # purple
+    "dict": "#3fc4d6",      # cyan
+}
+TYPE_LABELS = {"text": "text", "number": "number", "bool": "true/false",
+               "list": "list", "dict": "map"}
+_NEUTRAL_COLORS = ["#4fbf7a", "#d670b0", "#d6c84f"]     # green, pink, yellow
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 _IDENT = re.compile(r"[A-Za-z_]\w*")
 _SKIP_PARAMS = {"self", "cls"}
@@ -96,6 +109,8 @@ def _walk(blocks):
 
 _STRING = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
 _NAME = re.compile(r"(?<![\w.])[A-Za-z_]\w*")
+_STRING_ONLY = re.compile(r"^(?:[rbfRBF]{0,2})(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')$")
+_NUMBER_LIT = re.compile(r"^-?(?:\d[\d_]*\.?\d*(?:[eE][-+]?\d+)?|\.\d+)$")
 _NOT_CODE_KEYS = {"name", "params", "variable", "_children", "_nested_block"}
 
 
@@ -165,15 +180,143 @@ def node_interface(node):
     return [], assigned_names(node)
 
 
+_QUALIFIERS = {"const", "mut", "unsigned", "signed", "std", "final", "ref", "var", "let",
+               "readonly", "volatile", "static", "struct", "long long"}
+_TEXT = {"str", "string", "char", "text", "wstring", "cstring", "rune", "varchar",
+         "cstr", "stringbuilder", "charsequence"}
+_BOOL = {"bool", "boolean"}
+_LIST = {"list", "vec", "array", "arraylist", "slice", "tuple", "set", "vector",
+         "deque", "sequence", "iterable", "hashset", "linkedlist"}
+_DICT = {"dict", "map", "hashmap", "mapping", "record", "treemap", "dictionary", "btreemap"}
+_NUMBER = {"int", "integer", "long", "short", "float", "double", "number", "decimal", "byte",
+           "usize", "isize", "size_t", "bigint", "complex", "f32", "f64", "float32", "float64",
+           "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64",
+           "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "single"}
+_WRAPPERS = {"optional", "option", "nullable", "final", "readonly", "box"}
+
+
+def classify_type(text):
+    """Type text from a signature -> "text" | "number" | "bool" | "list" | "dict"
+    | None (unknown: never guessed). 'str', 'int', '&str', 'List[int]',
+    'Vec<i32>', 'char *', 'String[]', 'Optional[str]' ..."""
+    t = (text or "").strip()
+    if not t:
+        return None
+    if t.endswith("[]") or t.startswith("["):
+        return "list"
+    words = [w.lower() for w in re.findall(r"[A-Za-z_]\w*", t)]
+    words = [w for w in words if w not in _QUALIFIERS]
+    if not words:
+        return None
+    base = words[0]
+    if base in _WRAPPERS and len(words) > 1:
+        base = words[1]
+    if base == "char" and "*" in t:
+        return "text"
+    for kind, names in (("text", _TEXT), ("bool", _BOOL), ("list", _LIST),
+                        ("dict", _DICT), ("number", _NUMBER)):
+        if base in names:
+            return kind
+    return None
+
+
+def param_types(text):
+    """{param name: kind} for the parameters whose type is written in the
+    signature: 'a: int, b, String c, const char *d=0' -> a number, c text, d text."""
+    out = {}
+    for piece in split_commas(text or ""):
+        piece = piece.split("=", 1)[0]
+        if ":" in piece:
+            name_part, type_part = piece.split(":", 1)
+            found = _IDENT.findall(name_part)
+            name = found[-1] if found else None
+        else:
+            found = list(_IDENT.finditer(piece))
+            if len(found) < 2:
+                continue
+            name, type_part = found[-1].group(0), piece[:found[-1].start()]
+        kind = classify_type(type_part)
+        if name and name not in _SKIP_PARAMS and kind:
+            out.setdefault(name, kind)
+    return out
+
+
+def literal_type(expr):
+    """Kind of a literal value ('"hi"' text, '3.5' number, 'True' bool, '[1]' list,
+    '{}' dict); None for anything that is not a plain literal."""
+    e = (expr or "").strip()
+    if not e:
+        return None
+    if _STRING_ONLY.match(e):
+        return "text"
+    if _NUMBER_LIT.match(e):
+        return "number"
+    if e in ("True", "False", "true", "false"):
+        return "bool"
+    if e[0] in "[{" and _one_bracket_group(e):
+        if e[0] == "[":
+            return "list"
+        return "dict" if e == "{}" or ":" in "".join(split_commas(e[1:-1])[:1]) else "list"
+    return None
+
+
+def _one_bracket_group(e):
+    """True when e is ONE bracket pair from first to last char ('[1,2]', not '[a][0]')."""
+    depth, quote = 0, None
+    for i, ch in enumerate(e):
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0 and i != len(e) - 1:
+                return False
+    return depth == 0 and e[-1] in ")]}"
+
+
+def node_types(node):
+    """{"in:name": kind, "out:name": kind} - only what is certain: a typed
+    parameter of the node's function, and a variable assigned a literal."""
+    types = {}
+    if has_function(node):
+        name = (node.get("name") or "").strip()
+        for bid, p in _walk(node.get("blocks")):
+            if bid == "func_def" and isinstance(p, dict) and str(p.get("name") or "").strip() == name:
+                if isinstance(p.get("params"), str):
+                    for n, k in param_types(p["params"]).items():
+                        types[f"in:{n}"] = k
+                break
+        return types
+    for entry in node.get("blocks") or []:
+        try:
+            bid, p = entry
+        except (TypeError, ValueError):
+            continue
+        if bid == "assign_variable" and isinstance(p, dict) and isinstance(p.get("variable"), str):
+            names = [n for n in return_names(p["variable"]) if n.isidentifier()]
+            kind = literal_type(p.get("value")) if isinstance(p.get("value"), str) else None
+            for n in names:
+                if kind and len(names) == 1:
+                    types[f"out:{n}"] = kind
+                else:
+                    types.pop(f"out:{n}", None)       # reassigned to something unknown
+    return types
+
+
 def auto_color(name, taken=()):
     """Same name -> same colour (so an output 'user' and an input 'user'
-    match); ports of one side that would collide get the next free colour."""
-    start = zlib.crc32(name.encode("utf-8")) % len(PORT_COLORS)
-    for step in range(len(PORT_COLORS)):
-        col = PORT_COLORS[(start + step) % len(PORT_COLORS)][1]
+    match). Uses the neutral colours first (the type colours mean something),
+    then the rest; ports of one side that would collide get the next free one."""
+    order = _NEUTRAL_COLORS + [c for _n, c in PORT_COLORS if c not in _NEUTRAL_COLORS]
+    start = zlib.crc32(name.encode("utf-8")) % len(_NEUTRAL_COLORS)
+    ring = order[start:len(_NEUTRAL_COLORS)] + order[:start] + order[len(_NEUTRAL_COLORS):]
+    for col in ring:
         if col not in taken:
             return col
-    return PORT_COLORS[start][1]
+    return ring[0]
 
 
 def valid_color(value):
@@ -184,6 +327,7 @@ def node_ports(node):
     """[{"side": "in"|"out", "name", "color", "manual": bool}] - inputs first."""
     inputs, outputs = node_interface(node)
     overrides = node.get("port_colors") if isinstance(node.get("port_colors"), dict) else {}
+    types = node_types(node)
     ports = []
     for side, names in (("in", inputs), ("out", outputs)):
         taken = {overrides[f"{side}:{n}"] for n in names
@@ -192,10 +336,13 @@ def node_ports(node):
             manual = overrides.get(f"{side}:{n}")
             if valid_color(manual):
                 color, is_manual = manual, True
+            elif f"{side}:{n}" in types:
+                color, is_manual = TYPE_COLORS[types[f"{side}:{n}"]], False
             else:
                 color, is_manual = auto_color(n, taken), False
                 taken.add(color)
-            ports.append({"side": side, "name": n, "color": color, "manual": is_manual})
+            ports.append({"side": side, "name": n, "color": color, "manual": is_manual,
+                          "type": types.get(f"{side}:{n}")})
     return ports
 
 

@@ -2,7 +2,7 @@
 import tkinter as tk
 import tkinter.font as tkfont
 from canvas_view import (anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
-                         lod_mode, zoom_after_wheel)
+                         lod_mode, zoom_after_wheel, zoom_factor)
 from nodes_model import find_node_by_id
 
 GRID_COLOR = "#262626"
@@ -122,7 +122,7 @@ class CanvasViewMixin:
 
     def zoom_step(self, step, sx, sy):
         z0 = self.canvas_zoom
-        z1 = zoom_after_wheel(z0, step)
+        z1 = zoom_after_wheel(z0, step, zoom_factor(getattr(self, "settings", {})))
         if z1 == z0:
             return
         c = self.workspace_canvas
@@ -275,12 +275,18 @@ class CanvasViewMixin:
         """Faint grid + brighter x/y axes through 0,0 behind the boxes; the
         numbers along the top/left edge are the 'show_coords' setting."""
         c = self.workspace_canvas
-        c.delete("grid")
         if not self.canvas_layer_active() or not c.find_withtag("fileview"):
+            c.delete("grid")
+            self._grid_key = None
             return
         z = self.canvas_zoom
         w, h = c.winfo_width(), c.winfo_height()
         x0, y0 = c.canvasx(0), c.canvasy(0)
+        key = (x0, y0, w, h, z, bool(self.settings.get("show_coords", False)))
+        if key == getattr(self, "_grid_key", None) and c.find_withtag("grid"):
+            return          # same view as the grid already drawn: nothing to do
+        self._grid_key = key
+        c.delete("grid")
         step = grid_step(z)
         xs = grid_values(x0 / z, (x0 + w) / z, step)
         ys = grid_values(y0 / z, (y0 + h) / z, step)

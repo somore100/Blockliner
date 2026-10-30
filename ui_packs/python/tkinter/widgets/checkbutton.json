@@ -1,0 +1,39 @@
+{
+  "type": "checkbutton",
+  "label": "Checkbox",
+  "category": "Basic",
+  "icon": "☑",
+  "container": false,
+  "default_size": [
+    110,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Check me"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ttk.Checkbutton({parent}{opts})"
+}

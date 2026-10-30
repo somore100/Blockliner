@@ -1,0 +1,63 @@
+{
+  "type": "button",
+  "label": "Button",
+  "category": "Basic",
+  "icon": "▭",
+  "container": false,
+  "default_size": [
+    100,
+    32
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Button"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    },
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On click",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = tk.Button({parent}{opts})"
+}

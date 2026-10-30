@@ -104,7 +104,11 @@ def main():
         cv.yview_moveto(0.0); dlg.update()
         dlg.event_generate("<Button-5>"); dlg.update()
         check("small screen: mouse wheel over the dialog scrolls the body", cv.yview()[0] > 0.0)
-        pos = cv.yview()[0]; dlg.event_generate("<Button-4>"); dlg.update()
+        pos = cv.yview()[0]
+        # Tk 9 delivers a synthetic <Button-4> as button 8 (no delta); real Tk 9 wheels send <MouseWheel>
+        if tk.TkVersion >= 9: dlg.event_generate("<MouseWheel>", delta=120)
+        else: dlg.event_generate("<Button-4>")
+        dlg.update()
         check("small screen: wheel up scrolls back up", cv.yview()[0] < pos)
         pos = cv.yview()[0]; dlg.event_generate("<MouseWheel>", delta=-120); dlg.update()
         check("small screen: Windows-style wheel (delta<0) scrolls down", cv.yview()[0] > pos or cv.yview()[1] >= 1.0)

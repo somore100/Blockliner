@@ -1,0 +1,54 @@
+{
+  "type": "listbox",
+  "label": "List",
+  "category": "Input",
+  "icon": "☰",
+  "container": false,
+  "default_size": [
+    160,
+    100
+  ],
+  "props": [
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "default": 30
+    },
+    {
+      "key": "height",
+      "label": "Height (lines)",
+      "kind": "int",
+      "default": 6
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "selected",
+      "label": "On select",
+      "args": [
+        "event"
+      ],
+      "code": "{name}.bind('<<ListboxSelect>>', {handler})"
+    }
+  ],
+  "code": "{name} = tk.Listbox({parent}{opts})"
+}

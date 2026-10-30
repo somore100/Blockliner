@@ -1,0 +1,19 @@
+{
+  "concept_id": "input",
+  "display_name": "Input",
+  "category": "Basic",
+  "description": "Asks the user for text with prompt() (browser). In Node use raw_code with readline.",
+  "template": "const [[variable]] = prompt(\"[[prompt]]\");\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "name"
+    },
+    {
+      "name": "prompt",
+      "type": "string",
+      "default": "Enter a value: "
+    }
+  ]
+}

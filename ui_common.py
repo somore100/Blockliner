@@ -156,6 +156,8 @@ DEFAULT_SETTINGS = {
     "confirm_delete": True,
     "show_notifications": True,
     "animate_blocks": False,
+    # False: the block search runs on Enter; True: on every keystroke.
+    "live_search": False,
     # When you give a node a number another node already has:
     # "take" = you get it, the other node becomes unassigned (red);
     # "swap" = the other node gets your old number; "ask" = pop up a choice.

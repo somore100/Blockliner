@@ -117,7 +117,8 @@ def main():
     app._active_popup = m1
     app._install_popup_guards()
     top = app.winfo_toplevel()
-    top.event_generate("<Escape>")
+    top.focus_force(); app.update()
+    top.event_generate("<Escape>", when="now")
     app.update()
     check("Escape closes a posted menu", app._active_popup is None)
     app._active_popup = m1

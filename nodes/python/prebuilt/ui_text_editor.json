@@ -1,0 +1,92 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "UI: Text editor",
+  "description": "A big text area with Open and Save buttons on top.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "title",
+      "label": "Window title",
+      "default": "Notes"
+    }
+  ],
+  "blocks": [],
+  "ui": {
+    "format": "blockliner-ui",
+    "version": 1,
+    "pack": "python/tkinter",
+    "root": {
+      "id": "dad7eef4",
+      "type": "window",
+      "name": "root",
+      "props": {
+        "title": "{{title}}",
+        "geometry": "560x380"
+      },
+      "layout": {},
+      "events": {},
+      "design": {
+        "device": "desktop"
+      },
+      "children": [
+        {
+          "id": "75f5f73b",
+          "type": "button",
+          "name": "btn_open",
+          "props": {
+            "text": "Open",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 10,
+            "y": 8,
+            "width": 80
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "3d3702ce",
+          "type": "button",
+          "name": "btn_save",
+          "props": {
+            "text": "Save",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 96,
+            "y": 8,
+            "width": 80
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "487f6e49",
+          "type": "text",
+          "name": "text_body",
+          "props": {
+            "width": 40,
+            "height": 8,
+            "wrap": "word"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 10,
+            "y": 48,
+            "width": 540,
+            "height": 320
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "type": "entry",
+  "label": "Input box",
+  "category": "Input",
+  "icon": "▁",
+  "container": false,
+  "default_size": [
+    140,
+    26
+  ],
+  "props": [
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "show",
+      "label": "Mask character",
+      "kind": "string",
+      "optional": true
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "return",
+      "label": "On Enter",
+      "args": [
+        "event"
+      ],
+      "code": "{name}.bind('<Return>', {handler})"
+    }
+  ],
+  "code": "{name} = ttk.Entry({parent}{opts})"
+}

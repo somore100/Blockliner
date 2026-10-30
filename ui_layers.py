@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import simpledialog
 import uuid
+import ui_node
 from nodes_model import find_node_by_id, make_node, next_order, normalize_orders
 from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, KEYBIND_ACTIONS, TEXT_INPUT_CLASSES, keybind_is_bare
 from ui_widgets import BlockWidget
@@ -11,9 +12,78 @@ from multi_open import NODE_MARK
 
 class LayersMixin:
     
+    def breadcrumb_segments(self):
+        """[(label, action | None)] for the trail; the last item is where
+        you are (no action). Each action jumps straight to that level."""
+        segs = [("\U0001F4C1 Files", self.switch_to_files_view)]
+        if self.view_mode == "files" or not getattr(self, "tabs", None):
+            segs[0] = (segs[0][0], None)
+            return segs
+        tab = self.tabs[self.active_tab_index]
+        path = tab.get("file_view_path", []) if self.view_mode == "file" else []
+        segs.append(("\U0001F4C4 " + tab["title"], lambda: self.goto_file_level(0)))
+        if self.view_mode == "node":
+            # open_node never leaves a class path set, so rebuild it from the node's owner
+            path = self.owner_path(tab, tab.get("active_node_id"))
+        for depth, node_id in enumerate(path, 1):
+            node = find_node_by_id(tab["nodes"], node_id)
+            if node:
+                segs.append((node["name"], lambda d=depth: self.goto_file_level(d)))
+        if self.view_mode == "node":
+            together = self.multi_crumb()
+            if together:
+                segs.append((together, None))
+            else:
+                segs.append(("\U0001F9E9 " + self.get_active_node(tab)["name"], None))
+                if self.designer_node() is not None:
+                    segs.append(("UI designer", None))
+        segs[-1] = (segs[-1][0], None)
+        return segs
+
+    def owner_path(self, tab, node_id):
+        """Ids of the class/category nodes containing node_id, outermost first."""
+        def walk(nodes, trail):
+            for n in nodes:
+                if n.get("id") == node_id:
+                    return trail
+                found = walk(n.get("child_nodes") or [], trail + [n["id"]])
+                if found is not None:
+                    return found
+            return None
+        return walk(tab["nodes"], []) or []
+
+    def goto_file_level(self, depth):
+        """Show the Nodes layer at `depth` levels into the file (0 = top)."""
+        tab = self.tabs[self.active_tab_index]
+        full = tab.get("file_view_path", []) if self.view_mode == "file" else self.owner_path(tab, tab.get("active_node_id"))
+        tab["file_view_path"] = list(full[:depth])
+        self.view_mode = "file"
+        self.file_view_code_mode = False
+        self.refresh_workspace()
+
+    def refresh_breadcrumb(self):
+        for widget in self.crumb_bar.winfo_children():
+            widget.destroy()
+        segs = self.breadcrumb_segments()
+        for i, (label, action) in enumerate(segs):
+            if i:
+                tk.Label(self.crumb_bar, text="›", bg=DARK_PANEL, fg="#666666",
+                         font=("Segoe UI", 10)).pack(side=tk.LEFT)
+            if action is None:
+                tk.Label(self.crumb_bar, text=label, bg=DARK_PANEL, fg="#ffffff",
+                         font=("Segoe UI", 9, "bold"), padx=6).pack(side=tk.LEFT)
+            else:
+                b = tk.Label(self.crumb_bar, text=label, bg=DARK_PANEL, fg=DARK_FG,
+                             font=("Segoe UI", 9), padx=6, cursor="hand2")
+                b.pack(side=tk.LEFT)
+                b.bind("<Button-1>", lambda e, a=action: a())
+                b.bind("<Enter>", lambda e, w=b: w.config(fg=DARK_ACCENT))
+                b.bind("<Leave>", lambda e, w=b: w.config(fg=DARK_FG))
+
     def refresh_node_nav(self):
         """Rebuild the node navigation controls in the workspace header -
         same rebuild-from-scratch pattern as refresh_tab_bar()."""
+        self.refresh_breadcrumb()
         for widget in self.node_nav_frame.winfo_children():
             widget.destroy()
 
@@ -51,12 +121,6 @@ class LayersMixin:
 
         if self.view_mode == "file":
             path = tab.get("file_view_path", [])
-            crumb_parts = [tab["title"]]
-            for node_id in path:
-                node = find_node_by_id(tab["nodes"], node_id)
-                if node:
-                    crumb_parts.append(node["name"])
-            crumb = "  \u203A  ".join(["\U0001F4C4 " + crumb_parts[0]] + crumb_parts[1:])
             if path:
                 tk.Button(
                     self.node_nav_frame, text="\u2190 Back", bg="#3a3a3a", fg=DARK_FG,
@@ -70,7 +134,7 @@ class LayersMixin:
                     command=self.switch_to_files_view
                 ).pack(side=tk.LEFT, padx=(0, 10))
             tk.Label(
-                self.node_nav_frame, text=f"{crumb} \u2014 choose a node",
+                self.node_nav_frame, text="choose a node",
                 bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)
             ).pack(side=tk.LEFT, padx=(0, 10))
             tk.Button(
@@ -111,20 +175,18 @@ class LayersMixin:
                 command=self.toggle_file_view_code_mode
             ).pack(side=tk.LEFT)
         else:
-            active_node = self.get_active_node(tab)
-            together = self.multi_crumb()
-            crumb = f"\U0001F4C4 {tab['title']}  \u203A  " + (
-                together if together else f"\U0001F9E9 {active_node['name']}")
-            tk.Label(
-                self.node_nav_frame, text=crumb, bg=DARK_BG,
-                fg="#e8a33d" if together else "#888888",
-                font=("Segoe UI", 9, "bold" if together else "normal")
-            ).pack(side=tk.LEFT, padx=(0, 10))
             # Only worth surfacing "view all nodes" once a file actually
             # has more than one top-level node, or that one node is a
             # class/category with something inside it - otherwise it's
             # a button to a screen that only ever shows the one thing
             # you're already in.
+            active_node = self.get_active_node(tab)
+            if ui_node.is_ui_node(active_node) and ui_node.is_detached(active_node):
+                tk.Button(
+                    self.node_nav_frame, text="\u21a9 Back to designer", bg=DARK_ACCENT, fg="#ffffff",
+                    relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+                    command=self.reattach_ui_node
+                ).pack(side=tk.LEFT, padx=(0, 4))
             if len(nodes) > 1 or (len(nodes) == 1 and nodes[0].get("kind") in ("class", "category")):
                 tk.Button(
                     self.node_nav_frame, text="\U0001F5C2 Nodes",
@@ -377,12 +439,13 @@ class LayersMixin:
             # Right-click creation: drop it under the cursor and stay on
             # the canvas so the placement is actually visible.
             new_node["canvas_x"], new_node["canvas_y"] = pos
-            self.refresh_workspace()
+            self.refresh_after_node_added(new_node, target_list)
             return
         self.open_node(new_node["id"])
 
     STARTER_NODES = (("function", "Empty function"), ("class", "Class"),
-                     ("category", "Category"), ("raw", "Raw code"))
+                     ("category", "Category"), ("raw", "Raw code"),
+                     ("ui", "UI window"))
 
     def create_starter_node(self, key, pos, wire_from=None):
         """Create a ready-made node at pos on the Nodes layer without a
@@ -392,7 +455,12 @@ class LayersMixin:
         target_list = self.get_current_node_list(tab) if self.view_mode == "file" else tab["nodes"]
         n = len(target_list) + 1
         normalize_orders(tab["nodes"])
-        if key == "class":
+        if key == "ui":
+            node = self.new_ui_node(tab, f"UI {n}")
+            if node is None:
+                return None
+            wire_from = None
+        elif key == "class":
             node = make_node(f"Class {n}", node_id=str(uuid.uuid4())[:8], kind="class", child_nodes=[])
         elif key == "category":
             node = make_node(f"Category {n}", node_id=str(uuid.uuid4())[:8], kind="category", child_nodes=[])
@@ -408,11 +476,12 @@ class LayersMixin:
                              order=next_order(tab["nodes"]))
         node["canvas_x"], node["canvas_y"] = pos
         target_list.append(node)
+        self.regenerate_ui_nodes()
         self.mark_active_tab_dirty()
         if wire_from is not None and node.get("kind", "function") == "function":
             self.add_wire_by_drag(wire_from, node["id"])   # also refreshes
         else:
-            self.refresh_workspace()
+            self.refresh_after_node_added(node, target_list)
         return node
 
     def create_category(self, pos=None):
@@ -438,7 +507,7 @@ class LayersMixin:
         self.mark_active_tab_dirty()
         if pos is not None:
             new_category["canvas_x"], new_category["canvas_y"] = pos
-            self.refresh_workspace()
+            self.refresh_after_node_added(new_category, target_list)
             return
         self.open_node(new_category["id"])
 
@@ -615,7 +684,7 @@ class LayersMixin:
         """The block palette is useless on the Nodes layer (view_mode ==
         "file"): hide it and its edge strip there, and put both back the
         way they were when you leave."""
-        on_nodes = (self.view_mode in ("file", "files"))
+        on_nodes = (self.view_mode in ("file", "files")) or self.designer_node() is not None
         hidden = getattr(self, "_palette_hidden_by_layer", False)
         if on_nodes and not hidden:
             self._palette_was_visible = self.panels.is_visible("palette")
@@ -636,10 +705,13 @@ class LayersMixin:
         self.multi_check()
         self.recompute_references()
         self.recompute_file_references()
+        self._reset_block_view = self.view_mode == "node" and getattr(self, "_rendered_mode", None) != "node"
+        self._rendered_mode = self.view_mode
         # Kept unconditional (not just for view_mode == "file"/"node")
         # so self.code_text - the data Export/Run/Code->Blocks actually
         # read - stays current for the active tab no matter which layer
         # or toggle state is on screen; see update_right_panel_visibility.
+        self.regenerate_ui_nodes()
         self.update_generated_code()
         self.update_right_panel_visibility()
 
@@ -685,6 +757,8 @@ class LayersMixin:
         else:
             self.workspace_canvas.itemconfigure(wid, height=0, state="normal")
 
+        designer = self.designer_node()
+        self.lock_workspace_for_designer(designer is not None)
         self.refresh_node_nav()
         self.refresh_layer_bar()
 
@@ -705,6 +779,11 @@ class LayersMixin:
             return
 
         self._more_footer = None
+        self.after_idle(self._reveal_block_view)
+        if designer is not None:
+            self.render_designer()
+            self.block_count_label.config(text="UI designer")
+            return
         if not self.project_blocks:
             self.show_empty_state()
             self._win_list = None
@@ -717,6 +796,27 @@ class LayersMixin:
         if self._win_list is self.project_blocks and (self._win_start > 0 or self._win_end < count):
             label += f" (showing {self._win_start + 1}-{self._win_end})"
         self.block_count_label.config(text=label)
+
+    def _reveal_block_view(self):
+        """The canvas is unconfined (the Nodes layer pans it freely), so a pan
+        offset carries over into the Blocks layer, whose content sits at
+        (0, 0) - the blocks were built but scrolled out of sight. Nothing
+        scrolls sideways here: always back to x = 0; back to the top when the
+        layer was just entered or the content is no longer in view."""
+        if self.view_mode != "node":
+            return
+        c = self.workspace_canvas
+        try:
+            x0, y0 = c.canvasx(0), c.canvasy(0)
+            h = c.winfo_height()
+            content_h = self.workspace_frame.winfo_reqheight()
+        except tk.TclError:
+            return
+        top = bool(getattr(self, "_reset_block_view", False)) or y0 >= content_h or y0 + h <= 0
+        self._reset_block_view = False
+        if x0 != 0 or top:
+            self._set_view_origin(0, 0 if top else y0)
+            c.configure(scrollregion=c.bbox("all"))
 
     # ---- lazy block rendering (Blocks layer) ------------------------------
     # Only a window [_win_start, _win_end) of the top-level blocks is built
@@ -832,8 +932,46 @@ class LayersMixin:
     def _show_earlier_blocks(self):
         if self.view_mode != "node" or getattr(self, "_win_list", None) is not self.project_blocks:
             return
-        self._win_start = max(0, self._win_start - BLOCK_CHUNK)
-        self.refresh_workspace()
+        old_start = self._win_start
+        new_start = max(0, old_start - BLOCK_CHUNK)
+        if new_start >= old_start:
+            return
+        earlier = getattr(self, "_earlier_row", None)
+        slaves = [w for w in self.workspace_frame.pack_slaves() if w is not earlier]
+        if not slaves:
+            self._win_start = new_start
+            self.refresh_workspace()
+            return
+        # Prepend IN PLACE and keep the block that was on screen where it is.
+        first = slaves[0]
+        c = self.workspace_canvas
+        self.update_idletasks()
+        y_before = first.winfo_y() - c.canvasy(0)
+        self._win_start = new_start
+        for i in range(new_start, old_start):
+            w = self._make_block_widget(i)
+            if w is not None:
+                w.pack(fill=tk.X, pady=4, padx=10, before=first)
+        if earlier is not None:
+            earlier.destroy()
+            self._earlier_row = None
+        if new_start > 0:
+            self._earlier_row = self._make_window_row(
+                f"\u25b2 {new_start} earlier block{'s' if new_start != 1 else ''}",
+                [("Show earlier", self._show_earlier_blocks)])
+            self._earlier_row.pack(fill=tk.X, pady=4, padx=10, before=self.workspace_frame.pack_slaves()[0])
+        self.update_idletasks()
+        try:
+            top, bottom = (float(v) for v in str(c.cget("scrollregion")).split()[1::2])
+            if bottom > top:
+                c.yview_moveto((first.winfo_y() - y_before - top) / (bottom - top))
+        except (ValueError, tk.TclError):
+            pass
+        count = len(self.project_blocks)
+        label = f"{count} block{'s' if count != 1 else ''}"
+        if self._win_start > 0 or self._win_end < count:
+            label += f" (showing {self._win_start + 1}-{self._win_end})"
+        self.block_count_label.config(text=label)
 
     def _on_workspace_yscroll(self, first, last):
         """Scrollbar feed + auto-load the next chunk when scrolled to the bottom."""

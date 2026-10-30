@@ -1,0 +1,21 @@
+{
+  "type": "frame",
+  "label": "Frame",
+  "category": "Containers",
+  "icon": "▢",
+  "container": true,
+  "default_size": [
+    200,
+    120
+  ],
+  "props": [
+    {
+      "key": "padding",
+      "label": "Padding",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = ttk.Frame({parent}{opts})"
+}

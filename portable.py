@@ -23,6 +23,7 @@ import json
 import re
 
 import node_ports
+import ui_node
 from nodes_model import function_nodes_in_tree_order
 
 META_VERSION = 1
@@ -81,6 +82,10 @@ def build_metadata(nodes, language, active_node_id=None):
                     entry[key] = node[key]
             if node.get("port_colors"):
                 entry["port_colors"] = node["port_colors"]
+            if ui_node.is_ui_node(node):
+                entry[ui_node.UI_KEY] = node[ui_node.UI_KEY]
+                if ui_node.is_detached(node):
+                    entry[ui_node.DETACHED_KEY] = True
             if "order" in node:
                 entry["order"] = node["order"]
             elif id(node) in tree_rank:
@@ -89,6 +94,9 @@ def build_metadata(nodes, language, active_node_id=None):
                 pos = (node["canvas_x"], node["canvas_y"])
                 if tuple(node.get("_auto_pos") or ()) != pos:
                     entry["x"], entry["y"] = pos
+            for key, short in (("canvas_w", "w"), ("canvas_h", "h")):
+                if isinstance(node.get(key), (int, float)):
+                    entry[short] = node[key]
             entries[str(node["id"])] = entry
             walk(node.get("child_nodes") or [], node["id"])
 
@@ -306,11 +314,19 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
         if pc:
             node["port_colors"] = pc
         if kind == "function":
+            ui_doc, ui_detached = ui_node.clean_from_json(entry)
+            if ui_doc is not None:
+                node[ui_node.UI_KEY] = ui_doc
+                if ui_detached:
+                    node[ui_node.DETACHED_KEY] = True
             node["code"] = code_by_id.get(node_id, "")
             if "order" in entry:
                 node["order"] = entry["order"]
         if isinstance(entry.get("x"), (int, float)) and isinstance(entry.get("y"), (int, float)):
             node["canvas_x"], node["canvas_y"] = entry["x"], entry["y"]
+        for key, short in (("canvas_w", "w"), ("canvas_h", "h")):
+            if isinstance(entry.get(short), (int, float)) and not isinstance(entry.get(short), bool):
+                node[key] = entry[short]
         return node
 
     for node_id, entry in entries.items():

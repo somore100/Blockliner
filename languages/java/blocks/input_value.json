@@ -1,0 +1,19 @@
+{
+  "concept_id": "input",
+  "display_name": "Input",
+  "category": "Basic",
+  "description": "Reads a line of text into a new String variable.",
+  "template": "System.out.print(\"[[prompt]]\");\nString [[variable]] = new java.util.Scanner(System.in).nextLine();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "name"
+    },
+    {
+      "name": "prompt",
+      "type": "string",
+      "default": "Enter a value: "
+    }
+  ]
+}

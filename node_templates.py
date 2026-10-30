@@ -21,8 +21,14 @@ File format (version 1):
      "kind": "function" | "class",
      "variables": [{"name": "user_field", "label": "Username field", "default": "username"}],
      "blocks": [["block_id", {"param": "value", "_children": [...]}], ...],
-     "child_nodes": [ ...nodes... ]            # class kind only
+     "child_nodes": [ ...nodes... ],           # class kind only
+     "ui": {...UITree document...}             # optional: a UI window (designer node)
     }
+
+A UI template is a function node with a "ui" document instead of blocks (the
+blocks are generated from it). It belongs to one UI pack ("ui"."pack"), so it
+is offered only where that pack is used. Event links point at functions of the
+file it came from, so they are dropped when saving and adding.
 
 Anywhere a string appears (node name, block params) {{variable}} is replaced
 by the value you give when adding the node. The pseudo block "@raw" with
@@ -34,8 +40,10 @@ import json
 import os
 import re
 
+import ui_node
 from nodes_model import make_node
 from project_file import _blocks_from_json
+from ui_tree import UITree
 
 FORMAT = "blockliner-node"
 VERSION = 1
@@ -65,6 +73,7 @@ def _strings(obj):
 
 def _node_strings(node):
     yield node.get("name", "")
+    yield from _strings(node.get(ui_node.UI_KEY) or {})
     yield from _strings(node.get("blocks", []))
     for child in node.get("child_nodes", []):
         yield from _node_strings(child)
@@ -95,12 +104,33 @@ def _substitute(obj, values):
 
 # ----------------------------------------------------------------- building
 
+def _ui_without_events(doc):
+    """Copy of a UI document with every event link removed."""
+    doc = copy.deepcopy(doc)
+
+    def walk(w):
+        if isinstance(w, dict):
+            w["events"] = {}
+            for c in w.get("children") or []:
+                walk(c)
+    walk(doc.get("root"))
+    return doc
+
+
+def ui_pack_id(template):
+    """The UI pack a UI template needs, or None for an ordinary template."""
+    doc = template.get(ui_node.UI_KEY)
+    return doc.get("pack") if isinstance(doc, dict) else None
+
 def _clean_node(node):
     """Strip what only makes sense inside one file: id, position, order,
     references, lock, entry-point link."""
     kind = node.get("kind", "function")
     out = {"name": node.get("name", "Node"), "kind": kind}
-    if kind == "function":
+    if kind == "function" and ui_node.is_ui_node(node) and not ui_node.is_detached(node):
+        out["blocks"] = []                                  # generated from the UI
+        out[ui_node.UI_KEY] = _ui_without_events(node[ui_node.UI_KEY])
+    elif kind == "function":
         out["blocks"] = json.loads(json.dumps(node.get("blocks", [])))
     else:
         out["child_nodes"] = [_clean_node(c) for c in node.get("child_nodes", [])
@@ -124,6 +154,8 @@ def build_template(node, name=None, description="", defaults=None):
                         "default": str(defaults.get(n, ""))} for n in names]}
     if clean["kind"] == "function":
         t["blocks"] = clean["blocks"]
+        if ui_node.UI_KEY in clean:
+            t[ui_node.UI_KEY] = clean[ui_node.UI_KEY]
     else:
         t["child_nodes"] = clean["child_nodes"]
     return t
@@ -141,7 +173,15 @@ def _parse_node(raw, notes, depth=0):
         notes.append("a damaged node inside the template was skipped")
         return None
     node = {"name": name.strip(), "kind": kind}
-    if kind == "function":
+    if kind == "function" and ui_node.UI_KEY in raw:
+        try:
+            UITree.from_dict(raw[ui_node.UI_KEY])
+        except ValueError as e:
+            notes.append(f"its UI window is damaged ({e})")
+            return None
+        node["blocks"] = []
+        node[ui_node.UI_KEY] = _ui_without_events(raw[ui_node.UI_KEY])
+    elif kind == "function":
         node["blocks"] = _blocks_from_json(raw.get("blocks"), notes)
     else:
         kids = raw.get("child_nodes")
@@ -300,6 +340,10 @@ def instantiate(template, values, known_block_ids, raw_block_id, raw_param, new_
         if t["kind"] == "class":
             return make_node(name, node_id=new_id(), kind="class",
                              child_nodes=[build(c) for c in t.get("child_nodes", [])])
+        if ui_node.UI_KEY in t:
+            node = make_node(name, node_id=new_id(), blocks=[])
+            node[ui_node.UI_KEY] = _substitute(_ui_without_events(t[ui_node.UI_KEY]), vals)
+            return node
         return make_node(name, node_id=new_id(), blocks=blocks_out(t.get("blocks", [])))
 
     return build(template), notes

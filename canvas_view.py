@@ -4,6 +4,32 @@ import math
 ZOOM_MIN = 0.2
 ZOOM_MAX = 4.0
 ZOOM_STEP = 1.1
+# Setting "zoom_speed": how much one wheel notch zooms.
+ZOOM_SPEED_CHOICES = [("slow", "Slow", 1.04), ("normal", "Normal", 1.08), ("fast", "Fast", 1.15)]
+DEFAULT_ZOOM_SPEED = "slow"
+NODE_W, NODE_MIN_W, NODE_MIN_H = 215, 120, 36       # node box size on the canvas (model units)
+
+
+def zoom_factor(settings):
+    speed = (settings if isinstance(settings, dict) else {}).get("zoom_speed", DEFAULT_ZOOM_SPEED)
+    return next((f for k, _l, f in ZOOM_SPEED_CHOICES if k == speed),
+                next(f for k, _l, f in ZOOM_SPEED_CHOICES if k == DEFAULT_ZOOM_SPEED))
+
+
+def resize_node_rect(x, y, w, h, edges, dx, dy, min_w=NODE_MIN_W, min_h=NODE_MIN_H):
+    """(x, y, w, h) after pulling `edges` ("n", "se", ...) by dx/dy model
+    units; the opposite edge stays put and the size never goes below min."""
+    if "e" in edges:
+        w = max(min_w, w + dx)
+    if "s" in edges:
+        h = max(min_h, h + dy)
+    if "w" in edges:
+        d = min(dx, w - min_w)
+        x, w = x + d, w - d
+    if "n" in edges:
+        d = min(dy, h - min_h)
+        y, h = y + d, h - d
+    return x, y, w, h
 
 # Grid spacing candidates in model units; the smallest one that is at least
 # MIN_GRID_PX apart on screen is used, so the grid stays readable at any zoom.
@@ -62,9 +88,9 @@ def clamp_zoom(z):
     return max(ZOOM_MIN, min(ZOOM_MAX, z))
 
 
-def zoom_after_wheel(z, step):
+def zoom_after_wheel(z, step, factor=ZOOM_STEP):
     """step < 0 = wheel up = zoom in, step > 0 = zoom out."""
-    return clamp_zoom(z / ZOOM_STEP if step > 0 else z * ZOOM_STEP) if step else clamp_zoom(z)
+    return clamp_zoom(z / factor if step > 0 else z * factor) if step else clamp_zoom(z)
 
 
 def grid_step(zoom, min_px=MIN_GRID_PX):

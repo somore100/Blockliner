@@ -13,6 +13,7 @@ import json
 
 import groups_model
 import node_ports
+import ui_node
 from nodes_model import make_node, normalize_orders, default_active_node_id
 
 FORMAT = "blockliner-project"
@@ -62,6 +63,12 @@ def _node_from_json(raw, seen_ids, notes):
         locked=bool(raw.get("locked", False)),
         node_type_id=raw.get("node_type_id") if isinstance(raw.get("node_type_id"), str) else None,
     )
+    if kind == "function":
+        ui_doc, ui_detached = ui_node.clean_from_json(raw)
+        if ui_doc is not None:
+            node[ui_node.UI_KEY] = ui_doc
+            if ui_detached:
+                node[ui_node.DETACHED_KEY] = True
     if raw.get("ignored") is True:
         node["ignored"] = True
     if raw.get("skipped") is True:
@@ -72,7 +79,7 @@ def _node_from_json(raw, seen_ids, notes):
     if "order" in raw and (raw["order"] is None or (isinstance(raw["order"], int)
                                                     and not isinstance(raw["order"], bool))):
         node["order"] = raw["order"]
-    for key in ("canvas_x", "canvas_y", "x", "y"):
+    for key in ("canvas_x", "canvas_y", "canvas_w", "canvas_h", "x", "y"):
         if isinstance(raw.get(key), (int, float)) and not isinstance(raw.get(key), bool):
             node[key] = raw[key]
     if kind in ("class", "category"):

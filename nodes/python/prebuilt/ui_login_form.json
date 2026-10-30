@@ -1,0 +1,155 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "UI: Login form",
+  "description": "Username and password boxes, remember-me and a Sign in button.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "title",
+      "label": "Window title",
+      "default": "Sign in"
+    }
+  ],
+  "blocks": [],
+  "ui": {
+    "format": "blockliner-ui",
+    "version": 1,
+    "pack": "python/tkinter",
+    "root": {
+      "id": "d5de8e34",
+      "type": "window",
+      "name": "root",
+      "props": {
+        "title": "{{title}}",
+        "geometry": "360x230"
+      },
+      "layout": {},
+      "events": {},
+      "design": {
+        "device": "desktop"
+      },
+      "children": [
+        {
+          "id": "b7170482",
+          "type": "label",
+          "name": "lbl_title",
+          "props": {
+            "text": "Sign in",
+            "font": "Helvetica 14 bold"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 14
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "f141ec60",
+          "type": "label",
+          "name": "lbl_user",
+          "props": {
+            "text": "Username"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 60
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "0eb03da3",
+          "type": "entry",
+          "name": "entry_user",
+          "props": {
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 110,
+            "y": 58,
+            "width": 220
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "dd52022c",
+          "type": "label",
+          "name": "lbl_pass",
+          "props": {
+            "text": "Password"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 100
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "0e4be538",
+          "type": "entry",
+          "name": "entry_pass",
+          "props": {
+            "state": "normal",
+            "show": "*"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 110,
+            "y": 98,
+            "width": 220
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "99b8de87",
+          "type": "checkbutton",
+          "name": "chk_remember",
+          "props": {
+            "text": "Remember me",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 110,
+            "y": 136
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "f645da27",
+          "type": "button",
+          "name": "btn_sign_in",
+          "props": {
+            "text": "Sign in",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 230,
+            "y": 176,
+            "width": 100
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        }
+      ]
+    }
+  }
+}

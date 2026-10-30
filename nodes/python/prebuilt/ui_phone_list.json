@@ -1,0 +1,107 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "UI: Phone list screen",
+  "description": "Phone-sized screen: a heading, an input with Add, and a list.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "title",
+      "label": "Window title",
+      "default": "My list"
+    }
+  ],
+  "blocks": [],
+  "ui": {
+    "format": "blockliner-ui",
+    "version": 1,
+    "pack": "python/tkinter",
+    "root": {
+      "id": "092e3e82",
+      "type": "window",
+      "name": "root",
+      "props": {
+        "title": "{{title}}",
+        "geometry": "240x440"
+      },
+      "layout": {},
+      "events": {},
+      "design": {
+        "device": "phone"
+      },
+      "children": [
+        {
+          "id": "437f0df4",
+          "type": "label",
+          "name": "lbl_heading",
+          "props": {
+            "text": "My list",
+            "font": "Helvetica 16 bold"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 14,
+            "y": 12
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "5c4e15ae",
+          "type": "entry",
+          "name": "entry_item",
+          "props": {
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 14,
+            "y": 52,
+            "width": 150
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "b6776870",
+          "type": "button",
+          "name": "btn_add",
+          "props": {
+            "text": "Add",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 172,
+            "y": 50,
+            "width": 54
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "1bba22dc",
+          "type": "listbox",
+          "name": "list_items",
+          "props": {
+            "width": 30,
+            "height": 6
+          },
+          "layout": {
+            "manager": "place",
+            "x": 14,
+            "y": 92,
+            "width": 212,
+            "height": 330
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        }
+      ]
+    }
+  }
+}

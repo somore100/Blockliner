@@ -29,6 +29,8 @@ from ui_canvasview import CanvasViewMixin
 from ui_groups import GroupsMixin
 from ui_openproject import OpenProjectMixin
 from ui_multiopen import MultiOpenMixin
+from ui_uinode import UINodeMixin
+from ui_designer import DesignerMixin
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -36,7 +38,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -135,6 +137,37 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.refresh_tab_bar()
         self.update_generated_code()
     
+    WHEEL_SELF_SCROLLING = ("Text", "Listbox", "Treeview", "TCombobox", "Entry")
+
+    def _install_wheel(self):
+        """One app-wide wheel handler. Tk sends <Leave> to a canvas when the
+        pointer moves onto a widget inside it (a block), so Enter/Leave
+        binding left the wheel dead over blocks; instead look at what is under
+        the pointer and scroll the palette or workspace canvas it belongs to."""
+        def handler(event):
+            try:
+                under = self.winfo_containing(event.x_root, event.y_root)
+            except (tk.TclError, KeyError):
+                return None
+            first = under
+            props = getattr(self, "_dz_props_canvas", None)
+            while under is not None:
+                if under is props and first.winfo_class() not in self.WHEEL_SELF_SCROLLING:
+                    up = event.num == 4 or (event.num != 5 and getattr(event, "delta", 0) > 0)
+                    props.yview_scroll(-1 if up else 1, "units")
+                    return "break"
+                if under is self.palette_canvas or under is self.workspace_canvas:
+                    if first is not under and first.winfo_class() in self.WHEEL_SELF_SCROLLING:
+                        return None          # that widget scrolls itself
+                    if under is self.workspace_canvas and getattr(self, "_workspace_locked", False):
+                        return "break"       # the UI designer fills the view and never scrolls
+                    self._on_mousewheel(event, under)
+                    return "break"
+                under = getattr(under, "master", None)
+            return None
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            self.bind_all(seq, handler, add="+")
+
     def _on_mousewheel(self, event, canvas):
         """
         Handle mousewheel scrolling across Windows, macOS, and Linux.
@@ -364,6 +397,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             insertbackground=DARK_FG
         )
         search_entry.pack(fill=tk.X, ipady=3)
+        search_entry.bind("<Return>", lambda e: self.refresh_palette())
         
         tk.Label(
             search_frame,
@@ -386,19 +420,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.palette_canvas.create_window((0, 0), window=self.palette_frame, anchor="nw", width=260)
         self.palette_canvas.configure(yscrollcommand=palette_scrollbar.set)
         
-        # Bind mousewheel ONLY to palette canvas
-        def _bind_palette_scroll(e):
-            self.palette_canvas.bind_all("<MouseWheel>", lambda ev: self._on_mousewheel(ev, self.palette_canvas))
-            self.palette_canvas.bind_all("<Button-4>", lambda ev: self._on_mousewheel(ev, self.palette_canvas))
-            self.palette_canvas.bind_all("<Button-5>", lambda ev: self._on_mousewheel(ev, self.palette_canvas))
-
-        def _unbind_palette_scroll(e):
-            self.palette_canvas.unbind_all("<MouseWheel>")
-            self.palette_canvas.unbind_all("<Button-4>")
-            self.palette_canvas.unbind_all("<Button-5>")
-
-        self.palette_canvas.bind("<Enter>", _bind_palette_scroll)
-        self.palette_canvas.bind("<Leave>", _unbind_palette_scroll)
+        # Wheel: one permanent handler (see _install_wheel) instead of Enter/Leave binds.
         
         self.palette_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         palette_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -438,7 +460,13 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         # rebuilds the tab strip - see refresh_node_nav().
         self.node_nav_frame = tk.Frame(workspace_header, bg=DARK_BG)
         self.node_nav_frame.pack(side=tk.RIGHT, padx=10)
-        
+
+        # "Where am I" strip: clickable Files > file > ... > node trail,
+        # rebuilt by refresh_breadcrumb() on every refresh_node_nav().
+        self.crumb_bar = tk.Frame(middle_panel, bg=DARK_PANEL, height=26)
+        self.crumb_bar.pack(fill=tk.X, after=workspace_header)
+        self.crumb_bar.pack_propagate(False)
+
         # Workspace canvas - FIXED
         self.workspace_canvas = tk.Canvas(middle_panel, bg=DARK_BG, highlightthickness=1, highlightbackground=DARK_BORDER)
         workspace_scrollbar = ttk.Scrollbar(middle_panel, orient="vertical", command=self.workspace_canvas.yview)
@@ -450,34 +478,13 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             lambda e: self.workspace_canvas.configure(scrollregion=self.workspace_canvas.bbox("all"))
         )
         
+        self.workspace_frame_width = 600   # the designer widens it to the whole canvas (_dz_fit)
         self.workspace_frame_window_id = self.workspace_canvas.create_window(
-            (0, 0), window=self.workspace_frame, anchor="nw", width=600
+            (0, 0), window=self.workspace_frame, anchor="nw", width=self.workspace_frame_width
         )
         self.workspace_canvas.configure(yscrollcommand=self._on_workspace_yscroll)
         
-        # Bind mousewheel ONLY to workspace canvas
-        def _bind_workspace_scroll(e):
-            self.workspace_canvas.bind_all("<MouseWheel>", lambda ev: self._on_mousewheel(ev, self.workspace_canvas))
-            self.workspace_canvas.bind_all("<Button-4>", lambda ev: self._on_mousewheel(ev, self.workspace_canvas))
-            self.workspace_canvas.bind_all("<Button-5>", lambda ev: self._on_mousewheel(ev, self.workspace_canvas))
-
-        def _unbind_workspace_scroll(e):
-            # Leave also fires when the pointer moves onto a box (a child
-            # widget); the wheel must keep working there.
-            try:
-                under = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
-                while under is not None:
-                    if under is self.workspace_canvas:
-                        return
-                    under = under.master
-            except (tk.TclError, KeyError):
-                pass
-            self.workspace_canvas.unbind_all("<MouseWheel>")
-            self.workspace_canvas.unbind_all("<Button-4>")
-            self.workspace_canvas.unbind_all("<Button-5>")
-
-        self.workspace_canvas.bind("<Enter>", _bind_workspace_scroll)
-        self.workspace_canvas.bind("<Leave>", _unbind_workspace_scroll)
+        self._install_wheel()
         
         self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -490,7 +497,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         
         # Right panel: Code Preview
         self.right_panel = right_panel = self.panels.create_panel(
-            PanelSpec("code", "Generated Code", dock="right", width=400, min_width=250),
+            PanelSpec("code", "Generated Code", dock="right", width=400, min_width=180),
             bg=DARK_PANEL)
         self._sync_code_strip()
         
@@ -498,15 +505,25 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         code_header.pack(fill=tk.X)
         code_header.pack_propagate(False)
         
+        # Hide button and line count sit in the title row (see
+        # build_code_options_row), so the language row below has room.
+        self.code_header = code_header
+        self.line_count_label = tk.Label(
+            code_header,
+            text="0 lines",
+            bg=DARK_PANEL,
+            fg="#888888",
+            font=("Segoe UI", 8)
+        )
         tk.Label(
             code_header,
             text="📝 Generated Code",
             bg=DARK_PANEL,
             fg=DARK_FG,
             font=("Segoe UI", 11, "bold")
-        ).pack(pady=5)
+        ).pack(side=tk.LEFT, padx=(12, 0), pady=5)
         
-        # Language selector with Add Language button
+        # Language selector (adding/deleting languages is in Settings)
         lang_frame = tk.Frame(right_panel, bg=DARK_PANEL)
         lang_frame.pack(fill=tk.X, padx=10, pady=5)
         
@@ -532,42 +549,6 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.lang_combo.pack(side=tk.LEFT, padx=5)
         self.lang_combo.bind("<<ComboboxSelected>>", self.on_language_change)
         
-        # Add Language button
-        ttk.Button(
-            lang_frame,
-            text="+ Lang",
-            command=self.add_language_dialog,
-            style="Toolbar.TButton"
-        ).pack(side=tk.LEFT, padx=2)
-
-        # Delete Language button
-        ttk.Button(
-            lang_frame,
-            text="\U0001F5D1 Lang",
-            command=self.delete_language_dialog,
-            style="Toolbar.TButton"
-        ).pack(side=tk.LEFT, padx=2)
-
-        # Refresh Languages button - re-scans languages/ from disk, so a
-        # folder added or removed by hand (outside the app) is picked up
-        # without needing a restart.
-        ttk.Button(
-            lang_frame,
-            text="\U0001F504",
-            command=self.refresh_language_list,
-            style="Toolbar.TButton",
-            width=3
-        ).pack(side=tk.LEFT, padx=2)
-        
-        self.line_count_label = tk.Label(
-            lang_frame,
-            text="0 lines",
-            bg=DARK_PANEL,
-            fg="#888888",
-            font=("Segoe UI", 8)
-        )
-        self.line_count_label.pack(side=tk.RIGHT, padx=5)
-        
         # Code display
         self.code_text = tk.Text(
             right_panel,
@@ -584,7 +565,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.code_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.install_code_guard()
         self.attach_autoclose(self.code_text)
-        self.build_code_options_row(code_header_row=lang_frame)
+        self.build_code_options_row(code_header, lang_frame)
         self.install_code_sync()
         
         # Apply dark theme

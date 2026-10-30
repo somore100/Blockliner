@@ -58,6 +58,7 @@ class MenusMixin:
                                  command=lambda: self.create_node(pos=canvas_pos))
                 menu.add_command(label="\U0001F4C1 Add category",
                                  command=lambda: self.create_category(pos=canvas_pos))
+                self.add_ui_window_cascade(menu, canvas_pos)
                 menu.add_command(label="\u25ad Add group",
                                  command=lambda: self.add_group(canvas_pos))
                 self.add_template_cascades(
@@ -113,6 +114,8 @@ class MenusMixin:
         self._dismiss_popup()
         self._install_popup_guards()
         self._drop_menu = menu
+        self._active_popup = menu
+        self._popup_watch(menu, 0)
 
         def close(_e=None):
             self._dismiss_drop_menu()
@@ -174,10 +177,28 @@ class MenusMixin:
         self._dismiss_popup()
         self._active_popup = menu
         self._install_popup_guards()
+        self._popup_watch(menu, 0)
         try:
             menu.tk_popup(int(x_root), int(y_root))
         finally:
             menu.grab_release()
+
+    def _popup_watch(self, menu, strikes):
+        """Poll while a menu is posted. Some Wayland/XWayland setups never
+        deliver <Unmap>/<FocusOut> when the window is minimized, so the menu
+        would float over other apps; this closes it once the main window is
+        minimized/hidden or has lost focus for two ticks in a row."""
+        if getattr(self, "_active_popup", None) is not menu:
+            return
+        try:
+            gone = self.state() == "iconic" or not self.winfo_viewable()
+            unfocused = self.focus_displayof() is None
+        except tk.TclError:
+            return
+        if gone or (unfocused and strikes >= 1):
+            self._dismiss_popup()
+            return
+        self.after(250, lambda: self._popup_watch(menu, strikes + 1 if unfocused else 0))
 
     def _install_popup_guards(self):
         if getattr(self, "_popup_guards_installed", False):

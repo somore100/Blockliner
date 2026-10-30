@@ -1,0 +1,71 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "UI: Message box",
+  "description": "A message and an OK button.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "title",
+      "label": "Window title",
+      "default": "Message"
+    }
+  ],
+  "blocks": [],
+  "ui": {
+    "format": "blockliner-ui",
+    "version": 1,
+    "pack": "python/tkinter",
+    "root": {
+      "id": "19e55d03",
+      "type": "window",
+      "name": "root",
+      "props": {
+        "title": "{{title}}",
+        "geometry": "320x140"
+      },
+      "layout": {},
+      "events": {},
+      "design": {
+        "device": "desktop"
+      },
+      "children": [
+        {
+          "id": "97b0611a",
+          "type": "label",
+          "name": "lbl_message",
+          "props": {
+            "text": "Something happened.",
+            "font": "Helvetica 11"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 24
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "99cba733",
+          "type": "button",
+          "name": "btn_ok",
+          "props": {
+            "text": "OK",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 210,
+            "y": 90,
+            "width": 90
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        }
+      ]
+    }
+  }
+}

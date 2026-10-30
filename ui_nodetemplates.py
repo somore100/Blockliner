@@ -5,7 +5,8 @@ from tkinter import messagebox
 import uuid
 
 import node_templates
-from nodes_model import function_nodes_in_tree_order, find_node_by_id, normalize_orders
+import ui_node
+from nodes_model import function_nodes_in_tree_order, find_node_by_id, next_order, normalize_orders
 from ui_common import (DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, NODES_BUNDLED_PATH,
                        NODES_USER_PATH, safe_grab_set)
 
@@ -24,11 +25,34 @@ class NodeTemplatesMixin:
         entries, _notes = node_templates.load_all(self.node_template_roots(), self.current_language)
         return entries
 
+    def ui_templates(self):
+        """UI window templates for the current language's UI pack."""
+        pack = self.ui_pack_for(self.current_language)
+        if pack is None:
+            return []
+        return [e for e in self.available_node_templates()
+                if node_templates.ui_pack_id(e["template"]) == pack.id]
+
+    def add_ui_window_cascade(self, menu, pos):
+        """'Add UI window' as a submenu: an empty window, then the templates."""
+        sub = self._new_menu(menu)
+        sub.add_command(label="Empty window", command=lambda: self.create_starter_node("ui", pos))
+        templates = self.ui_templates()
+        if templates:
+            sub.add_separator()
+            for e in templates:
+                label = e["template"]["name"].removeprefix("UI: ")
+                if e["folder_kind"] == "custom":
+                    label += "  (yours)"
+                sub.add_command(label=label, command=lambda e=e: self.insert_node_template(e, pos))
+        menu.add_cascade(label="\u25a6 Add UI window", menu=sub)
+
     # ---- menus ----
     def add_template_cascades(self, menu, on_pick, separator=False):
         """Add 'Custom nodes' / 'Prebuilt nodes' cascades (only the ones
         that have entries). Returns True if anything was added."""
-        entries = self.available_node_templates()
+        entries = [e for e in self.available_node_templates()
+                   if not node_templates.ui_pack_id(e["template"])]      # those are under "Add UI window"
         groups = [(label, [e for e in entries if e["folder_kind"] == kind])
                   for kind, label in FOLDER_LABELS]
         groups = [(label, g) for label, g in groups if g]
@@ -50,6 +74,13 @@ class NodeTemplatesMixin:
         Asks for the template's variables first. Function-type results are
         wired from `wire_from` when given. Returns the new node or None."""
         t = entry["template"]
+        pack_id = node_templates.ui_pack_id(t)
+        if pack_id:
+            pack = self.ui_pack_for(self.current_language)
+            if pack is None or pack.id != pack_id:
+                messagebox.showinfo("UI template", f"This window is made for {pack_id}, which this file doesn't use.")
+                return None
+            wire_from = None                          # a UI window is not called through a wire
         values = {}
         if t.get("variables"):
             values = self.ask_template_variables(t)
@@ -64,13 +95,16 @@ class NodeTemplatesMixin:
             lambda: str(uuid.uuid4())[:8])
         self._make_node_names_unique(tab, node)
         node["canvas_x"], node["canvas_y"] = pos
+        if ui_node.is_ui_node(node):
+            node["order"] = next_order(tab["nodes"])
         target_list.append(node)
+        self.regenerate_ui_nodes()
         normalize_orders(tab["nodes"])
         self.mark_active_tab_dirty()
         if wire_from is not None and node.get("kind", "function") == "function":
             self.add_wire_by_drag(wire_from, node["id"])      # also refreshes
         else:
-            self.refresh_workspace()
+            self.refresh_after_node_added(node, target_list)
         if notes:
             messagebox.showinfo("Node added",
                                 "Added, but some parts were skipped:\n- " + "\n- ".join(sorted(set(notes))))
@@ -171,8 +205,13 @@ class NodeTemplatesMixin:
         desc_e = entry()
         label("Available in")
         scope_var = tk.StringVar(value=self.current_language)
-        for value, text in ((self.current_language, f"This language only ({self.current_language})"),
-                            (node_templates.GENERAL, "All languages (blocks missing in a language are skipped there)")):
+        scopes = [(self.current_language, f"This language only ({self.current_language})")]
+        if ui_node.is_ui_node(node) and not ui_node.is_detached(node):
+            label("A UI window is saved with its widgets (event links are left out). It shows "
+                  "under \u201cAdd UI window\u201d.", fg="#888888", font=("Segoe UI", 8), wraplength=380, justify="left")
+        else:
+            scopes.append((node_templates.GENERAL, "All languages (blocks missing in a language are skipped there)"))
+        for value, text in scopes:
             tk.Radiobutton(dialog, text=text, variable=scope_var, value=value, bg=DARK_PANEL, fg=DARK_FG,
                            selectcolor=DARK_BG, activebackground=DARK_PANEL, activeforeground=DARK_FG,
                            anchor="w").pack(fill=tk.X, padx=12)

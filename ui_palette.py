@@ -4,11 +4,16 @@ from tkinter import colorchooser, messagebox, ttk
 import os
 import shutil
 from block_templates import make_raw_code_block_source
+import palette_search
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
-from canvas_view import LOD_MODE_CHOICES, lod_mode
+from canvas_view import DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_SPEED_CHOICES, lod_mode
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
 from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
+
+
+SETTINGS_SECTION_ORDER = ("General", "Languages", "Block palette", "Canvas", "Code panel",
+                          "Running code", "Files", "Shortcuts")
 
 
 class PaletteMixin:
@@ -159,6 +164,23 @@ class PaletteMixin:
             self.save_app_settings()
             self.refresh_palette()
 
+    def search_blocks(self, blocks, category, term):
+        """Blocks matching the search box (all of them when it is empty),
+        best matches first. See palette_search for what counts as a match."""
+        if not term.strip():
+            return list(blocks)
+        scored = []
+        for b in blocks:
+            desc = get_block_attr(b, "description", "") or get_block_attr(b, "block_ui_description", {}).get("description", "")
+            kw = get_block_attr(b, "keywords", []) or []
+            sc = palette_search.score(term, {
+                "name": get_block_attr(b, "display_name", ""), "description": desc,
+                "category": category, "keywords": " ".join(kw) if isinstance(kw, list) else str(kw),
+                "id": (getattr(self, "_block_ids", {}).get(id(b)) or "").replace("_", " ")})
+            if sc > 0:
+                scored.append((sc, b))
+        return [b for _sc, b in sorted(scored, key=lambda p: -p[0])]
+
     def build_palette(self):
         """Build the block palette"""
         for widget in self.palette_frame.winfo_children():
@@ -175,6 +197,10 @@ class PaletteMixin:
                 font=("Segoe UI", 9),
                 justify=tk.CENTER
             ).pack(pady=50)
+            return
+
+        if not self.settings.get("animate_blocks", False):
+            self._build_palette_progressive(search_term)
             return
 
         # "Switch Animation" setting: each header/item still gets built
@@ -206,11 +232,7 @@ class PaletteMixin:
         for category in self.get_ordered_categories():
             if category not in self.blocks_by_category:
                 continue
-            blocks_in_category = [
-                b for b in self.blocks_by_category[category]
-                if not search_term or search_term in get_block_attr(b, "display_name", "").lower() or
-                   search_term in get_block_attr(b, "block_ui_description", {}).get("description", "").lower()
-            ]
+            blocks_in_category = self.search_blocks(self.blocks_by_category[category], category, search_term)
             
             if not blocks_in_category:
                 continue
@@ -267,13 +289,89 @@ class PaletteMixin:
                                         self.show_drop_indicator)
                 place(item, fill=tk.X, pady=1)
     
+    PALETTE_CHUNK = 12        # block rows built per idle step after the first category
+
+    def _build_palette_progressive(self, search_term):
+        """Fast first paint: the first category with its blocks now, then
+        every other category header, then the remaining block rows a few at
+        a time (each slid in under its own header). A newer build (search,
+        language switch) cancels the rest of an older one."""
+        self._palette_gen = getattr(self, "_palette_gen", 0) + 1
+        gen = self._palette_gen
+        cats = []
+        for category in self.get_ordered_categories():
+            if category in self.blocks_by_category:
+                found = self.search_blocks(self.blocks_by_category[category], category, search_term)
+                if found:
+                    cats.append((category, found if search_term.strip() else
+                                 sorted(found, key=lambda x: get_block_attr(x, "display_name", ""))))
+        if not cats:
+            return
+        last = {}                                   # category -> widget the next row goes after
+
+        def header(category, count):
+            w = self._palette_header(category, count)
+            w.pack(fill=tk.X, pady=(10, 2))
+            last[category] = w
+
+        def row(category, block_module):
+            item = PaletteBlockItem(self.palette_frame, block_module, self.add_block_to_workspace,
+                                    self.can_drop_block_at, self.add_block_from_drop,
+                                    self.show_drop_indicator)
+            item.pack(fill=tk.X, pady=1, after=last[category])
+            last[category] = item
+
+        first, blocks = cats[0]
+        header(first, len(blocks))
+        for b in blocks:
+            row(first, b)
+        pending = [(c, b) for c, bl in cats[1:] for b in bl]
+
+        def headers():
+            if gen != self._palette_gen:
+                return
+            for c, bl in cats[1:]:
+                header(c, len(bl))
+            self.after_idle(rows)
+
+        def rows():
+            if gen != self._palette_gen:
+                return
+            try:
+                for c, b in pending[:self.PALETTE_CHUNK]:
+                    row(c, b)
+            except tk.TclError:
+                return                              # palette torn down meanwhile
+            del pending[:self.PALETTE_CHUNK]
+            if pending:
+                self.after(1, rows)
+        self.after_idle(headers)
+
+    def _palette_header(self, category, count):
+        """A category title row (colour, name, count, gear menu)."""
+        category_header = tk.Frame(self.palette_frame, bg=DARK_PANEL)
+        color = CATEGORY_COLORS.get(category, "#ffffff")
+        tk.Label(category_header, text="▼", bg=DARK_PANEL, fg=color, font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=5)
+        tk.Label(category_header, text=category.upper(), bg=DARK_PANEL, fg=color,
+                 font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+        tk.Label(category_header, text=f"({count})", bg=DARK_PANEL, fg="#666666",
+                 font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=3)
+        gear_label = tk.Label(category_header, text="\u2699", bg=DARK_PANEL, fg="#888888",
+                              font=("Segoe UI", 9), cursor="hand2")
+        gear_label.pack(side=tk.LEFT, padx=6)
+        gear_label.bind("<Button-1>", lambda e, cat=category: self.category_options_menu(cat, e))
+        return category_header
+
     def refresh_palette(self):
         """Refresh the palette when language or search changes"""
         self.build_palette()
     
     def filter_palette(self, *args):
-        """Filter palette based on search"""
-        self.refresh_palette()
+        """Typing in the search box. By default the palette is filtered when
+        Enter is pressed (or the box is emptied); with the 'live_search'
+        setting it follows every keystroke."""
+        if self.settings.get("live_search", False) or not self.search_var.get():
+            self.refresh_palette()
     
     def on_language_change(self, event=None):
         """Handle language change"""
@@ -346,10 +444,11 @@ class PaletteMixin:
         
         dialog.bind("<Return>", lambda e: create_language())
         dialog.bind("<Escape>", lambda e: dialog.destroy())
+        return dialog
 
-    def delete_language_dialog(self):
-        """Delete the currently selected language's entire folder, after confirming."""
-        lang = self.lang_var.get()
+    def delete_language_dialog(self, lang=None):
+        """Delete a language's entire folder (default: the current one), after confirming."""
+        lang = lang or self.lang_var.get()
         langs = list(self.lang_combo['values'])
 
         if len(langs) <= 1:
@@ -384,8 +483,9 @@ class PaletteMixin:
 
         langs.remove(lang)
         self.lang_combo['values'] = langs
-        self.lang_var.set(langs[0])
-        self.on_language_change()
+        if self.lang_var.get() == lang:
+            self.lang_var.set(langs[0])
+            self.on_language_change()
         self.maybe_notify("Deleted", f"Language '{lang}' deleted.")
 
     def settings_dialog(self):
@@ -394,7 +494,7 @@ class PaletteMixin:
         hit Save & Close - Cancel discards changes."""
         dialog = tk.Toplevel(self)
         dialog.title("Settings")
-        dialog.geometry("560x860")
+        dialog.geometry("700x620")
         dialog.configure(bg=DARK_PANEL)
         dialog.transient(self)
         safe_grab_set(dialog)
@@ -442,8 +542,17 @@ class PaletteMixin:
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             dialog.bind(seq, body_wheel)
 
+        # One page per category; the list on the left switches pages. Rows
+        # below go into whichever page section() opened last.
+        sections, cur = {}, [body]
+
+        def section(name):
+            if name not in sections:
+                sections[name] = tk.Frame(body, bg=DARK_PANEL)
+            cur[0] = sections[name]
+
         def add_row(label_text, help_text=None):
-            row = tk.Frame(body, bg=DARK_PANEL)
+            row = tk.Frame(cur[0], bg=DARK_PANEL)
             row.pack(fill=tk.X, pady=(0, 4))
             tk.Label(
                 row, text=label_text, bg=DARK_PANEL, fg=DARK_FG,
@@ -453,10 +562,11 @@ class PaletteMixin:
 
         def add_help(text):
             tk.Label(
-                body, text=text, bg=DARK_PANEL, fg="#888888",
+                cur[0], text=text, bg=DARK_PANEL, fg="#888888",
                 font=("Segoe UI", 8, "italic"), anchor="w", justify=tk.LEFT, wraplength=460
             ).pack(fill=tk.X, pady=(0, 12))
 
+        section("Languages")
         # --- Default language ---
         row = add_row("Default language:")
         lang_var = tk.StringVar(value=self.settings.get("default_language", "python"))
@@ -467,6 +577,42 @@ class PaletteMixin:
         lang_combo.pack(side=tk.LEFT)
         add_help("Which language loads automatically the next time Blockliner starts.")
 
+        # --- Languages (these act at once, not on Save) ---
+        row = add_row("Languages:")
+        manage_var = tk.StringVar(value=self.lang_var.get())
+        manage_combo = ttk.Combobox(row, textvariable=manage_var, values=self.get_available_languages(),
+                                    state="readonly", width=12)
+        manage_combo.pack(side=tk.LEFT)
+
+        def refresh_lang_lists():
+            langs = self.get_available_languages()
+            manage_combo["values"] = lang_combo["values"] = langs
+            if manage_var.get() not in langs:
+                manage_var.set(self.lang_var.get())
+            if lang_var.get() not in langs:
+                lang_var.set(self.lang_var.get())
+
+        def add_lang():
+            child = self.add_language_dialog()
+            dialog.wait_window(child)
+            if dialog.winfo_exists():
+                safe_grab_set(dialog)
+                refresh_lang_lists()
+                manage_var.set(self.lang_var.get())
+
+        def delete_lang():
+            self.delete_language_dialog(manage_var.get())
+            refresh_lang_lists()
+
+        def rescan():
+            self.refresh_language_list()
+            refresh_lang_lists()
+        for text, cmd in (("+ Add\u2026", add_lang), ("\U0001F5D1 Delete\u2026", delete_lang), ("\U0001F504 Rescan", rescan)):
+            ttk.Button(row, text=text, command=cmd, style="Toolbar.TButton").pack(side=tk.LEFT, padx=(4, 0))
+        add_help("Add a new language folder, delete the chosen one (its folder and blocks), or rescan "
+                 "languages/ after changing it outside the app. These happen at once, not on Save.")
+
+        section("Running code")
         # --- Python command ---
         row = add_row("Python command:")
         python_cmd_var = tk.StringVar(value=self.settings.get("python_command", "python3"))
@@ -497,10 +643,11 @@ class PaletteMixin:
             "'gnome-terminal --', 'xterm -e', or 'mate-terminal --' depending on what's installed."
         )
 
+        section("General")
         # --- Confirm before delete ---
         confirm_var = tk.BooleanVar(value=self.settings.get("confirm_delete", True))
         tk.Checkbutton(
-            body, text="Ask for confirmation before deleting blocks",
+            cur[0], text="Ask for confirmation before deleting blocks",
             variable=confirm_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
             activebackground=DARK_PANEL, activeforeground=DARK_FG,
             font=("Segoe UI", 9)
@@ -509,24 +656,34 @@ class PaletteMixin:
         # --- Success notification popups ---
         notify_var = tk.BooleanVar(value=self.settings.get("show_notifications", True))
         tk.Checkbutton(
-            body, text="Show confirmation popups (e.g. \"Block deleted successfully\")",
+            cur[0], text="Show confirmation popups (e.g. \"Block deleted successfully\")",
             variable=notify_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
             activebackground=DARK_PANEL, activeforeground=DARK_FG,
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        section("Block palette")
         # --- Switch animation ---
         animate_var = tk.BooleanVar(value=self.settings.get("animate_blocks", False))
         tk.Checkbutton(
-            body, text="Animate the block palette loading in (cascades in instead of appearing instantly)",
+            cur[0], text="Animate the block palette loading in (cascades in instead of appearing instantly)",
             variable=animate_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
             activebackground=DARK_PANEL, activeforeground=DARK_FG,
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        live_search_var = tk.BooleanVar(value=bool(self.settings.get("live_search", False)))
+        tk.Checkbutton(
+            cur[0], text="Search blocks while typing (off: press Enter to search)",
+            variable=live_search_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+
+        section("Canvas")
         coords_var = tk.BooleanVar(value=bool(self.settings.get("show_coords", False)))
         tk.Checkbutton(
-            body, text="Show x/y numbers on the canvas grid (Files and Nodes layers)",
+            cur[0], text="Show x/y numbers on the canvas grid (Files and Nodes layers)",
             variable=coords_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
             activebackground=DARK_PANEL, activeforeground=DARK_FG,
             font=("Segoe UI", 9)
@@ -543,6 +700,16 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("How node and file boxes look on the Files/Nodes canvas when you zoom far out.")
 
+        # --- Zoom speed ---
+        row = add_row("Wheel zoom speed:")
+        zoom_labels = {k: label for k, label, _f in ZOOM_SPEED_CHOICES}
+        zoom_var = tk.StringVar(value=zoom_labels.get(self.settings.get("zoom_speed", DEFAULT_ZOOM_SPEED),
+                                                      zoom_labels[DEFAULT_ZOOM_SPEED]))
+        ttk.Combobox(row, textvariable=zoom_var, values=list(zoom_labels.values()),
+                     state="readonly", width=38).pack(side=tk.LEFT)
+        add_help("How much one wheel notch zooms the Files/Nodes canvas.")
+
+        section("General")
         # --- Order number already used ---
         row = add_row("Order number taken:")
         conflict_labels = dict((k, v) for k, v in ORDER_CONFLICT_CHOICES)
@@ -564,6 +731,7 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("Smooth scrolls continuously; Rigid snaps to the next block/node with each wheel step.")
 
+        section("Files")
         # --- Where node data is saved ---
         row = add_row("Node data saved in:")
         save_labels = dict(SAVE_FORMAT_CHOICES)
@@ -574,6 +742,7 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("Exported code always has node start/end markers. Node names, order and layout go in a separate .blockliner.json file, or inside the code file.")
 
+        section("Code panel")
         # --- Code panel -> blocks sync ---
         row = add_row("Code \u2192 blocks sync:")
         sync_labels = dict(SYNC_MODE_CHOICES)
@@ -583,17 +752,18 @@ class PaletteMixin:
             state="readonly", width=38
         ).pack(side=tk.LEFT)
         add_help("When edits typed in the code panel (right side) become blocks.")
-        confirm_var = tk.BooleanVar(value=bool(self.settings.get("code_sync_confirm", True)))
+        sync_confirm_var = tk.BooleanVar(value=bool(self.settings.get("code_sync_confirm", True)))
         tk.Checkbutton(
-            body, text="Ask before code edits replace or remove blocks",
-            variable=confirm_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            cur[0], text="Ask before code edits replace or remove blocks",
+            variable=sync_confirm_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
             activebackground=DARK_PANEL, activeforeground=DARK_FG,
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        section("Shortcuts")
         # --- Layer shortcuts ---
         tk.Label(
-            body, text="Layer shortcuts", bg=DARK_PANEL, fg=DARK_FG,
+            cur[0], text="Layer shortcuts", bg=DARK_PANEL, fg=DARK_FG,
             font=("Segoe UI", 9, "bold"), anchor="w"
         ).pack(fill=tk.X, pady=(14, 2))
         key_vars = {}
@@ -645,15 +815,33 @@ class PaletteMixin:
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(0, 20))
         # Body is packed after the buttons so Save & Close can never be
         # squeezed out when the content grows or the screen is small.
-        body.update_idletasks()
-        body_canvas.configure(height=body.winfo_reqheight(), width=body.winfo_reqwidth())
+        side = tk.Frame(dialog, bg=DARK_BG, width=150)
+        side.pack(side=tk.LEFT, fill=tk.Y, pady=15, padx=(15, 0))
+        side.pack_propagate(False)
+        side_buttons = {}
+
+        def show_section(name):
+            for n, sec in sections.items():
+                sec.pack_forget()
+                side_buttons[n].configure(bg=DARK_HOVER if n == name else DARK_BG,
+                                          fg="#ffffff" if n == name else DARK_FG)
+            sections[name].pack(fill=tk.BOTH, expand=True)
+            self._settings_section = name
+            body_canvas.yview_moveto(0)
+
+        for name in SETTINGS_SECTION_ORDER:
+            if name in sections:
+                b = tk.Button(side, text=name, anchor="w", relief=tk.FLAT, cursor="hand2", bd=0, padx=12, pady=6,
+                              bg=DARK_BG, fg=DARK_FG, activebackground=DARK_HOVER, activeforeground="#ffffff",
+                              font=("Segoe UI", 10), command=lambda n=name: show_section(n))
+                b.pack(fill=tk.X)
+                side_buttons[name] = b
         body_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_holder.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
-        dialog.update_idletasks()
-        wanted = (header.winfo_reqheight() + body_canvas.winfo_reqheight()
-                  + btn_frame.winfo_reqheight() + 30 + 20 + 10)   # paddings of the three parts
-        h = min(wanted, dialog.winfo_screenheight() - 80)
-        dialog.geometry(f"560x{h}+{(dialog.winfo_screenwidth() - 560) // 2}+{max(0, (dialog.winfo_screenheight() - h) // 2 - 20)}")
+        first = getattr(self, "_settings_section", None)
+        show_section(first if first in sections else SETTINGS_SECTION_ORDER[0])
+        h = min(620, dialog.winfo_screenheight() - 80)
+        dialog.geometry(f"700x{h}+{(dialog.winfo_screenwidth() - 700) // 2}+{max(0, (dialog.winfo_screenheight() - h) // 2 - 20)}")
 
         def on_save_close():
             chosen = [v.get() for v in key_vars.values() if v.get()]
@@ -669,6 +857,7 @@ class PaletteMixin:
             self.settings["confirm_delete"] = confirm_var.get()
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
+            self.settings["live_search"] = bool(live_search_var.get())
             self.settings["show_coords"] = bool(coords_var.get())
             self.settings["lod_mode"] = next(
                 (k for k, v in LOD_MODE_CHOICES if v == lod_var.get()), "names")
@@ -681,7 +870,9 @@ class PaletteMixin:
                 (k for k, v in SAVE_FORMAT_CHOICES if v == save_var.get()), "sidecar")
             self.settings["code_sync_mode"] = next(
                 (k for k, v in SYNC_MODE_CHOICES if v == sync_var.get()), "line")
-            self.settings["code_sync_confirm"] = bool(confirm_var.get())
+            self.settings["code_sync_confirm"] = bool(sync_confirm_var.get())
+            self.settings["zoom_speed"] = next(
+                (k for k, label, _f in ZOOM_SPEED_CHOICES if label == zoom_var.get()), DEFAULT_ZOOM_SPEED)
             self.save_app_settings()
             dialog.destroy()
             if self.canvas_layer_active():

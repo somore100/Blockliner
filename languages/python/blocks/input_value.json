@@ -1,0 +1,19 @@
+{
+  "concept_id": "input",
+  "display_name": "Input",
+  "category": "Basic",
+  "description": "Reads a line of text from the keyboard into a variable.",
+  "template": "[[variable]] = input(\"[[prompt]]\")\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "name"
+    },
+    {
+      "name": "prompt",
+      "type": "string",
+      "default": "Enter a value: "
+    }
+  ]
+}

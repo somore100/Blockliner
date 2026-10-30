@@ -484,7 +484,10 @@ class ExpressionSlot(tk.Frame):
         self._entry.bind("<FocusOut>", self._on_focus_out)
 
     def _on_focus_out(self, event=None):
-        from engine.slot_match import try_match_expression
+        try:
+            from engine.slot_match import try_match_expression
+        except ImportError:          # tree-sitter not installed: keep the text as typed
+            return
         match = try_match_expression(self._entry.get(), lang="python")
         if match:
             self._show_chip(match)

@@ -1,0 +1,115 @@
+{
+  "format": "blockliner-ui-pack",
+  "version": 1,
+  "id": "python/tkinter",
+  "language": "python",
+  "label": "tkinter",
+  "imports": [
+    "import tkinter as tk",
+    "from tkinter import ttk",
+    "import types"
+  ],
+  "header": [],
+  "root_types": [
+    "window"
+  ],
+  "run": "{ui}.{root}.mainloop()",
+  "preview": "native",
+  "layouts": {
+    "grid": {
+      "props": [
+        {
+          "key": "row",
+          "label": "Row",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "column",
+          "label": "Column",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "rowspan",
+          "label": "Row span",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "columnspan",
+          "label": "Column span",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "sticky",
+          "label": "Sticky",
+          "kind": "string",
+          "optional": true
+        },
+        {
+          "key": "padx",
+          "label": "Pad X",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "pady",
+          "label": "Pad Y",
+          "kind": "int",
+          "optional": true
+        }
+      ],
+      "code": "{name}.grid({args})"
+    },
+    "place": {
+      "props": [
+        {
+          "key": "x",
+          "label": "X",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "y",
+          "label": "Y",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "width",
+          "label": "Width",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "height",
+          "label": "Height",
+          "kind": "int",
+          "optional": true
+        }
+      ],
+      "code": "{name}.place({args})"
+    }
+  },
+  "order": [
+    "window",
+    "frame",
+    "label",
+    "button",
+    "checkbutton",
+    "entry",
+    "text",
+    "combobox",
+    "listbox"
+  ],
+  "quote": "python",
+  "function": {
+    "def": "def {fname}():",
+    "indent": "    ",
+    "ret": "return types.SimpleNamespace({pairs})",
+    "pair": "{name}={name}",
+    "call": "{ui} = {fname}()"
+  }
+}

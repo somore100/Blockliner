@@ -1,0 +1,62 @@
+{
+  "type": "combobox",
+  "label": "Dropdown",
+  "category": "Input",
+  "icon": "▾",
+  "container": false,
+  "default_size": [
+    140,
+    26
+  ],
+  "props": [
+    {
+      "key": "values",
+      "label": "Choices",
+      "kind": "list",
+      "default": [
+        "one",
+        "two"
+      ]
+    },
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "readonly",
+      "options": [
+        "normal",
+        "readonly",
+        "disabled"
+      ]
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "selected",
+      "label": "On select",
+      "args": [
+        "event"
+      ],
+      "code": "{name}.bind('<<ComboboxSelected>>', {handler})"
+    }
+  ],
+  "code": "{name} = ttk.Combobox({parent}{opts})"
+}

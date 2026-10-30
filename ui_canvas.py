@@ -3,6 +3,9 @@ import keyword
 import tkinter as tk
 import node_ports
 import wire_kinds
+import wire_rollup
+import ui_node
+from canvas_view import NODE_W, resize_node_rect
 from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
 
@@ -233,6 +236,68 @@ class CanvasMixin:
         self._update_fileview_scrollregion()
         self.redraw_grid()
 
+    def refresh_after_node_added(self, node, target_list):
+        """A node was just appended to target_list. On the Nodes canvas,
+        add only its box (and redo the wires) instead of destroying and
+        rebuilding every box; any other situation does the full refresh."""
+        boxes = getattr(self, "_fileview_boxes", None)
+        if (self.view_mode != "file" or self.file_view_code_mode or not boxes
+                or target_list is not self.get_current_node_list(self.tabs[self.active_tab_index])
+                or "canvas_x" not in node or "canvas_y" not in node):
+            self.refresh_workspace()
+            return
+        self.multi_check()
+        self.recompute_references()
+        self.update_generated_code()
+        self.create_fileview_node_box(node)
+        self.workspace_frame.update_idletasks()
+        self.draw_wires()
+        self._update_fileview_scrollregion()
+        self.redraw_grid()
+        self.refresh_node_nav()
+
+    def refresh_nodes_in_place(self, rebuild_ids=()):
+        """After nodes were removed from / changed in the shown list, bring
+        the Nodes canvas up to date by dropping the boxes of nodes that are
+        gone and rebuilding just rebuild_ids. Returns False (nothing
+        touched) when that is not enough - empty list, a node without a
+        box, shifted run orders - and the caller must refresh_workspace()."""
+        boxes = getattr(self, "_fileview_boxes", None)
+        if self.view_mode != "file" or self.file_view_code_mode or not boxes:
+            return False
+        tab = self.tabs[self.active_tab_index]
+        nodes = self.get_current_node_list(tab)
+        if not nodes:
+            return False
+        before = {n["id"]: n.get("order") for n, _p in self.iter_tab_nodes(tab)}
+        normalize_orders(tab["nodes"])
+        if any(n["id"] in before and before[n["id"]] != n.get("order")
+               for n, _p in self.iter_tab_nodes(tab)):
+            return False
+        rebuild = set(rebuild_ids)
+        shown = {n["id"] for n in nodes}
+        if any(n["id"] not in boxes and n["id"] not in rebuild for n in nodes):
+            return False
+        old = [boxes.pop(i)
+               for i in [i for i in boxes if i not in shown or i in rebuild]]
+        for win, _w in old:
+            self.workspace_canvas.delete(win)
+        self.after_idle(lambda ws=[w for _i, w in old]: [w.destroy() for w in ws if w.winfo_exists()])
+        self.multi_check()
+        self.recompute_references()
+        self.update_generated_code()
+        for n in nodes:
+            if n["id"] in rebuild:
+                self.create_fileview_node_box(n)
+        self.workspace_canvas.delete("group")
+        self.draw_groups()
+        self.workspace_frame.update_idletasks()
+        self.draw_wires()
+        self._update_fileview_scrollregion()
+        self.redraw_grid()
+        self.refresh_node_nav()
+        return True
+
     def assign_default_canvas_positions(self, nodes):
         """Give any node without a stored canvas position a sensible
         default grid slot (3 per row) so a freshly created node - or a
@@ -266,13 +331,16 @@ class CanvasMixin:
         is_class = kind == "class"
         is_category = kind == "category"
         is_container = is_class or is_category
-        if is_category:
+        is_ui = ui_node.is_ui_node(node)
+        if is_ui:
+            box_color = "#1f7a6a"
+        elif is_category:
             box_color = "#8a6a2a"
         elif is_class:
             box_color = "#5a4a8a"
         else:
             box_color = CATEGORY_COLORS.get("Basic", "#4a4a4a")
-        text_fg = "#ffffff" if is_container else "#000000"
+        text_fg = "#ffffff" if (is_container or is_ui) else "#000000"
         ignored = bool(node.get("ignored"))
         if ignored:
             box_color, text_fg = "#555555", "#cccccc"
@@ -287,7 +355,9 @@ class CanvasMixin:
         def _open(_e=None, nid=node["id"]):
             self.open_node(nid)
 
-        if is_category:
+        if is_ui:
+            icon = "\u25a6"  # window grid
+        elif is_category:
             icon = "\U0001F4C1"  # folder
         elif is_class:
             icon = "\U0001F3DB"  # classical building
@@ -299,7 +369,8 @@ class CanvasMixin:
         if gray:
             box_color, text_fg = GRAY_BOX, "#ffffff"
         header = tk.Frame(box, bg=box_color, cursor="fleur")
-        self._zconf(header, width=215, height=36)
+        node_w = lambda nid=node["id"]: self._node_size(nid)[0]
+        self._zhook(header, lambda: header.configure(width=self._zi(node_w()), height=self._zi(36)))
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         name_label = tk.Label(
@@ -361,7 +432,7 @@ class CanvasMixin:
         self._zpack(name_label, side=tk.LEFT, padx=8, fill=tk.X, expand=True)
 
         if compact:
-            self._fix_compact_size(box, header, 215)
+            self._fix_compact_size(box, header, node.get("canvas_w") or NODE_W)
         else:
             if not is_class:
                 self._build_node_ports(box, node)
@@ -371,6 +442,11 @@ class CanvasMixin:
             if is_container:
                 count = len(node.get("child_nodes", []))
                 label_text = f"{count} node{'s' if count != 1 else ''} inside"
+            elif is_ui:
+                count = ui_node.widget_count(node)
+                label_text = f"UI \u00b7 {count} widget{'s' if count != 1 else ''}"
+                if ui_node.is_detached(node):
+                    label_text += " \u00b7 code only"
             else:
                 count = len(node["blocks"])
                 label_text = f"{count} block{'s' if count != 1 else ''}"
@@ -392,11 +468,17 @@ class CanvasMixin:
                 command=_open
             ).pack(side=tk.RIGHT)
 
+        if node.get("canvas_h") and not compact:
+            box.pack_propagate(False)
+            self._zhook(box, lambda nid=node["id"]: box.configure(
+                width=self._zi(self._node_size(nid)[0]) + 4, height=self._zi(self._node_size(nid)[1]) + 4))
         win_id = self.workspace_canvas.create_window(
             node["canvas_x"] * z, node["canvas_y"] * z, anchor="nw", window=box,
             tags=("fileview", "node_box")
         )
         self._fileview_boxes[node["id"]] = (win_id, box)
+        if not compact:
+            self._add_node_resize_edges(box, header, node["id"])
         self._bind_context_recursive(
             box, lambda e, nid=node["id"]: self._on_node_box_right_click(e, nid))
 
@@ -468,6 +550,79 @@ class CanvasMixin:
             port.bind("<ButtonPress-1>", lambda e, nid=node["id"]: self._port_press(e, nid))
             port.bind("<B1-Motion>", self._port_motion)
             port.bind("<ButtonRelease-1>", self._port_release)
+
+    # ---- resizing a node box (all edges and corners) -----------------------
+    RESIZE_EDGE = 5           # px strip along each side that grabs the edge
+    RESIZE_CURSORS = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow", "e": "sb_h_double_arrow",
+                      "w": "sb_h_double_arrow", "nw": "top_left_corner", "ne": "top_right_corner",
+                      "sw": "bottom_left_corner", "se": "bottom_right_corner"}
+
+    def _node_size(self, nid):
+        """(w, h) of a node box in model units; h is None while it fits its contents."""
+        n = find_node_by_id(self.tabs[self.active_tab_index]["nodes"], nid)
+        n = n or {}
+        return n.get("canvas_w") or NODE_W, n.get("canvas_h")
+
+    def _add_node_resize_edges(self, box, header, nid):
+        """Thin strips laid over the box's four sides; dragging one (near a
+        corner: two sides at once) resizes the node, the opposite side stays."""
+        e = self.RESIZE_EDGE
+        state = {}
+
+        def edges_at(side, ev):
+            x, y = ev.x_root - box.winfo_rootx(), ev.y_root - box.winfo_rooty()
+            w, h, c = box.winfo_width(), box.winfo_height(), 3 * e
+            v = "n" if y < c else "s" if y > h - c else ""
+            hz = "w" if x < c else "e" if x > w - c else ""
+            if side in "ns":
+                return side + hz
+            return (v + side) if v else side
+
+        def press(ev, side):
+            n = find_node_by_id(self.tabs[self.active_tab_index]["nodes"], nid)
+            if n is None:
+                return
+            z = self.canvas_zoom
+            state.update(n=n, edges=edges_at(side, ev), sx=ev.x_root, sy=ev.y_root,
+                         rect=(n["canvas_x"], n["canvas_y"], n.get("canvas_w") or NODE_W,
+                               n.get("canvas_h") or box.winfo_height() / z), moved=False)
+
+        def motion(ev):
+            if not state:
+                return
+            z = self.canvas_zoom
+            x, y, w, h = resize_node_rect(*state["rect"], state["edges"],
+                                          (ev.x_root - state["sx"]) / z, (ev.y_root - state["sy"]) / z)
+            n = state["n"]
+            n["canvas_x"], n["canvas_y"], n["canvas_w"], n["canvas_h"] = x, y, round(w), round(h)
+            state["moved"] = True
+            box.pack_propagate(False)
+            header.configure(width=self._zi(w))
+            box.configure(width=self._zi(w) + 4, height=self._zi(h) + 4)
+            wid, _b = self._fileview_boxes.get(nid, (None, None))
+            if wid is not None:
+                self.workspace_canvas.coords(wid, x * z, y * z)
+            self.draw_wires_for(nid)
+
+        def release(_ev):
+            moved = state.get("moved")
+            state.clear()
+            if moved:
+                self.mark_active_tab_dirty()
+                self.after_idle(self.rerender_canvas_layer)    # rebuild zoom hooks with the new size
+
+        def hover(ev, side, strip):
+            strip.configure(cursor=self.RESIZE_CURSORS.get(edges_at(side, ev), "fleur"))
+
+        places = {"n": dict(relx=0, rely=0, relwidth=1, height=e), "s": dict(relx=0, rely=1, relwidth=1, height=e, anchor="sw"),
+                  "w": dict(relx=0, rely=0, relheight=1, width=e), "e": dict(relx=1, rely=0, relheight=1, width=e, anchor="ne")}
+        for side, opts in places.items():
+            strip = tk.Frame(box, bg=box.cget("highlightbackground"))
+            strip.place(**opts)
+            strip.bind("<ButtonPress-1>", lambda ev, s=side: press(ev, s))
+            strip.bind("<B1-Motion>", motion)
+            strip.bind("<ButtonRelease-1>", release)
+            strip.bind("<Motion>", lambda ev, s=side, st=strip: hover(ev, s, st))
 
     # ---- ports (inputs = function parameters, outputs = returned values) ----
     def _build_node_ports(self, box, node):
@@ -816,6 +971,8 @@ class CanvasMixin:
             for use in node.get("data_uses", []):
                 if use["id"] in shown_ids and use["id"] in self._fileview_boxes:
                     self._draw_one_wire(use["id"], node["id"], data_vars=use["vars"])
+        for edge in wire_rollup.rolled_edges(nodes_shown):
+            self._draw_rolled_wire(edge)
 
     def draw_wires_for(self, node_id):
         """Redraw only the wires touching `node_id` (drag-motion fast path).
@@ -852,6 +1009,58 @@ class CanvasMixin:
             self._draw_one_wire(source_id, target_id)
         for source_id, target_id, names in data_edges:
             self._draw_one_wire(source_id, target_id, data_vars=names)
+        for edge in wire_rollup.rolled_edges(nodes_shown):
+            if node_id in (edge["src"], edge["dst"]):
+                self.workspace_canvas.delete(self._rolled_tag(edge))
+                self._draw_rolled_wire(edge)
+
+    @staticmethod
+    def _rolled_tag(edge):
+        return f"rwire_{edge['src']}_{edge['dst']}_{edge['kind']}"
+
+    def _draw_rolled_wire(self, edge):
+        """A wire with an end inside a shown category/class box, drawn to that
+        box (wire_rollup.py). Same colour/dash as its kind, one pixel thicker,
+        labelled "xN" when it stands for several connections (data: the
+        variable names). Derived only - nothing to select or delete."""
+        if edge["src"] not in self._fileview_boxes or edge["dst"] not in self._fileview_boxes:
+            return
+        tab = self.tabs[self.active_tab_index]
+        src_node = find_node_by_id(tab["nodes"], edge["src"])
+        dst_node = find_node_by_id(tab["nodes"], edge["dst"])
+        if not src_node or not dst_node:
+            return
+        src_widget = self._fileview_boxes[edge["src"]][1]
+        dst_widget = self._fileview_boxes[edge["dst"]][1]
+        z = self.canvas_zoom
+        sw = src_widget.winfo_width() or 220
+        sh = src_widget.winfo_height() or 70
+        dh = dst_widget.winfo_height() or 70
+        shift = 8 * z if edge["kind"] == "data" else 0
+        x0 = src_node["canvas_x"] * z + sw
+        y0 = src_node["canvas_y"] * z + sh / 2 + shift
+        x1 = dst_node["canvas_x"] * z
+        y1 = dst_node["canvas_y"] * z + dh / 2 + shift
+        pull = max(abs(x1 - x0) * 0.5, 40)
+        st = wire_kinds.style_for(edge["kind"])
+        tag = self._rolled_tag(edge)
+        color = st["color"]
+        self.workspace_canvas.create_line(
+            *self._bezier_points((x0, y0), (x0 + pull, y0), (x1 - pull, y1), (x1, y1)),
+            smooth=True, fill=color, width=st["width"] + 1, dash=st["dash"],
+            tags=("fileview", "wire", tag))
+        self.workspace_canvas.create_oval(
+            x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=color, outline="",
+            tags=("fileview", "wire", tag))
+        label = ", ".join(edge["vars"]) if edge["kind"] == "data" and edge["vars"] else ""
+        if edge["count"] > 1:
+            label = (label + " " if label else "") + f"\u00d7{edge['count']}"
+        if label:
+            if len(label) > 28:
+                label = label[:27] + "\u2026"
+            self.workspace_canvas.create_text(
+                (x0 + x1) / 2, (y0 + y1) / 2 - 8, text=label, fill=color,
+                font=("TkDefaultFont", max(7, int(9 * z))), tags=("fileview", "wire", tag))
 
     def _draw_one_wire(self, source_id, target_id, data_vars=None):
         """data_vars given = a DATA wire (dashed blue, labelled with the
@@ -1036,6 +1245,9 @@ class CanvasMixin:
         self._dismiss_popup()
 
     def _pan_press(self, e):
+        self._pan_active = False
+        if getattr(self, "_workspace_locked", False):
+            return                         # the UI designer view is not draggable
         c = self.workspace_canvas
         rx, ry = e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty()
         self._pan_active = False

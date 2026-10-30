@@ -318,7 +318,9 @@ class NodeOpsMixin:
                             updated += 1
         node["name"] = new_name
         self.mark_active_tab_dirty()
-        self.refresh_workspace()
+        # Rewritten func_calls can change other boxes' ports: full refresh then.
+        if updated or not self.refresh_nodes_in_place([node["id"]]):
+            self.refresh_workspace()
         return True, "", updated
 
     def count_calls_to(self, tab, node):
@@ -354,7 +356,8 @@ class NodeOpsMixin:
             if tab is self.tabs[self.active_tab_index]:
                 self.project_blocks = self.get_active_node(tab)["blocks"]
         self.mark_active_tab_dirty()
-        self.refresh_workspace()
+        if not self.refresh_nodes_in_place():
+            self.refresh_workspace()
         return True, "", len(subtree)
 
     def move_destinations(self, tab, node):
@@ -396,7 +399,8 @@ class NodeOpsMixin:
         node.pop("canvas_x", None)
         node.pop("canvas_y", None)
         self.mark_active_tab_dirty()
-        self.refresh_workspace()
+        if not self.refresh_nodes_in_place():
+            self.refresh_workspace()
         return True, "", 1
 
     def rename_file(self, index, new_title):

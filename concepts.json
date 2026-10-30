@@ -26,6 +26,7 @@
 
   "concepts": [
     { "id": "output",       "name": "Output / Print",   "category": "Basic",          "slots": [{ "name": "value", "type": "expression" }] },
+    { "id": "input",        "name": "Input",           "category": "Basic",          "slots": [{ "name": "variable", "type": "identifier" }, { "name": "prompt", "type": "string" }] },
     { "id": "assign",       "name": "Set Variable",     "category": "Basic",          "slots": [{ "name": "variable", "type": "identifier" }, { "name": "value", "type": "expression" }] },
     { "id": "comment",      "name": "Comment",          "category": "Basic",          "slots": [{ "name": "text", "type": "string" }] },
     { "id": "if",           "name": "If",               "category": "Control",        "is_container": true, "slots": [{ "name": "condition", "type": "boolean" }] },

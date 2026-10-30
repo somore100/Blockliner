@@ -1,0 +1,160 @@
+{
+  "format": "blockliner-node",
+  "version": 1,
+  "name": "UI: Settings window",
+  "description": "Checkboxes, a theme picker and Save / Cancel buttons.",
+  "kind": "function",
+  "variables": [
+    {
+      "name": "title",
+      "label": "Window title",
+      "default": "Settings"
+    }
+  ],
+  "blocks": [],
+  "ui": {
+    "format": "blockliner-ui",
+    "version": 1,
+    "pack": "python/tkinter",
+    "root": {
+      "id": "6eaec786",
+      "type": "window",
+      "name": "root",
+      "props": {
+        "title": "{{title}}",
+        "geometry": "400x260"
+      },
+      "layout": {},
+      "events": {},
+      "design": {
+        "device": "desktop"
+      },
+      "children": [
+        {
+          "id": "fd8c3aef",
+          "type": "label",
+          "name": "lbl_heading",
+          "props": {
+            "text": "Settings",
+            "font": "Helvetica 14 bold"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 14
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "4e7716db",
+          "type": "checkbutton",
+          "name": "chk_sounds",
+          "props": {
+            "text": "Play sounds",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 60
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "0601c7a6",
+          "type": "checkbutton",
+          "name": "chk_updates",
+          "props": {
+            "text": "Check for updates",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 90
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "99d6c2fa",
+          "type": "label",
+          "name": "lbl_theme",
+          "props": {
+            "text": "Theme"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 20,
+            "y": 130
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "2dc81463",
+          "type": "combobox",
+          "name": "combo_theme",
+          "props": {
+            "values": [
+              "Light",
+              "Dark"
+            ],
+            "state": "readonly"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 100,
+            "y": 128,
+            "width": 160
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "51ecd67a",
+          "type": "button",
+          "name": "btn_cancel",
+          "props": {
+            "text": "Cancel",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 180,
+            "y": 210,
+            "width": 90
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        },
+        {
+          "id": "821acfc6",
+          "type": "button",
+          "name": "btn_save",
+          "props": {
+            "text": "Save",
+            "state": "normal"
+          },
+          "layout": {
+            "manager": "place",
+            "x": 285,
+            "y": 210,
+            "width": 90
+          },
+          "events": {},
+          "design": {},
+          "children": []
+        }
+      ]
+    }
+  }
+}

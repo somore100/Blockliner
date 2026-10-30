@@ -1,0 +1,45 @@
+{
+  "type": "label",
+  "label": "Label",
+  "category": "Basic",
+  "icon": "A",
+  "container": false,
+  "default_size": [
+    80,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Label"
+    },
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = ttk.Label({parent}{opts})"
+}

@@ -1,0 +1,56 @@
+{
+  "type": "text",
+  "label": "Text area",
+  "category": "Input",
+  "icon": "¶",
+  "container": false,
+  "default_size": [
+    240,
+    120
+  ],
+  "props": [
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "default": 40
+    },
+    {
+      "key": "height",
+      "label": "Height (lines)",
+      "kind": "int",
+      "default": 8
+    },
+    {
+      "key": "wrap",
+      "label": "Wrap",
+      "kind": "enum",
+      "default": "word",
+      "options": [
+        "none",
+        "char",
+        "word"
+      ]
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = tk.Text({parent}{opts})"
+}

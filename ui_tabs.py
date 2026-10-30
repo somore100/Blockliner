@@ -325,6 +325,7 @@ class TabsMixin:
 
         # Group blocks by category
         self.blocks_by_category = {}
+        self._block_ids = {id(d): bid for bid, d in self.blocks.items()}   # for search by id
         for block_id, block_def in self.blocks.items():
             category = get_block_attr(block_def, "category", "Basic")
             self.blocks_by_category.setdefault(category, []).append(block_def)

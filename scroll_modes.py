@@ -9,7 +9,8 @@ SCROLL_MODE_CHOICES = [
     ("smooth", "Smooth (continuous, like a web page)"),
     ("rigid", "Rigid (snap block to block)"),
 ]
-SNAP_EPS = 1.0          # px: an item within this of the top counts as "at the top"
+SNAP_EPS = 4.0          # px: an item within this of the top counts as "at the top" (the computed
+                        # view top sits ~2px below the item after a snap: border inset)
 SNAP_THROTTLE_S = 0.05  # trackpads fire dozens of events per flick; one step per 50 ms
 
 

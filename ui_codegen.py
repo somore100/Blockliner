@@ -11,7 +11,7 @@ from nodes_model import make_node, skipped_names, sorted_function_nodes, strip_s
 import portable
 import project_file
 import code_autoclose
-from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
+from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
 class CodegenMixin:
@@ -220,24 +220,45 @@ class CodegenMixin:
 
     # --- code panel options: safe mode + show markers ---------------------
 
-    def build_code_options_row(self, code_header_row):
-        """Two checkboxes on the right side of the code panel's header row."""
+    def build_code_options_row(self, title_row, lang_row):
+        """Hide button and line count in the title row; Sync and an Options
+        menu right of the language picker, or on a row of their own when the
+        panel is too narrow for both (_reflow_code_tools)."""
         self.safe_mode_var = tk.BooleanVar(value=bool(self.settings.get("safe_mode", True)))
         self.show_markers_var = tk.BooleanVar(value=bool(self.settings.get("show_markers", True)))
-        tk.Button(
-            code_header_row, text="\U0001F504 Sync code \u2192 blocks", command=self.sync_code_now,
-            bg=DARK_PANEL, fg=DARK_FG, relief=tk.FLAT, font=("Segoe UI", 8)
-        ).pack(side=tk.RIGHT, padx=4)
         self.autoclose_var = tk.BooleanVar(value=self.autoclose_setting())
+        # The three checkboxes live in the menu so a narrow panel never clips them.
+        flat = dict(bg=DARK_PANEL, fg=DARK_FG, relief=tk.FLAT, font=("Segoe UI", 8), cursor="hand2",
+                    activebackground=DARK_HOVER, activeforeground=DARK_FG)
+        tk.Button(title_row, text="\u2715", command=self.toggle_code_panel, **flat).pack(side=tk.RIGHT, padx=(2, 8))
+        self.line_count_label.pack(side=tk.RIGHT, padx=5)
+        tools = tk.Frame(lang_row.master, bg=DARK_PANEL)
+        tk.Button(tools, text="\U0001F504 Sync", command=self.sync_code_now, **flat).pack(side=tk.RIGHT, padx=2)
+        options = tk.Menubutton(tools, text="\u22ef Options", **flat)
+        menu = tk.Menu(options, tearoff=0, bg=DARK_PANEL, fg=DARK_FG, activebackground=DARK_HOVER,
+                       selectcolor=DARK_ACCENT)
         for text, var, cmd in (("Show markers", self.show_markers_var, self.on_show_markers_toggle),
                                ("Safe mode", self.safe_mode_var, self.on_safe_mode_toggle),
                                ("Auto-close ( [ { \" '", self.autoclose_var, self.on_autoclose_toggle)):
-            tk.Checkbutton(
-                code_header_row, text=text, variable=var, command=cmd,
-                bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
-                activebackground=DARK_PANEL, activeforeground=DARK_FG,
-                font=("Segoe UI", 8)
-            ).pack(side=tk.RIGHT, padx=2)
+            menu.add_checkbutton(label=text, variable=var, command=cmd)
+        options.config(menu=menu)
+        options.pack(side=tk.RIGHT, padx=2)
+        self._code_lang_row, self._code_tools, self._code_tools_inline = lang_row, tools, None
+        lang_row.bind("<Configure>", self._reflow_code_tools, add="+")
+        self._reflow_code_tools()
+
+    def _reflow_code_tools(self, _event=None):
+        row, tools = self._code_lang_row, self._code_tools
+        need = sum(w.winfo_reqwidth() + 10 for w in row.pack_slaves() if w is not tools) + tools.winfo_reqwidth()
+        inline = row.winfo_width() >= need
+        if inline == self._code_tools_inline:
+            return
+        self._code_tools_inline = inline
+        tools.pack_forget()
+        if inline:
+            tools.pack(in_=row, side=tk.RIGHT)
+        else:
+            tools.pack(fill=tk.X, padx=10, after=row)
 
     def autoclose_setting(self):
         return bool(self.settings.get("code_autoclose", True))
@@ -372,6 +393,14 @@ class CodegenMixin:
         if not can_import:
             diagnostics.append(f"no Raw Code block for '{lang}' - node code could not be turned into blocks")
 
+        codes = {}
+
+        def collect(level):
+            for node in level:
+                codes[node["id"]] = node.get("code", "")
+                collect(node["child_nodes"])
+        collect(nodes)
+
         def fill(level):
             for node in level:
                 code = node.pop("code", "")
@@ -379,6 +408,7 @@ class CodegenMixin:
                     node["blocks"] = self.import_code_to_blocks(code)[0]
                 fill(node["child_nodes"])
         fill(nodes)
+        self.reconcile_imported_ui_nodes(nodes, codes)
 
         if not nodes:
             nodes = [make_node("main", node_id="main", blocks=[])]

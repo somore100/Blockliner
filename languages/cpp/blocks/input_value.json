@@ -1,0 +1,19 @@
+{
+  "concept_id": "input",
+  "display_name": "Input",
+  "category": "Basic",
+  "description": "Reads a line of text into a new std::string (declares the variable).",
+  "template": "std::string [[variable]];\nstd::cout << \"[[prompt]]\";\nstd::getline(std::cin, [[variable]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "name"
+    },
+    {
+      "name": "prompt",
+      "type": "string",
+      "default": "Enter a value: "
+    }
+  ]
+}

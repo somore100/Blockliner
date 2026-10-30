@@ -31,9 +31,9 @@ def main():
     app.geometry("1300x800"); app.update()
     c = app.workspace_canvas
 
-    # ---- toolbar: Settings button replaces the logo
-    top = [w for w in walk(app) if w.winfo_class() == "TButton" and "⚙" in str(w.cget("text"))]
-    check("Settings (gear) button in the top-left", len(top) == 1 and top[0].winfo_rootx() < 120)
+    # ---- toolbar: Settings (gear) button, also in the Tools menu
+    top = [w for w in walk(app) if w.winfo_class() == "TButton" and str(w.cget("text")).strip() == "⚙"]
+    check("Settings (gear) button in the toolbar", len(top) == 1)
     check("old toolbar logo image is gone", not hasattr(app, "logo_photo"))
 
     # ---- wheel zoom on the nodes layer

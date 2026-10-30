@@ -20,6 +20,9 @@ def main():
     node = project_file._node_from_json({"id": "a", "name": "a", "kind": "function", "blocks": [],
                                          "canvas_x": 1, "canvas_y": 2, "canvas_w": 300, "canvas_h": 150}, set(), [])
     check("project file keeps the node size", (node.get("canvas_w"), node.get("canvas_h")) == (300, 150))
+    check("zoom around the pointer by default", C.zoom_anchor_point({}, (10, 20), (400, 300)) == (10, 20))
+    check("zoom around the centre when set", C.zoom_anchor_point({"zoom_around": "centre"}, (10, 20), (400, 300)) == (200, 150))
+    check("unknown zoom_around falls back to the pointer", C.zoom_anchor_point({"zoom_around": "?"}, (10, 20), (400, 300)) == (10, 20))
     print("\nFAILURES:", FAILURES)
 
 main()

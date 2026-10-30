@@ -4,6 +4,8 @@ from tkinter import messagebox
 import os
 import json
 import uuid
+import time
+import clean_undo
 from nodes_model import default_active_node_id, find_node_by_id, make_node
 from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK_PANEL, DEFAULT_SETTINGS, get_block_attr
 
@@ -420,6 +422,94 @@ class TabsMixin:
         if self.settings.get("show_notifications", True):
             messagebox.showinfo(title, message)
     
+    # ---- clean project (with a short undo window) -----------------------
+    def clean_project(self):
+        """Empty the open project after a warning. A copy stays in memory for
+        a while (setting clean_undo_seconds, default 2 minutes) so the
+        "Undo" button on the bar at the bottom can bring everything back."""
+        self.sync_active_tab_state()
+        ws = self.workspaces[self.active_ws_index]
+        seconds = clean_undo.undo_seconds(getattr(self, "settings", {}))
+        keep = (f"A copy stays in memory for {clean_undo.format_remaining(seconds)} so you can undo it."
+                if seconds else "Undo is switched off in Settings, so this cannot be undone.")
+        if not messagebox.askyesno(
+                "Clean project",
+                f"Remove everything from '{ws['title']}' (all files, nodes, blocks and groups)?\n\n"
+                f"Your saved files on disk are not touched. {keep}"):
+            return
+        if not hasattr(self, "_clean_window"):
+            self._clean_window = clean_undo.UndoWindow()
+        self._clean_window.start({"ws": ws}, seconds, time.monotonic())
+        self._clean_target = ws
+        nodes = self.build_initial_nodes_for_language(self.current_language)
+        title = ws["title"]
+        ws.clear()
+        ws.update({"title": title, "files": [{
+            "title": f"Untitled {self._next_untitled_number}", "language": self.current_language,
+            "nodes": nodes, "active_node_id": default_active_node_id(nodes),
+            "filepath": None, "dirty": False}],
+            "active_index": 0, "filepath": None, "groups": []})
+        self._next_untitled_number += 1
+        self._show_active_file("files")
+        if seconds:
+            self._show_clean_bar()
+
+    def _show_clean_bar(self):
+        self._hide_clean_bar()
+        bar = tk.Frame(self, bg=DARK_PANEL, highlightthickness=1, highlightbackground=DARK_BORDER)
+        label = tk.Label(bar, bg=DARK_PANEL, fg=DARK_FG, font=("Segoe UI", 9))
+        label.pack(side=tk.LEFT, padx=(10, 8), pady=6)
+        tk.Button(bar, text="Undo", bg=DARK_ACCENT, fg="#ffffff", relief=tk.FLAT, cursor="hand2",
+                  font=("Segoe UI", 9, "bold"), command=self.undo_clean_project).pack(side=tk.LEFT, padx=(0, 4), pady=4)
+        tk.Button(bar, text="\u2715", bg=DARK_PANEL, fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                  command=self._dismiss_clean_bar).pack(side=tk.LEFT, padx=(0, 6))
+        bar.place(relx=0.5, rely=1.0, y=-14, anchor="s")
+        self._clean_bar, self._clean_label = bar, label
+        self._tick_clean_bar()
+
+    def _tick_clean_bar(self):
+        left = self._clean_window.remaining(time.monotonic())
+        if left <= 0:
+            self._hide_clean_bar()
+            return
+        self._clean_label.configure(
+            text=f"Project cleaned. Undo available for {clean_undo.format_remaining(left + 0.99)}")
+        self._clean_job = self.after(500, self._tick_clean_bar)
+
+    def _hide_clean_bar(self):
+        job = getattr(self, "_clean_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
+            self._clean_job = None
+        bar = getattr(self, "_clean_bar", None)
+        if bar is not None:
+            bar.destroy()
+            self._clean_bar = None
+
+    def _dismiss_clean_bar(self):
+        """The cross: hide the bar and give up the copy."""
+        self._clean_window.drop()
+        self._hide_clean_bar()
+
+    def undo_clean_project(self):
+        snap = self._clean_window.take(time.monotonic())
+        self._hide_clean_bar()
+        if snap is None:
+            messagebox.showinfo("Clean project", "The undo time is over; the old project is gone.")
+            return
+        ws = self._clean_target
+        if ws not in self.workspaces:
+            messagebox.showinfo("Clean project", "That project tab was closed, so it cannot be restored.")
+            return
+        self.sync_active_tab_state()
+        ws.clear()
+        ws.update(snap["ws"])
+        self.active_ws_index = self.workspaces.index(ws)
+        self._show_active_file("files")
+
     def clear_all(self):
         """Clear all blocks"""
         if not self.real_block_count():

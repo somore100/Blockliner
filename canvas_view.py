@@ -7,6 +7,19 @@ ZOOM_STEP = 1.1
 # Setting "zoom_speed": how much one wheel notch zooms.
 ZOOM_SPEED_CHOICES = [("slow", "Slow", 1.04), ("normal", "Normal", 1.08), ("fast", "Fast", 1.15)]
 DEFAULT_ZOOM_SPEED = "slow"
+
+# Setting "zoom_around": which point stays still while the wheel zooms.
+ZOOM_AROUND_CHOICES = [("pointer", "Mouse pointer"), ("centre", "Centre of the view")]
+DEFAULT_ZOOM_AROUND = "pointer"
+
+
+def zoom_anchor_point(settings, pointer, size):
+    """Screen point (x, y) that stays put when zooming: the pointer, or the
+    middle of a canvas of `size` (w, h) when the setting is "centre"."""
+    mode = (settings if isinstance(settings, dict) else {}).get("zoom_around", DEFAULT_ZOOM_AROUND)
+    if mode == "centre":
+        return size[0] / 2, size[1] / 2
+    return pointer
 NODE_W, NODE_MIN_W, NODE_MIN_H = 215, 120, 36       # node box size on the canvas (model units)
 
 

@@ -110,6 +110,8 @@ class OpenProjectMixin:
             state=tk.NORMAL if ok_entries else tk.DISABLED,
             command=lambda: self._project_dialog_import(dlg, ok_entries))
         dlg._import_all_btn.pack(side=tk.RIGHT, padx=(0, 8))
+        tk.Button(row, text="Paste code as nodes...", bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                  command=self.open_code_to_blocks_dialog).pack(side=tk.LEFT)
         dlg.bind("<Escape>", lambda e: dlg.destroy())
         return dlg
 

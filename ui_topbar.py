@@ -16,7 +16,10 @@ class TopBarMixin:
                 ("Load", self.load_project),
                 ("Open Project...", self.open_project_dialog),
                 ("Open Code File...", lambda: self.open_code_to_blocks_dialog(prefill_from_file=True)),
+                ("Paste Code as Nodes...", self.open_code_to_blocks_dialog),
                 ("Export", self.export_code),
+                None,
+                ("Clean Project...", self.clean_project),
             ]),
             ("Run", [
                 ("Run in Blockliner", self.run_code),

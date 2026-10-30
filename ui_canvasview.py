@@ -2,7 +2,7 @@
 import tkinter as tk
 import tkinter.font as tkfont
 from canvas_view import (anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
-                         lod_mode, zoom_after_wheel, zoom_factor)
+                         lod_mode, zoom_after_wheel, zoom_anchor_point, zoom_factor)
 from nodes_model import find_node_by_id
 
 GRID_COLOR = "#262626"
@@ -115,8 +115,8 @@ class CanvasViewMixin:
         if not self.canvas_layer_active():
             return False
         c = self.workspace_canvas
-        sx = self.winfo_pointerx() - c.winfo_rootx()
-        sy = self.winfo_pointery() - c.winfo_rooty()
+        pointer = (self.winfo_pointerx() - c.winfo_rootx(), self.winfo_pointery() - c.winfo_rooty())
+        sx, sy = zoom_anchor_point(getattr(self, "settings", {}), pointer, (c.winfo_width(), c.winfo_height()))
         self.zoom_step(step, sx, sy)
         return True
 

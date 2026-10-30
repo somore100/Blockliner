@@ -6,7 +6,9 @@ import shutil
 from block_templates import make_raw_code_block_source
 import palette_search
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
-from canvas_view import DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_SPEED_CHOICES, lod_mode
+import clean_undo
+from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
+                         ZOOM_SPEED_CHOICES, lod_mode)
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
 from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
@@ -709,6 +711,14 @@ class PaletteMixin:
                      state="readonly", width=38).pack(side=tk.LEFT)
         add_help("How much one wheel notch zooms the Files/Nodes canvas.")
 
+        row = add_row("Zoom around:")
+        around_labels = dict(ZOOM_AROUND_CHOICES)
+        around_var = tk.StringVar(value=around_labels.get(self.settings.get("zoom_around", DEFAULT_ZOOM_AROUND),
+                                                          around_labels[DEFAULT_ZOOM_AROUND]))
+        ttk.Combobox(row, textvariable=around_var, values=list(around_labels.values()),
+                     state="readonly", width=38).pack(side=tk.LEFT)
+        add_help("Which point stays still while you zoom: under the mouse, or the middle of the view.")
+
         section("General")
         # --- Order number already used ---
         row = add_row("Order number taken:")
@@ -741,6 +751,11 @@ class PaletteMixin:
             state="readonly", width=38
         ).pack(side=tk.LEFT)
         add_help("Exported code always has node start/end markers. Node names, order and layout go in a separate .blockliner.json file, or inside the code file.")
+
+        row = add_row("Clean project undo (seconds):")
+        undo_var = tk.StringVar(value=str(clean_undo.undo_seconds(self.settings)))
+        ttk.Spinbox(row, from_=0, to=clean_undo.MAX_SECONDS, increment=30, textvariable=undo_var, width=8).pack(side=tk.LEFT)
+        add_help("After File > Clean Project the old project stays in memory this long so you can undo. 0 = no undo.")
 
         section("Code panel")
         # --- Code panel -> blocks sync ---
@@ -873,6 +888,9 @@ class PaletteMixin:
             self.settings["code_sync_confirm"] = bool(sync_confirm_var.get())
             self.settings["zoom_speed"] = next(
                 (k for k, label, _f in ZOOM_SPEED_CHOICES if label == zoom_var.get()), DEFAULT_ZOOM_SPEED)
+            self.settings["clean_undo_seconds"] = clean_undo.undo_seconds({"clean_undo_seconds": undo_var.get()})
+            self.settings["zoom_around"] = next(
+                (k for k, label in ZOOM_AROUND_CHOICES if label == around_var.get()), DEFAULT_ZOOM_AROUND)
             self.save_app_settings()
             dialog.destroy()
             if self.canvas_layer_active():

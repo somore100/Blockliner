@@ -7,7 +7,7 @@ import wire_rollup
 import ui_node
 from canvas_view import NODE_W, resize_node_rect
 from nodes_model import find_node_by_id, normalize_orders
-from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BORDER, DARK_FG, get_block_attr
+from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, get_block_attr
 
 SELECT_COLOR = "#00e5ff"  # cyan: selected file / node / block
 GRAY_BOX = "#5a5a5a"      # "plain gray boxes" zoomed-out look

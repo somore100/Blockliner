@@ -139,6 +139,29 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
     
     WHEEL_SELF_SCROLLING = ("Text", "Listbox", "Treeview", "TCombobox", "Entry")
 
+    def _install_select_all(self):
+        """Ctrl+A selects everything in a text box or entry. Tk's default on
+        Linux/Windows moves the cursor to the line start instead."""
+        def text_all(event):
+            w = event.widget
+            w.tag_add("sel", "1.0", "end-1c")
+            w.mark_set("insert", "end-1c")
+            return "break"
+
+        def entry_all(event):
+            w = event.widget
+            w.selection_range(0, "end")
+            w.icursor("end")
+            return "break"
+
+        for seq in ("<Control-a>", "<Control-A>"):
+            self.bind_class("Text", seq, text_all)
+            self.bind_class("Entry", seq, entry_all)
+            self.bind_class("TEntry", seq, entry_all)
+            self.bind_class("TCombobox", seq, entry_all)
+            self.bind_class("Spinbox", seq, entry_all)
+            self.bind_class("TSpinbox", seq, entry_all)
+
     def _install_wheel(self):
         """One app-wide wheel handler. Tk sends <Leave> to a canvas when the
         pointer moves onto a widget inside it (a block), so Enter/Leave
@@ -485,6 +508,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.workspace_canvas.configure(yscrollcommand=self._on_workspace_yscroll)
         
         self._install_wheel()
+        self._install_select_all()
         
         self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)

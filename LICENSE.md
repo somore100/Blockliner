@@ -1,164 +1,97 @@
-# Blockline Source-Available License
+Required Notice: Copyright (c) 2026 somore100 (somore100@gmail.com)
 
-**Version 2.0, 2026**
-**Copyright © 2026 somore100. All rights reserved.**
-
-Blockline is free to use on your own machine. The core program is, and will stay, free. This License exists to stop people from taking Blockline, repackaging it, and selling it or passing it off as their own. Addons, plugins, and community forks are welcome.
-
-Contact for permissions and questions: **somore100@gmail.com** (or Discord DM, as listed on the profile of somore100).
+The terms below are the PolyForm Shield License 1.0.0, unmodified.
+See NOTICE.md for what that means for programs made with Blockliner,
+and for the name and logo.
 
 ---
 
-## 1. Definitions
+# PolyForm Shield License 1.0.0
 
-* **"Software"** means the Blockline source code and associated code in this repository that is copyrightable by the Copyright Holder.
-* **"Copyright Holder"** means somore100 and any future owner of the copyright in the Software.
-* **"Official Blockline"** means the Software as distributed by or with the authorization of the Copyright Holder.
-* **"Fork"** means a modified copy of the Software maintained independently from the official Blockline repository.
-* **"Addon"** means an independent extension, plugin, integration, theme, library, or other software designed to work with Blockline without incorporating a Substantial Portion of Blockline's source code.
-* **"Substantial Portion"** means any part of the Software that:
-  1. forms the core, foundation, or main functionality of another work (for example, a project that uses Blockline as its base or engine);
-  2. consists of one or more complete modules, major features, or subsystems of Blockline; or
-  3. is large or important enough that the other work would not be recognizable or would not function the same way without it.
+<https://polyformproject.org/licenses/shield/1.0.0>
 
-  Copying small snippets, simple utility functions, or generic boilerplate is not a Substantial Portion for the purposes of the commercial restrictions in Section 4. Attribution under Section 6 still applies to any copied code.
-* **"Non-Commercial Use"** means use that is not primarily intended for commercial advantage or monetary compensation. The following are Non-Commercial Use:
-  * personal use, hobby projects, learning, and research;
-  * use by schools, universities, and nonprofit organizations;
-  * internal use by a company or organization for its own work, as long as the Software itself is not sold, licensed, hosted for paying customers, or packaged into a product;
-  * receiving voluntary donations, sponsorships, or tips, as long as access to the Software is not made conditional on payment; and
-  * creating videos, streams, articles, or tutorials about Blockline, even if those earn income, as long as the Software itself is not sold or paywalled.
-* **"Commercial Distribution"** means selling, licensing, renting, hosting for payment, bundling, or otherwise providing the Software, or a derivative work containing a Substantial Portion of the Software, for commercial advantage or monetary compensation. This includes offering it behind a paywall, subscription, or ad-funded service.
+## Acceptance
 
-## 2. Permission to Use
+In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
 
-Permission is granted, free of charge, to any person obtaining a copy of the Software to:
+## Copyright License
 
-* view and study the source code;
-* run the Software on their own machine;
-* use the Software for Non-Commercial Use;
-* modify the Software for Non-Commercial Use;
-* create and maintain Forks for non-commercial purposes;
-* create Addons, plugins, integrations, themes, and other independent extensions for Blockline;
-* contribute modifications to the official Blockline project; and
-* share the Software or modified versions of it free of charge, provided that the requirements of this License are followed.
+The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
 
-## 3. Free Hosting
+## Distribution License
 
-You may host Blockline or a Fork for others **free of charge** (for example, a free community server), provided that:
+The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
 
-* the Software is clearly identified as Blockline, or as based on Blockline, in a visible place;
-* the original author is credited as required by Section 6; and
-* you do not claim that anyone other than the Copyright Holder created the original code.
+## Notices
 
-Paid, subscription-based, or ad-funded hosting of Blockline or a Fork requires prior written permission (see Section 4).
+You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
 
-## 4. Commercial Use and Distribution
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
 
-This License **does not grant permission for Commercial Distribution** of the Software or of a derivative work containing a Substantial Portion of the Software.
+## Changes and New Works License
 
-Without prior written permission from the Copyright Holder, you may not:
+The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
 
-1. sell or license Blockline itself;
-2. sell or license a Fork or modified version that contains a Substantial Portion of Blockline;
-3. distribute Blockline or a substantially modified version as a commercial or competing product;
-4. offer Blockline or a substantially modified version as a paid, subscription-based, or ad-funded hosted or managed service;
-5. package Blockline into a commercial product where Blockline constitutes a Substantial Portion of that product;
-6. use Blockline as the core or base of a commercial product while hiding, removing, or downplaying its origin; or
-7. establish or operate a commercial organization, foundation, or project whose principal product is a modified or rebranded version of Blockline.
+## Patent License
 
-This restriction does **not** prohibit independent commercial software that merely interoperates with Blockline, provided that such software does not incorporate a Substantial Portion of the Blockline source code.
+The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
 
-Commercial Addons, plugins, integrations, themes, services, and other independent works may be created and sold, provided that they do not incorporate a Substantial Portion of the Blockline source code and do not falsely represent themselves as Official Blockline products.
+## Noncompete
 
-The Copyright Holder may grant separate commercial licenses or permissions at their discretion.
+Any purpose is a permitted purpose, except for providing any product that competes with the software or any product the licensor or any of its affiliates provides using the software.
 
-## 5. Forks and Community Projects
+## Competition
 
-Non-commercial Forks and community projects are explicitly permitted and encouraged.
+Goods and services compete even when they provide functionality through different kinds of interfaces or for different technical platforms.  Applications can compete with services, libraries with plugins, frameworks with development tools, and so on, even if they're written in different programming languages or for different computer architectures.  Goods and services compete even when provided free of charge.  If you market a product as a practical substitute for the software or another product, it definitely competes.
 
-A Fork may modify the Software, add features, fix bugs, experiment with alternative implementations, and be shared free of charge.
+## New Products
 
-Forks must clearly state that they are independent projects and must not imply that they are maintained, endorsed, sponsored, or officially distributed by the Copyright Holder unless written permission has been granted.
+If you are using the software to provide a product that does not compete, but the licensor or any of its affiliates brings your product into competition by providing a new version of the software or another product using the software, you may continue using versions of the software available under these terms beforehand to provide your competing product, but not any later versions.
 
-## 6. Attribution
+## Discontinued Products
 
-If you use, copy, or build on Blockline code, the original author must be credited. When redistributing the Software, a Fork, or any work containing code from the Software, you must:
+You may begin using the software to compete with a product or service that the licensor or any of its affiliates has stopped providing, unless the licensor includes a plain-text line beginning with `Licensor Line of Business:` with the software that mentions that line of business.  For example:
 
-* keep all copyright notices of the Copyright Holder;
-* include a copy of this License;
-* clearly state that the work is based on Blockline and name the original author (somore100);
-* make this credit reasonably visible (for example, in the README and in an "About" or "Credits" section, not hidden in a file nobody reads); and
-* clearly identify substantial modifications you have made, where applicable.
+> Licensor Line of Business: YoyodyneCMS Content Management System (http://example.com/cms)
 
-Attribution is required for **any** copied Blockline code, including small portions. You may not claim that someone other than the Copyright Holder wrote the original code.
+## Sales of Business
 
-## 7. Name and Branding
+If the licensor or any of its affiliates sells a line of business developing the software or using the software to provide a product, the buyer can also enforce [Noncompete](#noncompete) for that product.
 
-This License does not grant permission to use the name **"Blockline"**, the Blockline logo, or other official Blockline branding to name or promote a Fork, derivative product, organization, or service without prior written permission.
+## Fair Use
 
-Independent projects may state that they are "based on Blockline" or "compatible with Blockline", provided that the statement is truthful and does not imply official affiliation or endorsement.
+You may have "fair use" rights for the software under the law. These terms do not limit them.
 
-All trademark rights, if any, in the Blockline name and branding are reserved by the Copyright Holder.
+## No Other Rights
 
-## 8. Contributions
+These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
 
-Unless otherwise agreed in writing, contributions submitted to the official Blockline project are provided under the terms of this License.
+## Patent Defense
 
-By submitting a contribution, you:
+If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
 
-* confirm that you have the legal right to submit it;
-* keep the copyright in your contribution; and
-* grant the Copyright Holder a perpetual, worldwide, non-exclusive, royalty-free, irrevocable right to use, modify, sublicense, and relicense your contribution as part of Blockline, including under different terms and including commercially.
+## Violations
 
-## 9. Changes to This License and Future Versions
+The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
 
-The Copyright Holder may release future versions of the Software under different license terms, including more permissive, more restrictive, or commercial terms.
+## No Liability
 
-A version of the Software that you have already received remains available to you under the license terms it was distributed with. New terms apply only to versions released after the change.
+***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
 
-## 10. AI and Machine-Learning Use
+## Definitions
 
-Using the Software or its source code as training data for commercial AI or machine-learning models requires prior written permission from the Copyright Holder. Using AI tools to help you work on your own Non-Commercial Use of Blockline is permitted.
+The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
 
-## 11. Third-Party Components
+A **product** can be a good or service, or a combination of them.
 
-The Software may include or depend upon third-party software, libraries, models, assets, or other materials.
+**You** refers to the individual or entity agreeing to these terms.
 
-Such third-party materials are **not automatically covered by this License** and remain subject to their respective licenses and terms.
+**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all its affiliates.
 
-Nothing in this License grants permission to use third-party material beyond the permissions granted by its applicable license.
+**Affiliates** means the other organizations than an organization has control over, is under the control of, or is under common control with.
 
-## 12. No Warranty
+**Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+**Your licenses** are all the licenses granted to you for the software under these terms.
 
-IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-## 13. Termination
-
-The permissions granted under this License automatically terminate if you materially violate its terms.
-
-Permissions will be reinstated if the violation is permanently corrected within a reasonable period after you become aware of it, unless the Copyright Holder provides written notice that the permissions will not be reinstated.
-
-Termination does not affect rights validly granted to recipients who were not themselves in violation of this License.
-
-## 14. Requesting Permission
-
-To request permission for anything this License does not allow (for example, commercial use, paid hosting, or AI training), contact the Copyright Holder at **somore100@gmail.com** or by Discord DM. Permission is only valid if given in writing (email or Discord message from the Copyright Holder is sufficient).
-
-## 15. Governing Law
-
-This License is governed by the laws of the Republic of Slovenia. Any dispute arising from it falls under the jurisdiction of the competent courts of Slovenia, unless mandatory law provides otherwise.
-
-## 16. Reservation of Rights
-
-All rights not expressly granted by this License are reserved by the Copyright Holder.
-
-In particular, this License does not grant permission for commercial distribution or commercial exploitation of Blockline except where explicitly permitted above or separately authorized in writing.
-
----
-
-**Blockline is source-available software.**
-
-Learn from it, experiment with it, build addons for it, create non-commercial forks, and contribute to its development. Use it freely on your own machine. Just don't sell it, don't re-skin it and call it yours, and give credit where it's due.
+**Use** means anything you do with the software requiring one of your licenses.

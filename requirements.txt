@@ -1,4 +1,4 @@
-# Blockline dependencies
+# Blockliner dependencies
 #
 # Note: tkinter is NOT pip-installable. On Linux it's a separate OS
 # package (see setup_venv.sh for the apt/dnf/pacman commands).

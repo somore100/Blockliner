@@ -216,6 +216,6 @@ The interface tests need a display; on a headless machine run them under `xvfb-r
 
 ## License
 
-Blockliner is **source-available**, not open source. You can read it, run it, learn from it, and modify it or fork it for non-commercial use. Making add-ons, plugins and integrations is welcome. Selling or commercially redistributing Blockliner, or a substantial part of it, needs permission from the copyright holder. See [LICENSE.md](LICENSE.md) for the full terms.
+Blockliner is **source-available**, not open source, under the [PolyForm Shield License 1.0.0](LICENSE.md). You can read it, run it, modify it and share it, including for work and paid projects. You may not use it to offer a competing product, such as selling a copy or a hosted clone. Programs you make with Blockliner are yours, free of charge, to use under any terms. The name and logo are not licensed to forks. See [NOTICE.md](NOTICE.md) for details.
 
 > Not a toy, and not a replacement for code: a different way to write it.

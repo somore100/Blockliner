@@ -12,6 +12,7 @@ APP_NAME = "Blockliner"
 TAGLINE = "Visual Code Builder"
 AUTHOR = "somore100 (domore100)"
 REPO_URL = "https://github.com/somore100/Blockliner"
+SUPPORT_EMAIL = "support.somore100@gmail.com"
 
 DESCRIPTION = (
     "Blockliner is a visual, block-first code editor. Build programs by "

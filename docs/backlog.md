@@ -34,3 +34,8 @@ Collected from testing; none of this is started.
 - UI code detached before 2026-10-29 that uses `ttk.Button` (now `tk.Button`) or `ttk.Checkbutton` is not read back; change those lines by hand.
 - Files-layer wires (cross-file wire creates an import node), group <-> category conversion, editor sync, GDScript / Luau libraries: not started.
 - Branch labels on call wires (option C of docs/design-branch-outputs.md): calls inside an if / elif / else are labelled "if ok", "else" etc. Untested in app; rolled-up wires don't show them.
+
+## Added 2026-10-30 (untested in app)
+- Leave Feedback (Help menu): `feedback.py` (pure, reusable), `feedback_window.py` (Tk, reusable), relay in docs/feedback-relay/ (needs deploying, then put the URL in feedback_config.json). Without a relay it opens the user's email app. System specs only on request, shown before sending.
+- Zoom around (pointer / centre), Ctrl+A select all, Paste Code as Nodes, Clean Project with undo window (clean_undo.py).
+- Not built yet: popup windows and "open window" button event in the UI designer.

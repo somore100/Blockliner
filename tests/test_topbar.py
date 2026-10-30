@@ -30,9 +30,9 @@ def main():
     # menus
     m = app.topbar_menus
     check("menus: burger + File Run Tools Help", set(m) == {"☰", "File", "Run", "Tools", "Help"})
-    check("File menu entries", labels(m["File"]) == ["Save", "Load", "Open Project...", "Open Code File...", "Export"])
+    check("File menu entries", labels(m["File"]) == ["Save", "Load", "Open Project...", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."])
     check("Tools menu entries", labels(m["Tools"]) == ["Manage Custom Blocks...", "Settings"])
-    check("Help has About", labels(m["Help"]) == ["About Blockliner"])
+    check("Help has Feedback and About", labels(m["Help"]) == ["Leave Feedback...", "About Blockliner"])
     check("Run menu has Run + Clear", "Run in Blockliner" in labels(m["Run"]) and "Clear" in labels(m["Run"]))
     check("burger holds all four as cascades", labels(m["☰"]) == ["File", "Run", "Tools", "Help"])
 

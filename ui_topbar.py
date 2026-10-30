@@ -4,6 +4,8 @@ import webbrowser
 from PIL import Image, ImageTk
 
 import about_info
+import feedback
+import feedback_window
 from ui_common import DARK_ACCENT, DARK_BG, DARK_FG, DARK_HOVER, DARK_PANEL, get_bundle_path
 
 
@@ -35,6 +37,7 @@ class TopBarMixin:
                 ("Settings", self.settings_dialog),
             ]),
             ("Help", [
+                ("Leave Feedback...", self.show_feedback),
                 ("About Blockliner", self.show_about),
             ]),
         ]
@@ -85,6 +88,15 @@ class TopBarMixin:
         self.plugin_bar.pack(side=tk.RIGHT, padx=8)
 
     # ---------------------------------------------------------- About
+    def show_feedback(self):
+        """Help > Leave Feedback: the reusable window from feedback_window.py."""
+        config = feedback.FeedbackConfig(about_info.APP_NAME, f"{about_info.APP_VERSION} (build {about_info.BUILD_NUMBER})",
+                                         about_info.SUPPORT_EMAIL)
+        self.base_dir = get_bundle_path()
+        return feedback_window.open_feedback_window(
+            self, config, settings=getattr(self, "settings", {}),
+            colors={"bg": DARK_BG, "panel": DARK_PANEL, "fg": DARK_FG, "accent": DARK_ACCENT})
+
     def show_about(self, tab="About"):
         win = getattr(self, "_about_win", None)
         if win is not None and win.winfo_exists():

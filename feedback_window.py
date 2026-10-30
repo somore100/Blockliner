@@ -1,21 +1,21 @@
-"""Leave Feedback window (Tk). Reusable: needs feedback.py and a FeedbackConfig.
+"""Leave Feedback window (Tk). Reusable: needs the feedback_kit package and a FeedbackConfig.
 
     open_feedback_window(parent, config, colors={"bg", "panel", "fg", "accent", "muted"})
 
 Nothing is collected or sent until the user presses Send. System information is
 only gathered when its box is ticked, and the exact text is shown first.
 """
+import dataclasses
 import threading
 import tkinter as tk
-import webbrowser
 from tkinter import messagebox, ttk
 
-import feedback
+from feedback_kit import (REPORT_TYPES, Report, collect_system_info, format_system_info, send_report, validate)
 
 DEFAULT_COLORS = {"bg": "#1e1e1e", "panel": "#2a2a2a", "fg": "#e0e0e0", "accent": "#0e639c", "muted": "#888888"}
 
 
-def open_feedback_window(parent, config, colors=None, settings=None):
+def open_feedback_window(parent, config, colors=None):
     c = {**DEFAULT_COLORS, **(colors or {})}
     existing = getattr(parent, "_feedback_win", None)
     if existing is not None and existing.winfo_exists():
@@ -40,7 +40,7 @@ def open_feedback_window(parent, config, colors=None, settings=None):
                         relief=tk.FLAT, font=("Segoe UI", 10))
 
     label("Report type").pack(fill=tk.X, padx=14, pady=(14, 2))
-    type_labels = [lab for _k, lab, _t in feedback.REPORT_TYPES]
+    type_labels = [lab for lab, _t in REPORT_TYPES]
     type_var = tk.StringVar(value=type_labels[0])
     ttk.Combobox(win, textvariable=type_var, values=type_labels, state="readonly").pack(fill=tk.X, padx=14)
 
@@ -65,7 +65,7 @@ def open_feedback_window(parent, config, colors=None, settings=None):
     include_var = tk.BooleanVar(value=False)
     spec_box = tk.Text(win, height=6, bg=c["panel"], fg=c["muted"], relief=tk.FLAT, wrap=tk.WORD,
                        font=("Consolas", 9), state=tk.DISABLED)
-    spec_state = {"text": None, "job": 0}
+    spec_state = {"text": None, "info": {}}
 
     def show_specs(text):
         spec_box.configure(state=tk.NORMAL)
@@ -85,7 +85,7 @@ def open_feedback_window(parent, config, colors=None, settings=None):
         result = {}
 
         def work():
-            result["text"] = feedback.system_text(feedback.collect_system(), config)
+            result["info"] = collect_system_info(config.app_version)
 
         t = threading.Thread(target=work, daemon=True)
         t.start()
@@ -96,7 +96,8 @@ def open_feedback_window(parent, config, colors=None, settings=None):
             if t.is_alive():
                 win.after(150, poll)
                 return
-            spec_state["text"] = result.get("text", "")
+            spec_state["info"] = result.get("info", {})
+            spec_state["text"] = "\n".join(format_system_info(spec_state["info"]))
             if include_var.get():
                 show_specs("This will be sent with your report:\n\n" + spec_state["text"])
         poll()
@@ -119,50 +120,20 @@ def open_feedback_window(parent, config, colors=None, settings=None):
               width=10, command=win.destroy).pack(side=tk.RIGHT, padx=(0, 8))
 
     def form():
-        key = next((k for k, lab, _t in feedback.REPORT_TYPES if lab == type_var.get()), "other")
-        return {"type": key, "name": name_var.get(), "title": title_var.get(),
-                "description": desc.get("1.0", tk.END)}
+        index = type_labels.index(type_var.get()) if type_var.get() in type_labels else len(type_labels) - 1
+        return Report(type_index=index, name=name_var.get(), title=title_var.get(),
+                      description=desc.get("1.0", tk.END),
+                      system=spec_state["info"] if include_var.get() and spec_state["text"] else {})
 
-    def system():
-        return spec_state["text"] if include_var.get() and spec_state["text"] else None
-
-    def open_email_app(report):
-        url = feedback.mailto_url(config.to_address, feedback.build_subject(config, report),
-                                  feedback.build_body(config, report, system()))
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
-        win.clipboard_clear()
-        win.clipboard_append(feedback.build_body(config, report, system()))
-        messagebox.showinfo(
-            "Send by email",
-            f"Your email app should open with the report addressed to {config.to_address}. "
-            "Press Send there.\n\nThe full report is also copied to your clipboard in case it did not open.",
-            parent=win)
-        win.destroy()
-
-    def send():
-        report = form()
-        problems = feedback.validate(report)
-        if problems:
-            messagebox.showwarning("Check the form", "\n".join(problems), parent=win)
-            return
-        if include_var.get() and spec_state["text"] is None:
-            status_label.configure(text="Still reading your specifications, try again in a moment.")
-            return
-        relay = feedback.load_relay_url(settings, getattr(parent, "base_dir", None))
-        if not feedback.relay_ok(relay):
-            open_email_app(report)
-            return
-        payload = feedback.build_payload(config, report, system())
-        send_btn.configure(state=tk.DISABLED)
-        status_label.configure(text="Sending...")
+    def deliver(cfg, report, on_done):
+        """Send off the UI thread; on_done(SendResult) runs back on it."""
         result = {}
 
         def work():
-            result["r"] = feedback.send_via_relay(relay, payload)
-
+            try:
+                result["r"] = send_report(cfg, report)
+            except Exception as e:                       # never let a thread die silently
+                result["r"] = type("R", (), {"ok": False, "message": f"Could not send ({e}).", "method": ""})()
         t = threading.Thread(target=work, daemon=True)
         t.start()
 
@@ -172,17 +143,48 @@ def open_feedback_window(parent, config, colors=None, settings=None):
             if t.is_alive():
                 win.after(150, poll)
                 return
-            ok, message = result.get("r", (False, "Unknown error."))
-            if ok:
-                messagebox.showinfo("Feedback sent", message, parent=win)
+            on_done(result["r"])
+        poll()
+
+    def open_email_app(report):
+        """The kit's no-relay path: the user's own mail app opens with the report."""
+        send_btn.configure(state=tk.DISABLED)
+        status_label.configure(text="Opening your email app...")
+
+        def done(r):
+            send_btn.configure(state=tk.NORMAL)
+            status_label.configure(text="")
+            (messagebox.showinfo if r.ok else messagebox.showwarning)("Send by email", r.message, parent=win)
+            if r.ok:
+                win.destroy()
+        deliver(dataclasses.replace(config, endpoint=""), report, done)
+
+    def send():
+        report = form()
+        problems = validate(report)
+        if problems:
+            messagebox.showwarning("Check the form", "\n".join(problems), parent=win)
+            return
+        if include_var.get() and spec_state["text"] is None:
+            status_label.configure(text="Still reading your specifications, try again in a moment.")
+            return
+        if not config.endpoint:
+            open_email_app(report)
+            return
+        send_btn.configure(state=tk.DISABLED)
+        status_label.configure(text="Sending...")
+
+        def done(r):
+            if r.ok:
+                messagebox.showinfo("Feedback sent", r.message, parent=win)
                 win.destroy()
                 return
             send_btn.configure(state=tk.NORMAL)
             status_label.configure(text="")
             if messagebox.askyesno("Could not send",
-                                   f"{message}\n\nOpen your email app with the report instead?", parent=win):
+                                   f"{r.message}\n\nOpen your email app with the report instead?", parent=win):
                 open_email_app(report)
-        poll()
+        deliver(config, report, done)
 
     send_btn.configure(command=send)
     win.bind("<Escape>", lambda e: win.destroy())

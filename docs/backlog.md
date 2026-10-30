@@ -36,7 +36,7 @@ Collected from testing; none of this is started.
 - Branch labels on call wires (option C of docs/design-branch-outputs.md): calls inside an if / elif / else are labelled "if ok", "else" etc. Untested in app; rolled-up wires don't show them.
 
 ## Added 2026-10-30 (untested in app)
-- Leave Feedback (Help menu): `feedback.py` (pure, reusable), `feedback_window.py` (Tk, reusable), relay in docs/feedback-relay/ (needs deploying, then put the URL in feedback_config.json). Without a relay it opens the user's email app. System specs only on request, shown before sending.
+- Leave Feedback (Help menu): logic is the shared `feedback_kit/` package (same as the other apps, copied unchanged), `feedback_window.py` is this app's Tk window, endpoint in `feedback.json` (relay script: feedback_kit/apps_script.gs). Without an endpoint it opens the user's email app. System specs only on request, shown before sending.
 - Zoom around (pointer / centre), Ctrl+A select all, Paste Code as Nodes, Clean Project with undo window (clean_undo.py).
 - Not built yet: popup windows and "open window" button event in the UI designer.
 

@@ -1,7 +1,8 @@
-"""Leave Feedback (pure rules, no Tk, no network)."""
-import io, json, os, sys, urllib.parse, urllib.error
+"""Leave Feedback on the shared feedback_kit (pure rules, no Tk, nothing is really sent)."""
+import json, os, sys, tempfile, urllib.error, urllib.parse, urllib.request
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import feedback as fb
+import feedback_kit as fk
+from feedback_kit import transport
 
 FAILURES = []
 def check(label, cond):
@@ -9,66 +10,66 @@ def check(label, cond):
     if not cond: FAILURES.append(label)
 
 class FakeResp:
-    def __init__(self, text): self._b = text.encode()
+    def __init__(self, text, status=200): self._b, self.status = text.encode(), status
     def read(self, n=-1): return self._b
     def __enter__(self): return self
     def __exit__(self, *a): return False
 
 def main():
-    cfg = fb.FeedbackConfig("Blockliner", "2.4.4", "support@example.com", "https://relay.example.com/x")
-    form = {"type": "bug", "name": "Sam", "title": "UI is not working", "description": "The designer freezes when I drag a label."}
-    check("a good form has no problems", fb.validate(form) == [])
-    check("missing title and short description are reported",
-          len(fb.validate({**form, "title": "  ", "description": "short"})) == 2)
-    check("unknown type is reported", fb.validate({**form, "type": "zzz"}) == ["Choose a report type."])
-    check("too long description is reported", any("too long" in p for p in fb.validate({**form, "description": "x" * 6000})))
-    check("subject has app name, type tag and title", fb.build_subject(cfg, form) == "[Blockliner] [BUG] UI is not working")
-    check("each type has a tag", {fb.type_tag(k) for k, _l, _t in fb.REPORT_TYPES} == {"BUG", "SUGGESTION", "FEEDBACK", "QUESTION", "OTHER"})
-    check("subject can't be split by a newline", "\n" not in fb.build_subject(cfg, {**form, "title": "a\nBcc: x@y.z"}))
-    body = fb.build_body(cfg, form)
-    check("body has all fields", all(s in body for s in ("Application: Blockliner", "Version: 2.4.4", "Report type: Bug Report",
-                                                         "Name: Sam", "Title: UI is not working", "The designer freezes")))
-    check("no system info unless asked", "System information: not included" in body and "Operating system" not in body)
-    check("name is optional", "Name: (not given)" in fb.build_body(cfg, {**form, "name": ""}))
-    info = {"os": "Linux 6", "cpu": "Cpu X", "gpu": "Gpu Y", "ram": "16.0 GB", "arch": "x86_64", "python": "3.12"}
-    stext = fb.system_text(info, cfg)
-    check("system text lists the asked specs", all(s in stext for s in ("Operating system: Linux 6", "CPU: Cpu X", "GPU: Gpu Y", "RAM: 16.0 GB",
-                                                                      "Architecture: x86_64", "Application version: 2.4.4")))
-    check("system text is included when given", "Cpu X" in fb.build_body(cfg, form, stext))
-    payload = fb.build_payload(cfg, form, stext)
-    check("payload is JSON-able with subject/body/to", json.loads(json.dumps(payload))["subject"].startswith("[Blockliner]")
-          and payload["to"] == "support@example.com" and payload["system_included"] is True)
-    check("payload without system says so", fb.build_payload(cfg, form)["system_included"] is False)
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    cfg = fk.FeedbackConfig("Blockliner", "2.4.4", "support@example.com", "https://relay.example.com/x")
+    r = fk.Report(0, "Sam", "UI is not working", "The designer freezes when I drag a label.")
+    check("report types", [l for l, _t in fk.REPORT_TYPES] == ["Bug Report", "Feature Suggestion", "General Feedback", "Question", "Other"])
+    check("a good report has no problems", fk.validate(r) == [])
+    check("missing title and short description are reported", len(fk.validate(fk.Report(0, "", "  ", "short"))) == 2)
+    check("subject", fk.build_subject(cfg, r) == "[Blockliner] [BUG] UI is not working")
+    check("subject can't be split by a newline", "\n" not in fk.build_subject(cfg, fk.Report(0, "", "a\nBcc: x@y.z", "long enough text")))
+    body = fk.build_body(cfg, r)
+    check("body has all fields", all(s in body for s in ("Blockliner", "2.4.4", "Bug Report", "Sam", "UI is not working", "The designer freezes")))
+    check("no system info unless asked", "(not included)" in body)
+    check("name is optional", "(not given)" in fk.build_body(cfg, fk.Report(0, "", "A title", "long enough text")))
 
-    sysinfo = fb.collect_system()
-    check("collected info has only the known keys", set(sysinfo) == {"os", "cpu", "gpu", "ram", "arch", "python"})
-    flat = " ".join(sysinfo.values()).lower()
-    check("no user or computer name in it", os.environ.get("USER", "\0").lower() not in flat.split()
-          and __import__("platform").node().lower() not in flat)
+    info = fk.collect_system_info(cfg.app_version)
+    text = "\n".join(fk.format_system_info(info))
+    check("specs have the asked fields", all(k in info for k in ("OS", "Architecture", "CPU", "GPU", "RAM", "App version")))
+    import platform
+    check("no user or computer name in the specs", platform.node().lower() not in text.lower()
+          and os.environ.get("USER", "\0").lower() not in text.lower().split())
+    check("specs go into the body only when given", "Architecture" in fk.build_body(cfg, fk.Report(0, "", "A title", "long enough text", info)))
 
-    url = fb.mailto_url("support@example.com", "[A] [BUG] t", "line one\nline two")
-    check("mailto has address, subject and body", url.startswith("mailto:support@example.com?subject=") and "body=line%20one%0Aline%20two" in url)
-    big = fb.mailto_url("support@example.com", "s", "word " * 2000)
-    check("a huge body is cut under the limit with a note", len(big) <= fb.MAILTO_LIMIT and "cut" in urllib.parse.unquote(big))
-
-    check("only https relays are used", fb.relay_ok("https://a.b/c") and not fb.relay_ok("http://a.b") and not fb.relay_ok("") and not fb.relay_ok(None)
-          and not fb.relay_ok("file:///etc/passwd"))
-    check("no relay: not sent", fb.send_via_relay("", payload)[0] is False)
-    ok = fb.send_via_relay(cfg.relay_url, payload, opener=lambda req, timeout: FakeResp('{"ok": true}'))
-    check("relay ok", ok[0] is True)
     seen = {}
-    def spy(req, timeout):
-        seen["data"] = json.loads(req.data.decode()); seen["method"] = req.get_method(); return FakeResp('{"ok": true}')
-    fb.send_via_relay(cfg.relay_url, payload, opener=spy)
-    check("relay gets a POST with the payload", seen["method"] == "POST" and seen["data"]["subject"] == payload["subject"])
-    bad = fb.send_via_relay(cfg.relay_url, payload, opener=lambda r, timeout: FakeResp('{"ok": false, "error": "quota"}'))
-    check("relay error text is passed on", bad == (False, "quota"))
-    check("garbage answer is a failure", fb.send_via_relay(cfg.relay_url, payload, opener=lambda r, timeout: FakeResp("<html>"))[0] is False)
-    def boom(r, timeout): raise urllib.error.URLError("no network")
-    check("network failure is a failure, not a crash", fb.send_via_relay(cfg.relay_url, payload, opener=boom)[0] is False)
+    def fake_open(req, timeout=0):
+        seen["data"] = json.loads(req.data.decode()); seen["method"] = req.get_method()
+        seen["type"] = req.get_header("Content-type"); return FakeResp('{"ok": true}')
+    real = urllib.request.urlopen
+    urllib.request.urlopen = fake_open
+    try:
+        res = fk.send_report(cfg, r)
+        check("relay send works", res.ok and res.method == "relay")
+        check("relay gets POST text/plain with to/subject/body/app/version/type",
+              seen["method"] == "POST" and seen["type"].startswith("text/plain")
+              and set(seen["data"]) == {"to", "subject", "body", "app", "version", "type"} and seen["data"]["to"] == "support@example.com")
+        urllib.request.urlopen = lambda req, timeout=0: FakeResp('{"ok": false, "error": "x"}')
+        check("relay refusal is a failure", not fk.send_report(cfg, r).ok)
+        def boom(req, timeout=0): raise urllib.error.URLError("no network")
+        urllib.request.urlopen = boom
+        check("network failure is a failure, not a crash", not fk.send_report(cfg, r).ok)
+    finally:
+        urllib.request.urlopen = real
 
-    check("relay url from settings wins", fb.load_relay_url({"feedback_relay_url": "https://s"}, "/nonexistent") == "https://s")
-    check("no config: empty", fb.load_relay_url({}, "/nonexistent") == "")
+    opened = []
+    transport.webbrowser.open = lambda url: opened.append(url) or True
+    res = fk.send_report(fk.FeedbackConfig("Blockliner", "2.4.4", "support@example.com"), r)
+    check("no endpoint: the mail app opens with address and subject", res.ok and res.method == "mailto"
+          and opened[0].startswith("mailto:support@example.com?subject=") and "UI%20is%20not%20working" in opened[0])
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "feedback.json")
+        json.dump({"endpoint": "https://script.google.com/macros/s/x/exec"}, open(path, "w"))
+        check("endpoint is read from feedback.json", fk.FeedbackConfig.load("A", "1", "a@b.c", path=path).endpoint.startswith("https://script.google.com/"))
+    shipped = json.load(open(os.path.join(root, "feedback.json")))
+    check("the shipped feedback.json has an https endpoint and no secrets", shipped.get("endpoint", "").startswith("https://") and set(shipped) == {"endpoint"})
+    check("the old relay config is gone", not os.path.exists(os.path.join(root, "feedback_config.json")) and not os.path.exists(os.path.join(root, "feedback.py")))
     print("\nFAILURES:" if FAILURES else "\nALL OK", FAILURES or "")
     sys.exit(1 if FAILURES else 0)
 

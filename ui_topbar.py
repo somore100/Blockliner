@@ -1,12 +1,13 @@
 """Top bar menus (hamburger + File/Run/Tools/Help) and the About window."""
+import os
 import tkinter as tk
 import webbrowser
 from PIL import Image, ImageTk
 
 import about_info
-import feedback
+from feedback_kit import FeedbackConfig
 import feedback_window
-from ui_common import DARK_ACCENT, DARK_BG, DARK_FG, DARK_HOVER, DARK_PANEL, get_bundle_path
+from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BG, DARK_FG, DARK_HOVER, DARK_PANEL, get_bundle_path
 
 
 class TopBarMixin:
@@ -90,11 +91,11 @@ class TopBarMixin:
     # ---------------------------------------------------------- About
     def show_feedback(self):
         """Help > Leave Feedback: the reusable window from feedback_window.py."""
-        config = feedback.FeedbackConfig(about_info.APP_NAME, f"{about_info.APP_VERSION} (build {about_info.BUILD_NUMBER})",
-                                         about_info.SUPPORT_EMAIL)
-        self.base_dir = get_bundle_path()
+        config = FeedbackConfig.load(about_info.APP_NAME, f"{about_info.APP_VERSION} (build {about_info.BUILD_NUMBER})",
+                                     about_info.SUPPORT_EMAIL, path=os.path.join(get_bundle_path(), "feedback.json"),
+                                     save_dir=os.path.join(os.path.dirname(APP_SETTINGS_PATH), "feedback"))
         return feedback_window.open_feedback_window(
-            self, config, settings=getattr(self, "settings", {}),
+            self, config,
             colors={"bg": DARK_BG, "panel": DARK_PANEL, "fg": DARK_FG, "accent": DARK_ACCENT})
 
     def show_about(self, tab="About"):

@@ -1,6 +1,6 @@
 # Design talk: branch outputs (approved / declined from an `if`)
 
-Status: proposal, nothing built. Needs a decision before any code.
+Status: option C (labels) built 2026-10-30, untested in the app: `branch_labels.py` (pure, tests/test_branch_labels.py), `node["ref_branches"]` derived in `recompute_references`, drawn as an italic label on the call wire. Not on rolled-up wires yet. Options A and B still open.
 
 ## The problem
 

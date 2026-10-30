@@ -63,6 +63,9 @@ def make_node(name, node_id=None, blocks=None, category=None,
         # Derived like references: {target node id: "call" | "data"} - how this
         # node uses each node it calls (see wire_kinds.py). Never saved.
         "ref_kinds": {},
+        # Derived: {target node id: "if ok" / "else" ...} for calls that only
+        # run inside a branch (see branch_labels.py). Never saved.
+        "ref_branches": {},
     }
     # Execution order (function-kind nodes only): the position this
     # node's blocks take in the generated file. The key is left OUT

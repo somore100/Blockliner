@@ -1158,6 +1158,13 @@ class CanvasMixin:
             *self._bezier_points(p0, p1, p2, p3), smooth=True,
             fill=color, width=width, dash=st["dash"], tags=("fileview", "wire", tag)
         )
+        branch = (src_node.get("ref_branches") or {}).get(target_id)
+        if branch:                  # the call only runs inside this if / else
+            if len(branch) > 30:
+                branch = branch[:29] + "\u2026"
+            self.workspace_canvas.create_text(
+                (x0 + x1) / 2, (y0 + y1) / 2 - 8, text=branch, fill=color,
+                font=("TkDefaultFont", max(7, int(9 * z)), "italic"), tags=("fileview", "wire", tag))
         self.workspace_canvas.create_oval(
             x1 - 4, y1 - 4, x1 + 4, y1 + 4, fill=color, outline="",
             tags=("fileview", "wire", tag)

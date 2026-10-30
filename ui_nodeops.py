@@ -5,6 +5,7 @@ import contextlib
 import nodes_model
 import node_ports
 import wire_kinds
+import branch_labels
 from nodes_model import default_active_node_id, find_node_by_id, function_nodes_in_tree_order, normalize_orders
 from ui_common import BLOCK_BG, DARK_BG, DARK_BORDER, DARK_FG
 
@@ -618,6 +619,9 @@ class NodeOpsMixin:
             kinds = wire_kinds.call_kinds(node["blocks"])
             node["ref_kinds"] = {t: kinds.get(n, "call") for n, t in name_to_id.items()
                                  if t in refs}
+            branches = branch_labels.call_branches(node["blocks"])
+            node["ref_branches"] = {t: branches[n] for n, t in name_to_id.items()
+                                    if t in refs and n in branches}
             node["data_uses"] = []
         live = [n for n in nodes_model.sorted_function_nodes(tab.get("nodes", []))
                 if not n.get("skipped")]

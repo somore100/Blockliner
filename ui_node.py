@@ -65,7 +65,7 @@ def function_name(node):
     return f"build_{slug}"
 
 
-def generate_text(node, pack, resolve_handler=None):
+def generate_text(node, pack, resolve_handler=None, preview=False):
     """(source text | None, problems). None when the tree is damaged or
     doesn't belong to `pack`."""
     tree = load_tree(node, pack)
@@ -76,7 +76,7 @@ def generate_text(node, pack, resolve_handler=None):
     if tree.read_only:
         return None, ["this UI was made by a newer Blockliner"]
     result = ui_gen.generate(tree, pack, handler_name=resolve_handler, function_name=function_name(node))
-    return ui_gen.render(result), result["problems"]
+    return ui_gen.render(result, preview=preview), result["problems"]
 
 
 def preview_source(node, pack, resolve_handler=None):
@@ -93,7 +93,7 @@ def preview_source(node, pack, resolve_handler=None):
         if name and name not in handlers:
             handlers.append(name)
         return name
-    text, problems = generate_text(node, pack, record)
+    text, problems = generate_text(node, pack, record, preview=True)
     if text is None:
         return None, problems
     stubs = "".join(f"def {n}(*args, **kwargs):\n    print({n + ' called'!r})\n\n\n" for n in handlers)

@@ -154,13 +154,18 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     for line in list(pack.imports) + list(pack.header):
         if line not in imports:
             imports.append(line)
+    call = [fill(fn["call"], ui_vals)]
+    run = [fill(pack.run, ui_vals)] if pack.run else []
+    root_def = pack.widget(tree.root["type"])
+    standalone = bool(root_def and root_def.get("no_run"))     # e.g. a popup: another window opens it
     return {"imports": imports, "function": function,
-            "call": [fill(fn["call"], ui_vals)],
-            "run": [fill(pack.run, ui_vals)] if pack.run else [],
-            "problems": problems}
+            "call": [] if standalone else call, "run": [] if standalone else run,
+            "preview_tail": call + run, "problems": problems}
 
 
-def render(result, include_run=True):
-    """The result as one block of source text."""
-    sections = [result["imports"], result["function"], result["call"] + (result["run"] if include_run else [])]
+def render(result, include_run=True, preview=False):
+    """The result as one block of source text. `preview` always ends with the
+    call and run lines, even for a popup that normally has none."""
+    tail = result["preview_tail"] if preview else result["call"] + (result["run"] if include_run else [])
+    sections = [result["imports"], result["function"], tail]
     return "\n\n".join("\n".join(s) for s in sections if s) + "\n"

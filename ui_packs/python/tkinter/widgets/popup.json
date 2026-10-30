@@ -1,0 +1,34 @@
+{
+  "type": "popup",
+  "label": "Popup window",
+  "category": "Window",
+  "icon": "🗗",
+  "container": true,
+  "default_size": [
+    400,
+    300
+  ],
+  "props": [
+    {
+      "key": "title",
+      "label": "Title",
+      "kind": "string",
+      "default": "Popup",
+      "inline": true
+    },
+    {
+      "key": "geometry",
+      "label": "Size",
+      "kind": "string",
+      "default": "400x300",
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = tk.Toplevel()",
+    "{name}.title({title!r})",
+    "{name}.geometry({geometry!r})"
+  ],
+  "no_run": true
+}

@@ -39,3 +39,5 @@ Collected from testing; none of this is started.
 - Leave Feedback (Help menu): `feedback.py` (pure, reusable), `feedback_window.py` (Tk, reusable), relay in docs/feedback-relay/ (needs deploying, then put the URL in feedback_config.json). Without a relay it opens the user's email app. System specs only on request, shown before sending.
 - Zoom around (pointer / centre), Ctrl+A select all, Paste Code as Nodes, Clean Project with undo window (clean_undo.py).
 - Not built yet: popup windows and "open window" button event in the UI designer.
+
+- Popup windows: a UI node with a Popup root (Toplevel); a button's On click can pick "Open window: <node>". No wire is drawn between them yet (the call is build_<name>).

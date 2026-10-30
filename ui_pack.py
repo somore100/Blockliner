@@ -222,6 +222,7 @@ def clean_widget(raw, where, notes):
             "category": raw["category"] if isinstance(raw.get("category"), str) else "Other",
             "icon": raw["icon"] if isinstance(raw.get("icon"), str) else "",
             "container": bool(raw.get("container")),
+            "no_run": bool(raw.get("no_run")),
             "default_size": size,
             "props": props, "events": events,
             "code": lines if raw_code is None else None,

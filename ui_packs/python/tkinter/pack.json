@@ -11,7 +11,8 @@
   ],
   "header": [],
   "root_types": [
-    "window"
+    "window",
+    "popup"
   ],
   "run": "{ui}.{root}.mainloop()",
   "preview": "native",
@@ -95,6 +96,7 @@
   },
   "order": [
     "window",
+    "popup",
     "frame",
     "label",
     "button",

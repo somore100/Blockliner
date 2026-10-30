@@ -21,6 +21,7 @@ from ui_common import BLOCK_BG, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK
 
 NONE_LABEL = "(none)"
 NEW_LABEL = "+ New function…"
+OPEN_WINDOW = "Open window: "
 TOOLBAR_ONE_ROW = 800        # narrower than this, the device buttons get a row of their own
 PAPER_MARGIN = 14
 PALETTE_WIDTH = 170
@@ -696,8 +697,9 @@ class DesignerMixin:
     def _dz_function_names(self, ui_node_dict):
         """[(name, id)] of the function nodes an event can call."""
         tab = self.tabs[self.active_tab_index]
-        return [(n["name"], n["id"]) for n, _p in self.iter_tab_nodes(tab)
-                if n.get("kind", "function") == "function" and n is not ui_node_dict and not ui_node.is_ui_node(n)]
+        return [(OPEN_WINDOW + n["name"] if ui_node.is_ui_node(n) else n["name"], n["id"])
+                for n, _p in self.iter_tab_nodes(tab)
+                if n.get("kind", "function") == "function" and n is not ui_node_dict]
 
     def _dz_event_row(self, parent, wid, widget, ev, names):
         target = widget["events"].get(ev["key"])
@@ -874,8 +876,8 @@ class DesignerMixin:
             return
         pack = self.ui_pack_for(tab["language"])
         resolve = self._ui_handler_resolver(tab)
-        names = {n["name"]: n["id"] for n, _p in self.iter_tab_nodes(tab)
-                 if n.get("kind", "function") == "function" and n is not node}
+        names = {(ui_node.function_name(n) if ui_node.is_ui_node(n) else n["name"]): n["id"]
+                 for n, _p in self.iter_tab_nodes(tab) if n.get("kind", "function") == "function" and n is not node}
         text = self._dz_code_text(tab, node)
         tree, problems = (None, ["the node has blocks other than one code block"])
         if text is not None and pack is not None:

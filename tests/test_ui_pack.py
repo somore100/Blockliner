@@ -34,7 +34,7 @@ def main():
     # ---- the shipped tkinter pack
     pack, notes = ui_pack.load_pack(os.path.join(ROOT, "python", "tkinter"))
     check("tkinter pack loads with no notes", pack is not None and notes == [])
-    check("tkinter pack has the nine v1 widgets", set(pack.widgets) == {"window", "frame", "label", "button", "checkbutton", "entry", "text", "combobox", "listbox"})
+    check("tkinter pack has the ten widgets", set(pack.widgets) == {"window", "popup", "frame", "label", "button", "checkbutton", "entry", "text", "combobox", "listbox"})
     check("palette follows 'order' and leaves out the window", [c for c, _ in pack.palette()][0] == "Containers" and all(w["type"] != "window" for _c, ws in pack.palette() for w in ws))
     check("containers", pack.is_container("window") and pack.is_container("frame") and not pack.is_container("button") and not pack.is_container("nope"))
     check("defaults only include props that have one", pack.defaults("button") == {"text": "Button", "state": "normal"})

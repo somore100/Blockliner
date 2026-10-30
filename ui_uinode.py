@@ -28,7 +28,7 @@ class UINodeMixin:
             node = find_node_by_id(tab["nodes"], target_id)
             if node is None or node.get("kind", "function") != "function":
                 return None
-            return node["name"]
+            return ui_node.function_name(node) if ui_node.is_ui_node(node) else node["name"]
         return resolve
 
     def regenerate_ui_nodes(self):
@@ -61,14 +61,15 @@ class UINodeMixin:
             if ui_node.regenerate(node, pack, raw_id, raw_param, resolve) is not None:
                 last[key] = [(b, dict(p)) for b, p in node["blocks"]]
 
-    def new_ui_node(self, tab, name):
-        """A UI node with an empty window, or None (with a message) when the
-        tab's language has no UI pack."""
+    def new_ui_node(self, tab, name, popup=False):
+        """A UI node with an empty window (a popup window when `popup`), or
+        None (with a message) when the tab's language has no UI pack."""
         pack = self.ui_pack_for(tab["language"])
         if pack is None:
             messagebox.showinfo("UI builder", f"There is no UI pack for {tab['language']} yet.")
             return None
-        root_type = pack.root_types[0]
+        root_type = next((t for t in pack.root_types if pack.widget(t).get("no_run")), pack.root_types[0]) \
+            if popup else pack.root_types[0]
         tree = UITree.new(pack.id, root_type=root_type, root_name="root", props=pack.defaults(root_type),
                           is_container=pack.is_container)
         return ui_node.make_ui_node(name, str(uuid.uuid4())[:8], tree, order=next_order(tab["nodes"]))

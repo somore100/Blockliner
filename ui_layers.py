@@ -445,7 +445,7 @@ class LayersMixin:
 
     STARTER_NODES = (("function", "Empty function"), ("class", "Class"),
                      ("category", "Category"), ("raw", "Raw code"),
-                     ("ui", "UI window"))
+                     ("ui", "UI window"), ("ui_popup", "UI popup window"))
 
     def create_starter_node(self, key, pos, wire_from=None):
         """Create a ready-made node at pos on the Nodes layer without a
@@ -455,8 +455,8 @@ class LayersMixin:
         target_list = self.get_current_node_list(tab) if self.view_mode == "file" else tab["nodes"]
         n = len(target_list) + 1
         normalize_orders(tab["nodes"])
-        if key == "ui":
-            node = self.new_ui_node(tab, f"UI {n}")
+        if key in ("ui", "ui_popup"):
+            node = self.new_ui_node(tab, f"UI {n}", popup=key == "ui_popup")
             if node is None:
                 return None
             wire_from = None

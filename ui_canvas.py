@@ -955,6 +955,7 @@ class CanvasMixin:
         Called after every file-view refresh and on every drag motion,
         so wires always track the boxes they connect live."""
         self.workspace_canvas.delete("wire")
+        self._wire_kinds_seen = set()
         tab = self.tabs[self.active_tab_index]
         nodes_shown = self.get_current_node_list(tab)
         shown_ids = {n["id"] for n in nodes_shown}
@@ -973,6 +974,37 @@ class CanvasMixin:
                     self._draw_one_wire(use["id"], node["id"], data_vars=use["vars"])
         for edge in wire_rollup.rolled_edges(nodes_shown):
             self._draw_rolled_wire(edge)
+        self._update_wire_legend()
+
+    def _note_wire_kind(self, kind):
+        if not hasattr(self, "_wire_kinds_seen"):
+            self._wire_kinds_seen = set()
+        self._wire_kinds_seen.add(kind)
+
+    def _update_wire_legend(self):
+        """Small key in the bottom-right corner of the canvas: one line sample
+        per wire kind drawn right now (solid / dashed / dotted + what it
+        means). A dot marks the end the wire points to. Hidden when no wires."""
+        entries = wire_kinds.legend_entries(getattr(self, "_wire_kinds_seen", ()))
+        legend = getattr(self, "_wire_legend", None)
+        if legend is not None:
+            legend.destroy()
+            self._wire_legend = None
+        if not entries or getattr(self, "_workspace_locked", False):
+            return
+        legend = tk.Frame(self.workspace_canvas, bg=DARK_BG, highlightthickness=1,
+                          highlightbackground=DARK_BORDER)
+        for kind, label, st in entries:
+            row = tk.Frame(legend, bg=DARK_BG)
+            row.pack(anchor="w", padx=6, pady=1)
+            sample = tk.Canvas(row, width=34, height=10, bg=DARK_BG, highlightthickness=0)
+            sample.create_line(1, 5, 27, 5, fill=st["color"], width=st["width"], dash=st["dash"])
+            sample.create_oval(26, 2, 32, 8, fill=st["color"], outline="")
+            sample.pack(side="left")
+            tk.Label(row, text=label, bg=DARK_BG, fg=DARK_FG,
+                     font=("TkDefaultFont", 8)).pack(side="left", padx=(4, 0))
+        legend.place(relx=1.0, rely=1.0, x=-8, y=-8, anchor="se")
+        self._wire_legend = legend
 
     def draw_wires_for(self, node_id):
         """Redraw only the wires touching `node_id` (drag-motion fast path).
@@ -1043,6 +1075,7 @@ class CanvasMixin:
         y1 = dst_node["canvas_y"] * z + dh / 2 + shift
         pull = max(abs(x1 - x0) * 0.5, 40)
         st = wire_kinds.style_for(edge["kind"])
+        self._note_wire_kind(edge["kind"])
         tag = self._rolled_tag(edge)
         color = st["color"]
         self.workspace_canvas.create_line(
@@ -1096,6 +1129,8 @@ class CanvasMixin:
         p2 = (x1 - pull, y1)
         p3 = (x1, y1)
 
+        self._note_wire_kind("data" if data_vars is not None else
+                             (src_node.get("ref_kinds") or {}).get(target_id, "call"))
         if data_vars is not None:
             tag = f"dwire_{source_id}_{target_id}"
             st = wire_kinds.style_for("data")

@@ -2,6 +2,7 @@
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import wire_rollup as wr
+import wire_kinds as wk
 
 FAILURES = []
 def check(label, cond):
@@ -37,6 +38,10 @@ def main():
     check("nested categories roll up to the outermost shown box", [(x["src"], x["dst"]) for x in e] == [("a", "c")])
     check("self reference inside a box ignored", wr.rolled_edges([n("c", kids=[n("x", refs=["x"])])]) == [])
     check("empty / missing fields are fine", wr.rolled_edges([{"id": "q"}]) == [] and wr.rolled_edges([]) == [])
+    ent = wk.legend_entries({"data", "call", "bogus"})
+    check("legend: only known kinds present, in KINDS order", [e[0] for e in ent] == ["call", "data"])
+    check("legend: each entry has a label and the kind's style", all(e[1] and e[2] == wk.STYLES[e[0]] for e in ent))
+    check("legend: nothing drawn, no entries", wk.legend_entries([]) == [] and wk.legend_entries(None) == [])
     print("\nFAILURES:" if FAILURES else "\nALL OK", FAILURES or "")
     sys.exit(1 if FAILURES else 0)
 

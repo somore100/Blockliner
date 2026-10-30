@@ -347,8 +347,10 @@ class DesignerMixin:
             canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#e1e1e1", outline="#9a9a9a")
             canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=text or "Button", fill=fg, font=font)
         elif kind == "checkbutton":
+            if bg:
+                canvas.create_rectangle(x0, y0, x1, y1, fill=bg, outline="")
             canvas.create_rectangle(x0, (y0 + y1) / 2 - 6, x0 + 12, (y0 + y1) / 2 + 6, fill="#ffffff", outline="#777777")
-            canvas.create_text(x0 + 18, (y0 + y1) / 2, text=text or "Check", anchor="w", fill=PAPER_FG, font=("Segoe UI", 9))
+            canvas.create_text(x0 + 18, (y0 + y1) / 2, text=text or "Check", anchor="w", fill=fg, font=font)
         elif kind == "frame":
             canvas.create_rectangle(x0, y0, x1, y1, fill="", outline="#b5b5b5", dash=(3, 3))
         else:                                    # entry, text, listbox, combobox and unknown types

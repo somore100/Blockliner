@@ -23,3 +23,13 @@ Collected from testing; none of this is started.
 
 ## Settings
 - Reorganize the Settings dialog into categories (it is one long list now). The Languages row (add / delete / rescan, moved out of the code panel 2026-10-29) belongs in a "Languages" category.
+
+## Done 2026-10-30 (untested in app)
+- Wire legend: small key bottom-right of the canvas (call / data / import samples for the kinds drawn now). `wire_kinds.legend_entries`, `_update_wire_legend` in ui_canvas.py.
+- Checkbutton is `tk.Checkbutton` with font / text colour / background props (the ttk one can't take them).
+- Architecture audit: the core has no Tkinter imports. Only `panels.py` (the PanedWindow manager, a UI helper) imports tkinter outside `ui*.py`. `ui_node`, `ui_tree`, `ui_gen`, `ui_parse`, `ui_pack`, `ui_paper`, `ui_designer_model` are pure despite the prefix. `portable`, `project_file`, `node_templates` import `ui_node` / `ui_tree` (pure). Nothing to move before a JSON interface.
+- Branch outputs: design options written in docs/design-branch-outputs.md, waiting for a decision.
+
+## Known gaps
+- UI code detached before 2026-10-29 that uses `ttk.Button` (now `tk.Button`) or `ttk.Checkbutton` is not read back; change those lines by hand.
+- Files-layer wires (cross-file wire creates an import node), group <-> category conversion, editor sync, GDScript / Luau libraries: not started.

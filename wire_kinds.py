@@ -16,7 +16,21 @@ STYLES = {
     "data":   {"color": "#4f8fd6", "dash": (6, 4), "width": 2},
     "import": {"color": "#b57edc", "dash": (2, 5), "width": 2},
 }
-SELECTED_COLOR = "#e8a33d"      # a clicked call wire (any kind keeps its dash)
+LABELS = {
+    "call":   "calls",
+    "data":   "passes data to",
+    "import": "imports",
+}
+
+
+def legend_entries(kinds):
+    """[(kind, label, style)] for the kinds in `kinds`, in KINDS order, for
+    the little legend on the canvas. Unknown kinds are ignored."""
+    present = set(kinds or ())
+    return [(k, LABELS[k], dict(STYLES[k])) for k in KINDS if k in present]
+
+
+SELECTED_COLOR = "#e8a33d"     # a clicked call wire (any kind keeps its dash)
 SELECTED_WIDTH = 3
 
 

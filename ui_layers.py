@@ -732,6 +732,8 @@ class LayersMixin:
             self.after_idle(lambda ws=old_boxes: [w.destroy() for w in ws if w.winfo_exists()])
         self.workspace_canvas.delete("fileview")
         self.workspace_canvas.delete("grid")
+        self._wire_kinds_seen = set()
+        self._update_wire_legend()      # no wires yet: removes the old key
 
         # Tk canvas window items (like the one embedding workspace_frame)
         # always paint on top of drawn items (lines/ovals) regardless of

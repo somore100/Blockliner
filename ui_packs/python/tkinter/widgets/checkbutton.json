@@ -25,6 +25,24 @@
         "disabled"
       ],
       "omit_when": "normal"
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
     }
   ],
   "events": [
@@ -35,5 +53,5 @@
       "code": "{name}.configure(command={handler})"
     }
   ],
-  "code": "{name} = ttk.Checkbutton({parent}{opts})"
+  "code": "{name} = tk.Checkbutton({parent}{opts})"
 }

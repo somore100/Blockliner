@@ -775,6 +775,18 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        line_check_var = tk.BooleanVar(value=bool(self.settings.get("line_check", True)))
+        tk.Checkbutton(
+            cur[0], text="Mark lines in the code panel (known, probable typo, raw code)",
+            variable=line_check_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+        row = add_row("Typo sensitivity (%):")
+        typo_var = tk.StringVar(value=str(int(self.typo_threshold() * 100)))
+        ttk.Spinbox(row, from_=50, to=95, increment=5, textvariable=typo_var, width=8).pack(side=tk.LEFT)
+        add_help("How close a name must be to a known one before it is called a typo. Higher = fewer, surer warnings.")
+
         section("Shortcuts")
         # --- Layer shortcuts ---
         tk.Label(
@@ -889,6 +901,12 @@ class PaletteMixin:
             self.settings["zoom_speed"] = next(
                 (k for k, label, _f in ZOOM_SPEED_CHOICES if label == zoom_var.get()), DEFAULT_ZOOM_SPEED)
             self.settings["clean_undo_seconds"] = clean_undo.undo_seconds({"clean_undo_seconds": undo_var.get()})
+            self.settings["line_check"] = bool(line_check_var.get())
+            try:
+                self.settings["typo_sensitivity"] = max(50, min(95, int(typo_var.get())))
+            except ValueError:
+                pass
+            self.schedule_line_check(0)
             self.settings["zoom_around"] = next(
                 (k for k, label in ZOOM_AROUND_CHOICES if label == around_var.get()), DEFAULT_ZOOM_AROUND)
             self.save_app_settings()

@@ -41,3 +41,5 @@ Collected from testing; none of this is started.
 - Not built yet: popup windows and "open window" button event in the UI designer.
 
 - Popup windows: a UI node with a Popup root (Toplevel); a button's On click can pick "Open window: <node>". No wire is drawn between them yet (the call is build_<name>).
+
+- Free-writing check (code panel): line_check.py (pure) + ui_linecheck.py gutter and bulb; green dot = known, amber bulb = probable typo with fix, grey ring = raw code. Settings > Code panel: on/off and typo sensitivity. Only Python has a full word list; other languages use block words plus a short table. Untested in a real window.

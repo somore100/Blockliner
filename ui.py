@@ -23,6 +23,7 @@ from ui_menus import MenusMixin
 from ui_canvas import CanvasMixin
 from ui_codegen import CodegenMixin
 from ui_codesync import CodeSyncMixin
+from ui_linecheck import LineCheckMixin
 from ui_nodetemplates import NodeTemplatesMixin
 from ui_topbar import TopBarMixin
 from ui_canvasview import CanvasViewMixin
@@ -38,7 +39,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, LineCheckMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -591,6 +592,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.attach_autoclose(self.code_text)
         self.build_code_options_row(code_header, lang_frame)
         self.install_code_sync()
+        self.install_line_check()
         
         # Apply dark theme
         self.apply_theme()

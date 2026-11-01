@@ -452,6 +452,8 @@ class CodegenMixin:
         finally:
             self._code_internal = False
 
+        if hasattr(self, "schedule_line_check"):
+            self.schedule_line_check(50)
         line_count = len([l for l in code.split('\n') if l.strip()])
         self.line_count_label.config(text=f"{line_count} lines")
     

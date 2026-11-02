@@ -1,0 +1,51 @@
+{
+  "name": "math",
+  "import": "import math",
+  "description": "Maths functions",
+  "commands": [
+    {
+      "name": "sqrt",
+      "use": "math.sqrt",
+      "signature": "math.sqrt(x)",
+      "does": "Square root"
+    },
+    {
+      "name": "floor",
+      "use": "math.floor",
+      "signature": "math.floor(x)",
+      "does": "Round down"
+    },
+    {
+      "name": "ceil",
+      "use": "math.ceil",
+      "signature": "math.ceil(x)",
+      "does": "Round up"
+    },
+    {
+      "name": "sin",
+      "use": "math.sin",
+      "signature": "math.sin(x)",
+      "does": "Sine (radians)"
+    },
+    {
+      "name": "cos",
+      "use": "math.cos",
+      "signature": "math.cos(x)",
+      "does": "Cosine (radians)"
+    },
+    {
+      "name": "pi",
+      "use": "math.pi",
+      "signature": "math.pi",
+      "does": "The number pi"
+    },
+    {
+      "name": "pow",
+      "use": "math.pow",
+      "signature": "math.pow(x, y)",
+      "does": "x to the power y"
+    }
+  ],
+  "namespace": "math",
+  "installed_module": "math"
+}

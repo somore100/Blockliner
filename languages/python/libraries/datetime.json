@@ -1,0 +1,15 @@
+{
+  "name": "datetime",
+  "import": "import datetime",
+  "description": "Dates and times",
+  "commands": [
+    {
+      "name": "now",
+      "use": "datetime.datetime.now",
+      "signature": "datetime.datetime.now()",
+      "does": "Current date and time"
+    }
+  ],
+  "namespace": "datetime",
+  "installed_module": "datetime"
+}

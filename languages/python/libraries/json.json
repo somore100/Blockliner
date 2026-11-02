@@ -1,0 +1,21 @@
+{
+  "name": "json",
+  "import": "import json",
+  "description": "Read and write JSON",
+  "commands": [
+    {
+      "name": "dumps",
+      "use": "json.dumps",
+      "signature": "json.dumps(value)",
+      "does": "Value to JSON text"
+    },
+    {
+      "name": "loads",
+      "use": "json.loads",
+      "signature": "json.loads(text)",
+      "does": "JSON text to value"
+    }
+  ],
+  "namespace": "json",
+  "installed_module": "json"
+}

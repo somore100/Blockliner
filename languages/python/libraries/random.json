@@ -1,0 +1,33 @@
+{
+  "name": "random",
+  "import": "import random",
+  "description": "Random numbers and choices",
+  "commands": [
+    {
+      "name": "randint",
+      "use": "random.randint",
+      "signature": "random.randint(a, b)",
+      "does": "Whole number from a to b"
+    },
+    {
+      "name": "choice",
+      "use": "random.choice",
+      "signature": "random.choice(items)",
+      "does": "One random item of a list"
+    },
+    {
+      "name": "random",
+      "use": "random.random",
+      "signature": "random.random()",
+      "does": "Number from 0 to 1"
+    },
+    {
+      "name": "shuffle",
+      "use": "random.shuffle",
+      "signature": "random.shuffle(items)",
+      "does": "Mix a list in place"
+    }
+  ],
+  "namespace": "random",
+  "installed_module": "random"
+}

@@ -1,0 +1,5 @@
+{"presets": [
+  {"name": "App basic", "description": "A small window app", "libraries": ["tkinter", "math", "time"]},
+  {"name": "Game", "description": "Random numbers, timing and maths", "libraries": ["random", "time", "math"]},
+  {"name": "Data and files", "description": "Files, JSON and dates", "libraries": ["os", "json", "datetime"]}
+]}

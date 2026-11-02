@@ -1,0 +1,26 @@
+{
+  "name": "fs",
+  "import": "const fs = require(\"fs\");",
+  "description": "Read and write files (Node.js)",
+  "commands": [
+    {
+      "name": "readFileSync",
+      "use": "fs.readFileSync",
+      "signature": "fs.readFileSync(path, 'utf8')",
+      "does": "Whole file as text"
+    },
+    {
+      "name": "writeFileSync",
+      "use": "fs.writeFileSync",
+      "signature": "fs.writeFileSync(path, text)",
+      "does": "Write text to a file"
+    },
+    {
+      "name": "existsSync",
+      "use": "fs.existsSync",
+      "signature": "fs.existsSync(path)",
+      "does": "Does it exist?"
+    }
+  ],
+  "namespace": "fs"
+}

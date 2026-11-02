@@ -43,3 +43,8 @@ Collected from testing; none of this is started.
 - Popup windows: a UI node with a Popup root (Toplevel); a button's On click can pick "Open window: <node>". No wire is drawn between them yet (the call is build_<name>).
 
 - Free-writing check (code panel): line_check.py (pure) + ui_linecheck.py gutter and bulb; green dot = known, amber bulb = probable typo with fix, grey ring = raw code. Settings > Code panel: on/off and typo sensitivity. Only Python has a full word list; other languages use block words plus a short table. Untested in a real window.
+
+## Libraries, imports and checks (planned, step 1 built)
+- Built: `libraries.py` (pure) + `languages/<lang>/libraries/*.json` + `presets.json`; tests/test_libraries.py. Imports are meant to live per file (top of each exported file); a project-wide manager lists all files.
+- Next: generic "Library call" block + palette-search results (grey = not imported yet, red = not installed, Python only; warning that the click adds the import); manager window with presets; Tidy imports (missing/unused/duplicate); library commands in the typo checker and a "missing import" bulb.
+- Idea (user): language checks per language — memory handling for C/C++ (malloc/free, fopen/fclose pairing; not needed in garbage-collected languages) and bracket/semicolon balance for JavaScript. Data-driven rule files per language, shown with the same gutter markers/bulb. These are heuristics, they can warn, not prove.

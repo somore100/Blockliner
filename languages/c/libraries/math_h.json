@@ -1,0 +1,25 @@
+{
+  "name": "math.h",
+  "import": "#include <math.h>",
+  "description": "Maths functions",
+  "commands": [
+    {
+      "name": "sqrt",
+      "use": "sqrt",
+      "signature": "sqrt(x)",
+      "does": "Square root"
+    },
+    {
+      "name": "pow",
+      "use": "pow",
+      "signature": "pow(x, y)",
+      "does": "x to the power y"
+    },
+    {
+      "name": "floor",
+      "use": "floor",
+      "signature": "floor(x)",
+      "does": "Round down"
+    }
+  ]
+}

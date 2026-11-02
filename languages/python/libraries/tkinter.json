@@ -1,0 +1,27 @@
+{
+  "name": "tkinter",
+  "import": "import tkinter as tk",
+  "description": "Windows and buttons (GUI)",
+  "commands": [
+    {
+      "name": "Tk",
+      "use": "tk.Tk",
+      "signature": "tk.Tk()",
+      "does": "The main window"
+    },
+    {
+      "name": "Label",
+      "use": "tk.Label",
+      "signature": "tk.Label(parent, text=...)",
+      "does": "A line of text"
+    },
+    {
+      "name": "Button",
+      "use": "tk.Button",
+      "signature": "tk.Button(parent, text=...)",
+      "does": "A clickable button"
+    }
+  ],
+  "namespace": "tk",
+  "installed_module": "tkinter"
+}

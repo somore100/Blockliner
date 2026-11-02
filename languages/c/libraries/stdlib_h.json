@@ -1,0 +1,37 @@
+{
+  "name": "stdlib.h",
+  "import": "#include <stdlib.h>",
+  "description": "Memory, conversion, random",
+  "commands": [
+    {
+      "name": "malloc",
+      "use": "malloc",
+      "signature": "malloc(bytes)",
+      "does": "Reserve memory (give it back with free)"
+    },
+    {
+      "name": "free",
+      "use": "free",
+      "signature": "free(pointer)",
+      "does": "Give memory back"
+    },
+    {
+      "name": "rand",
+      "use": "rand",
+      "signature": "rand()",
+      "does": "Random number"
+    },
+    {
+      "name": "atoi",
+      "use": "atoi",
+      "signature": "atoi(text)",
+      "does": "Text to whole number"
+    },
+    {
+      "name": "exit",
+      "use": "exit",
+      "signature": "exit(code)",
+      "does": "Stop the program"
+    }
+  ]
+}

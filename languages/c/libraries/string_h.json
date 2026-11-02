@@ -1,0 +1,25 @@
+{
+  "name": "string.h",
+  "import": "#include <string.h>",
+  "description": "Text handling",
+  "commands": [
+    {
+      "name": "strlen",
+      "use": "strlen",
+      "signature": "strlen(text)",
+      "does": "Length of text"
+    },
+    {
+      "name": "strcpy",
+      "use": "strcpy",
+      "signature": "strcpy(to, from)",
+      "does": "Copy text"
+    },
+    {
+      "name": "strcmp",
+      "use": "strcmp",
+      "signature": "strcmp(a, b)",
+      "does": "Compare text"
+    }
+  ]
+}

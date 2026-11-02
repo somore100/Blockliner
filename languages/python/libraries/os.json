@@ -1,0 +1,27 @@
+{
+  "name": "os",
+  "import": "import os",
+  "description": "Files, folders and the system",
+  "commands": [
+    {
+      "name": "listdir",
+      "use": "os.listdir",
+      "signature": "os.listdir(path)",
+      "does": "Names in a folder"
+    },
+    {
+      "name": "getcwd",
+      "use": "os.getcwd",
+      "signature": "os.getcwd()",
+      "does": "Current folder"
+    },
+    {
+      "name": "remove",
+      "use": "os.remove",
+      "signature": "os.remove(path)",
+      "does": "Delete a file"
+    }
+  ],
+  "namespace": "os",
+  "installed_module": "os"
+}

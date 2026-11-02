@@ -1,0 +1,21 @@
+{
+  "name": "sys",
+  "import": "import sys",
+  "description": "The Python program itself",
+  "commands": [
+    {
+      "name": "exit",
+      "use": "sys.exit",
+      "signature": "sys.exit()",
+      "does": "Stop the program"
+    },
+    {
+      "name": "argv",
+      "use": "sys.argv",
+      "signature": "sys.argv",
+      "does": "Command-line arguments"
+    }
+  ],
+  "namespace": "sys",
+  "installed_module": "sys"
+}

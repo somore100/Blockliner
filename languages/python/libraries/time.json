@@ -1,0 +1,33 @@
+{
+  "name": "time",
+  "import": "import time",
+  "description": "Time and delays",
+  "commands": [
+    {
+      "name": "sleep",
+      "use": "time.sleep",
+      "signature": "time.sleep(seconds)",
+      "does": "Waits for that many seconds"
+    },
+    {
+      "name": "time",
+      "use": "time.time",
+      "signature": "time.time()",
+      "does": "Seconds since 1970 (for timing)"
+    },
+    {
+      "name": "strftime",
+      "use": "time.strftime",
+      "signature": "time.strftime(format)",
+      "does": "Current time as text"
+    },
+    {
+      "name": "perf_counter",
+      "use": "time.perf_counter",
+      "signature": "time.perf_counter()",
+      "does": "Precise stopwatch value"
+    }
+  ],
+  "namespace": "time",
+  "installed_module": "time"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "readline",
+  "import": "const readline = require(\"readline\");",
+  "description": "Read keyboard input (Node.js)",
+  "commands": [
+    {
+      "name": "createInterface",
+      "use": "readline.createInterface",
+      "signature": "readline.createInterface({input: process.stdin})",
+      "does": "Start reading lines"
+    }
+  ],
+  "namespace": "readline"
+}

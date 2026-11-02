@@ -269,6 +269,9 @@ class CodeSyncMixin:
         text += "\nContinue?"
         bar = tk.Frame(self.right_panel, bg=SYNC_BANNER_BG)
         bar.pack(fill=tk.X, padx=10, pady=(6, 0), before=self.code_text)
+        tk.Button(bar, text="\u2715", command=self.hide_sync_banner, bg=SYNC_BANNER_BG, fg="#ffffff",
+                  relief=tk.FLAT, bd=0, cursor="hand2", font=("Segoe UI", 9),
+                  activebackground=SYNC_BANNER_BG, activeforeground="#ffffff").pack(side=tk.RIGHT, anchor="n", padx=4, pady=2)
         tk.Label(bar, text=text, bg=SYNC_BANNER_BG, fg="#ffffff", justify=tk.LEFT,
                  anchor="w", wraplength=380, font=("Segoe UI", 9)).pack(fill=tk.X, padx=8, pady=(6, 4))
         row = tk.Frame(bar, bg=SYNC_BANNER_BG)

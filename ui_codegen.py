@@ -303,7 +303,13 @@ class CodegenMixin:
                 return ""
             if editing:
                 self.confirm_first_code_edit()
-            result = widget.tk.call((orig,) + args)
+            try:
+                result = widget.tk.call((orig,) + args)
+            except tk.TclError:
+                # Tk's own bindings try things like "sel.first" or "edit undo"
+                # inside a catch; an error escaping this Python command would
+                # end the whole program, so it is swallowed here instead.
+                return ""
             if editing:
                 self.on_code_panel_edited(args)
             return result

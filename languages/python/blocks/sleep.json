@@ -1,0 +1,13 @@
+{
+  "display_name": "Sleep",
+  "category": "Basic",
+  "description": "Waits for a number of seconds. Adds its own 'import time' line.",
+  "template": "import time\ntime.sleep([[seconds]])\n",
+  "params": [
+    {
+      "name": "seconds",
+      "type": "expression",
+      "default": "1"
+    }
+  ]
+}

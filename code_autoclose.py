@@ -6,6 +6,8 @@ pair deletes both; typing an opener over a selection wraps it.
 Pure Tk-text logic, no app state: pass enabled=False to do nothing.
 """
 
+import re
+
 PAIRS = {"(": ")", "[": "]", "{": "}", '"': '"', "'": "'"}
 CLOSERS = set(PAIRS.values())
 _CONTROL, _ALT = 0x4, 0x8
@@ -13,6 +15,26 @@ _CONTROL, _ALT = 0x4, 0x8
 
 def _char(w, index):
     return w.get(index, index + "+1c")
+
+
+def string_prefix_before(before):
+    """True when `before` (the line up to the caret) ends in a string prefix
+    such as f, r, b, u (or rb, fr...) that starts a word: f" opens a string."""
+    return re.search(r"(?<![\w])[rRbBfFuU]{1,2}$", before) is not None
+
+
+def inside_string(before, quote):
+    """True when an odd number of unescaped `quote` characters come before the
+    caret on the line, i.e. the caret is inside a string of that kind."""
+    count, i = 0, 0
+    while i < len(before):
+        if before[i] == "\\":
+            i += 2
+            continue
+        if before[i] == quote:
+            count += 1
+        i += 1
+    return count % 2 == 1
 
 
 def _prev(w):
@@ -40,8 +62,11 @@ def on_keypress(w, event, enabled=True):
         return "break"
     if ch in PAIRS:
         prev = _prev(w)
-        if ch in "\"'" and (prev.isalnum() or prev == ch or prev == "\\"):
-            return None                        # don't, it's, '''  ->  plain char
+        if ch in "\"'":
+            before = w.get("insert linestart", "insert")
+            prefix = prev.isalnum() and string_prefix_before(before)      # f"  r'  b"  open a string
+            if (prev.isalnum() and not prefix) or prev == ch or prev == "\\" or inside_string(before, ch):
+                return None                    # don't, it's, ''', the closing quote  ->  plain char
         if ch in "([{" and nxt and not nxt.isspace() and nxt not in CLOSERS:
             return None                        # typing before a word: plain
         at = w.index("insert")

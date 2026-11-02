@@ -1,0 +1,230 @@
+# Extensions: design
+
+Status: proposal, nothing built yet. Decide the open questions at the end, then
+build the first slice (section 9).
+
+## 1. What this is for
+
+Let people add to Blockliner without changing Blockliner itself, the way VS Code
+extensions work: a side panel, a menu entry, an AI assistant that can read and
+add nodes, an MCP server, a folder sync. The same system also carries what
+Blockliner already ships as data (language packs, UI packs, libraries, presets),
+so there is one idea of "an add-on", not two.
+
+Goals
+- An extension can never crash or freeze Blockliner.
+- The user sees, before anything runs, what an extension is allowed to do.
+- Writing an extension needs no Blockliner internals and no particular language.
+- Data-only add-ons keep working exactly as they do now.
+
+Non-goals (for now)
+- A public store or automatic updates.
+- Extensions that draw on the node canvas or change block rendering.
+- Running extension code inside the Blockliner process.
+
+## 2. The three kinds
+
+| Kind | What it is | Runs code? | Example |
+|---|---|---|---|
+| **Data** | JSON files only | No | a language pack, a library file, a preset |
+| **Panel / command** | A program Blockliner starts and talks to | Yes, in its own process | a project statistics panel |
+| **Service** | Panel/command kind that also talks to the network or a model | Yes, in its own process | an AI assistant, an MCP bridge, a folder sync |
+
+Service is not a separate mechanism, only a permission level (section 5): the
+same protocol, with more permissions asked.
+
+## 3. What an extension is on disk
+
+One folder, either shipped in `extensions/` next to the program or installed in
+the user's data folder (`user_data/extensions/<id>/`):
+
+```
+my-extension/
+  extension.json       the manifest (required)
+  icon.png             optional, 32x32
+  ...                  anything the extension needs
+```
+
+### Manifest (`extension.json`)
+
+```json
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "example/stats",
+  "name": "Project statistics",
+  "description": "Counts nodes and blocks.",
+  "author": "Someone",
+  "extension_version": "0.1.0",
+  "icon": "icon.png",
+  "run": {"command": ["python3", "main.py"]},
+  "permissions": ["project.read"],
+  "panel": {"title": "Statistics", "dock": "right", "width": 280},
+  "menus": [{"menu": "Tools", "label": "Recount", "command": "recount"}],
+  "data": {"libraries": "libraries/", "presets": "presets.json"}
+}
+```
+
+Rules
+- `id` is `<author>/<name>`, lowercase letters, digits, `-` and `_`.
+- `run` is absent for a **data** extension. When present, `command` is an argument
+  list (never a shell string) and is run with the extension folder as its
+  working directory.
+- `permissions` lists everything the extension may ask for (section 5). Anything
+  not listed is refused.
+- `panel`, `menus` and `data` are all optional.
+- Unknown keys are ignored; a damaged manifest disables only that extension and
+  shows a note in the manager (the same "warn and skip" rule packs follow).
+
+## 4. How Blockliner talks to an extension
+
+Blockliner starts the extension as a child process and speaks **JSON lines over
+its standard input and output** (one JSON object per line). This is the same
+shape as MCP and language servers, so existing tooling and libraries fit, and
+the extension can be written in any language.
+
+Message shapes (JSON-RPC 2.0 style):
+
+```
+request   {"id": 7, "method": "project.read", "params": {...}}
+response  {"id": 7, "result": {...}}        or   {"id": 7, "error": {"code": "denied", "message": "..."}}
+event     {"event": "project.changed", "params": {...}}     (no id, no answer)
+```
+
+### Blockliner to extension
+
+| Name | When | Notes |
+|---|---|---|
+| `hello` | right after start | tells the extension the protocol version and which permissions were granted |
+| `panel.open` / `panel.close` | the user opens or closes its panel | |
+| `command` | a menu entry or button was used | `params.command` is the manifest's command name |
+| `project.changed` | the project changed | only if it has `project.read`; coalesced, at most a few per second |
+| `shutdown` | Blockliner is closing or the extension was turned off | it has 2 seconds, then it is stopped |
+
+### Extension to Blockliner
+
+| Name | Needs permission | What it does |
+|---|---|---|
+| `panel.set` | `ui.panel` | replace the panel's content (section 6) |
+| `notify` | `ui.notify` | show a short message |
+| `project.read` | `project.read` | nodes, blocks, imports of the open file (a copy; never the live objects) |
+| `project.edit` | `project.write` | a list of edits (add node, add block, set code); Blockliner applies them as one undoable step and shows a summary |
+| `files.read` / `files.write` | `files.read` / `files.write` | only inside folders the user picked for this extension |
+| `settings.get` / `settings.set` | none | the extension's own settings (never the app's) |
+| `secrets.get` / `secrets.set` | none | the extension's own secrets, see section 7 |
+
+Network access and starting other programs are not part of the protocol. They are
+declared (`net`, `exec`) so the user knows, and Blockliner does not enforce them
+(see "What this does not protect against", section 8).
+
+### Lifecycle
+
+- Started when enabled (at launch) or on first use if the manifest says
+  `"start": "lazy"`.
+- If it exits or stops answering, Blockliner marks it as failed, keeps the app
+  running, shows a note in the manager, and restarts it at most 3 times, then
+  leaves it off until the user turns it on again.
+- Requests have a timeout (default 10 seconds) so a stuck extension can't block
+  the interface; all talking runs off the UI thread.
+- Extension output on its error stream goes to a per-extension log the manager
+  can open.
+
+## 5. Permissions
+
+Shown in the manager and asked once, when the extension is first enabled. The
+user can revoke any of them later.
+
+| Permission | Meaning |
+|---|---|
+| `ui.panel` | show a side panel and an icon |
+| `ui.menu` | add menu entries |
+| `ui.notify` | show messages |
+| `project.read` | read the open project (nodes, blocks, imports, language) |
+| `project.write` | change the open project (each change is one undoable step) |
+| `files.read`, `files.write` | read or write inside folders the user picked for it |
+| `net` | talks to the network (declared; see section 8) |
+| `exec` | starts other programs (declared; see section 8) |
+
+A **data** extension has no permissions and is never asked about anything.
+
+## 6. Panels and icons
+
+- Each extension with a `panel` gets **one icon** in the existing `plugin_bar`
+  (top right of the top bar, reserved and empty today). Click it to show or hide
+  its panel.
+- The panel is a tile in the existing `PanelManager` (it already supports a
+  `right` dock, widths and sashes), so it resizes and hides like the code panel.
+- The extension does not receive a Tk widget. It describes its panel as a small
+  tree of widgets and Blockliner draws it (the same idea as the UI builder's
+  widget tree): `label`, `text`, `button`, `list`, `input`, `checkbox`, `row`,
+  `column`. Events from them (a button click, an input committed) come back as
+  `command` messages.
+- Why a description and not real widgets: it works from any language, it can't
+  block the UI thread, and the look always matches the app. If it turns out too
+  limited, a later version can add a `webview` widget.
+
+## 7. Settings and secrets (API keys)
+
+- Each extension has its own settings file, `user_data/extensions/<id>/settings.json`.
+- **API keys never go in the project and never in the extension's folder.** They
+  are stored with `secrets.set` in `user_data/extensions/<id>/secrets.json`,
+  readable only by the user (file mode 600), and excluded from project saves,
+  exports and the feedback report. Where the system provides a keyring, the
+  secret is stored there instead.
+- The manager shows that a secret exists, never its value.
+
+## 8. What this does not protect against
+
+Running an extension as a separate process stops it from crashing Blockliner or
+reaching into its objects. It does **not** stop it from doing things on the
+computer, since it is an ordinary program running as the user. `net` and `exec`
+are therefore warnings, not locks. So:
+
+- Only install extensions you trust, like any program. The manager says so.
+- `project.write` and `files.write` are enforced (an extension can only change
+  the project or those folders through Blockliner), but only for what goes
+  through the protocol.
+- A later version can run extensions in a sandbox (Flatpak/bubblewrap on Linux)
+  where the platform allows it.
+
+## 9. How the existing pieces fit
+
+- **Data add-ons:** language packs, UI packs, libraries and presets keep their
+  folders. An extension's `data` block adds more folders to the search path.
+  The manager lists them all and can disable one.
+- **MCP:** an MCP server is an extension with `run`, speaking MCP instead of the
+  Blockliner protocol; a small bridge extension (later) translates. Blockliner
+  itself being an MCP *server* (so other tools can drive it) is a separate
+  feature that reuses `project.read` / `project.edit`.
+- **AI assistant:** an extension with `ui.panel`, `project.read`, `project.write`,
+  `net` and its own secret. It reads the project through the protocol, calls a
+  model API, and applies changes as one undoable edit the user can review.
+- **Folder sync:** a built-in Blockliner feature, not an extension. It touches
+  saving and the portable node markers, which extensions should not.
+
+## 10. Build order
+
+1. **First slice**: the manager window (Tools > Extensions...), the manifest
+   reader with warn-and-skip, enable/disable stored in settings, the icon strip,
+   and a built-in demo panel ("Project statistics") that proves the loop end to end.
+2. The child-process runner: start, `hello`, `shutdown`, the timeouts, restart
+   limit, logs. Tested with a small fake extension (no Tk needed).
+3. `project.read` and the `project.changed` event.
+4. `project.write` with one undoable step per request.
+5. Secrets and settings; the permission prompt.
+6. An example AI-assistant extension (outside the main repository).
+
+Steps 2 to 5 are pure logic except the panel drawing, so they get tests like the
+other pure modules.
+
+## 11. Open questions
+
+1. **Panel content**: is the widget description (section 6) enough, or do you want
+   real embedded windows from the start? (Recommendation: the description.)
+2. **Where do icons go when there are many?** Recommendation: icons in the top
+   bar up to 6, then an overflow menu.
+3. **Undo**: `project.write` needs a project-wide undo, which Blockliner does not
+   have yet (only the Clean Project undo). Recommendation: build a small
+   snapshot undo first (also fixes Ctrl+Z in the code panel).
+4. **Trust**: is "installed by the user, with a permission list" enough, or should
+   there be a signed-extension option later?

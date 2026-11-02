@@ -135,6 +135,10 @@ class CodegenMixin:
         if all_blocks is None:
             all_blocks = self.project_blocks if getattr(self, "tabs", None) and tab is self.tabs[self.active_tab_index] else []
 
+        import_lines = self.import_head_lines(tab, lang) if tab is not None and hasattr(self, "import_head_lines") else []
+        if import_lines:
+            code += "\n".join(import_lines) + "\n\n"
+
         if lang == "cpp":
             has_iostream = any(
                 get_block_attr(self.blocks.get(bid), "block_id") == "include_cpp"

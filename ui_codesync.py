@@ -157,9 +157,10 @@ class CodeSyncMixin:
     def _free_writing_plan(self, tab, lang, text):
         """Code typed into an empty project (no blocks yet, so no markers):
         it becomes the blocks of the active node. None when this doesn't apply."""
-        if portable.NODE_MARKER_RE.search(text) or self.generate_code_for_tab(tab, lang).strip():
+        if portable.NODE_MARKER_RE.search(text) or any(n.get("blocks") for n in function_nodes_in_tree_order(tab["nodes"])):
             return None
-        typed = "\n".join(ln for ln in text.split("\n") if ln.strip() not in self.PLACEHOLDER_LINES)
+        skip = set(self.PLACEHOLDER_LINES) | set(self.import_head_lines(tab, lang))
+        typed = "\n".join(ln for ln in text.split("\n") if ln.strip() not in skip)
         if not typed.strip() or self.get_raw_code_block_id(lang) is None:
             return None
         node = self.get_active_node(tab)

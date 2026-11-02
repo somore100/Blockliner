@@ -160,6 +160,8 @@ def build_workspace_data(files, active_index, groups=None):
         d.pop("format", None)
         d.pop("version", None)
         d["title"] = f.get("title")
+        if f.get("imports"):
+            d["imports"] = [n for n in f["imports"] if isinstance(n, str)][:200]
         for key in ("canvas_x", "canvas_y"):
             if isinstance(f.get(key), (int, float)) and not isinstance(f.get(key), bool):
                 d[key] = f[key]
@@ -191,6 +193,8 @@ def parse_workspace_data(data, known_languages, fallback_language="python"):
             for key in ("canvas_x", "canvas_y"):
                 if isinstance(raw.get(key), (int, float)) and not isinstance(raw.get(key), bool):
                     f[key] = raw[key]
+            if isinstance(raw.get("imports"), list):
+                f["imports"] = [n for n in raw["imports"] if isinstance(n, str)][:200]
             fg = groups_model.normalize_groups(raw.get("groups"), notes)
             if fg:
                 f["groups"] = fg

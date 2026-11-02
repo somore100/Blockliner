@@ -54,6 +54,15 @@ def main():
     c, _n = L.load_libraries(os.path.join(root, "c", "libraries"))
     check("C functions count as use without a namespace", L.tidy_report(c, ["int *p = malloc(4);", "free(p);"])["missing"] == ["stdlib.h"])
     check("C unused is never guessed", L.tidy_report(c, ["#include <math.h>", "int x = 1;"])["unused"] == [])
+    import project_file as pf
+    from nodes_model import make_node
+    f = {"title": "a", "language": "python", "nodes": [make_node("main", node_id="main")], "active_node_id": "main", "imports": ["time", "math"]}
+    data = pf.build_workspace_data([f, dict(f, imports=[])], 0)
+    check("imports are saved per file (none saved when empty)", data["files"][0]["imports"] == ["time", "math"] and "imports" not in data["files"][1])
+    back, _i, _n = pf.parse_workspace_data(json.loads(json.dumps(data)), {"python"})
+    check("imports load back per file", back[0]["imports"] == ["time", "math"] and "imports" not in back[1])
+    bad = json.loads(json.dumps(data)); bad["files"][0]["imports"] = ["time", 5, None]
+    check("junk in saved imports is dropped", pf.parse_workspace_data(bad, {"python"})[0][0]["imports"] == ["time"])
     print("\nFAILURES:" if FAILURES else "\nALL OK", FAILURES or "")
     sys.exit(1 if FAILURES else 0)
 

@@ -189,6 +189,7 @@ class PaletteMixin:
             widget.destroy()
         
         search_term = self.search_var.get().lower()
+        self.palette_library_section(search_term)
         
         if not self.blocks_by_category:
             tk.Label(

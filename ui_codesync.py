@@ -102,12 +102,15 @@ class CodeSyncMixin:
         tab = self.tabs[self.active_tab_index] if getattr(self, "tabs", None) else None
         if tab is None:
             return {"status": "nomarkers"}
+        text = self.code_text.get("1.0", "end-1c")
+        lang = tab["language"]
+        free = self._free_writing_plan(tab, lang, text)
+        if free is not None:
+            return free
         if not self.show_markers_setting():
             return {"status": "hidden"}
-        text = self.code_text.get("1.0", "end-1c")
         if not portable.NODE_MARKER_RE.search(text):
             return {"status": "nomarkers"}
-        lang = tab["language"]
         panel = self._chunks_by_id(text, lang)
         old_text = self.generate_portable_for_tab(tab, lang, embed_meta=False)
         old = self._chunks_by_id(old_text, lang)
@@ -148,6 +151,29 @@ class CodeSyncMixin:
                                 node.get("name") or node_id, tag,
                                 code_sync.line_of_block(old_sigs, i1), old_sigs[i1:i2], new_sigs[j1:j2])})
         return plan
+
+    PLACEHOLDER_LINES = ("# No code generated yet", "# Add blocks from the palette!")
+
+    def _free_writing_plan(self, tab, lang, text):
+        """Code typed into an empty project (no blocks yet, so no markers):
+        it becomes the blocks of the active node. None when this doesn't apply."""
+        if portable.NODE_MARKER_RE.search(text) or self.generate_code_for_tab(tab, lang).strip():
+            return None
+        typed = "\n".join(ln for ln in text.split("\n") if ln.strip() not in self.PLACEHOLDER_LINES)
+        if not typed.strip() or self.get_raw_code_block_id(lang) is None:
+            return None
+        node = self.get_active_node(tab)
+        if node is None or node.get("kind", "function") != "function":
+            node = next(iter(function_nodes_in_tree_order(tab["nodes"])), None)
+        if node is None:
+            return None
+        with self._language_scope(lang):
+            new_blocks = self.import_code_to_blocks(typed)[0]
+        old_blocks = node.get("blocks", [])
+        old_sigs, new_sigs = self._block_sigs(lang, old_blocks), self._block_sigs(lang, new_blocks)
+        entry = {"node": node, "old": old_blocks, "new": new_blocks, "ops": code_sync.diff_blocks(old_sigs, new_sigs)}
+        return {"status": "ok", "tab": tab, "lang": lang, "nodes": [entry], "adds": [], "hunks": [],
+                "missing": [], "frozen": []}
 
     # --- running ---------------------------------------------------------
 

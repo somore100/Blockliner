@@ -142,8 +142,8 @@ class LineCheckMixin:
 
         if check.state == line_check.TYPO:
             for name, score in check.suggestions:
-                button(f'Fix: change "{check.word}" to "{name}"  ({round(score * 100)}%)',
-                       lambda n=name: self._lc_apply_fix(number, check, n, win))
+                label = f'Fix: remove "{check.word}"' if name == "" else f'Fix: change "{check.word}" to "{name}"'
+                button(f"{label}  ({round(score * 100)}%)", lambda n=name: self._lc_apply_fix(number, check, n, win))
             button(f'Keep "{check.word}" as it is', lambda: self._lc_keep_word(check.word, win))
         button("Close", win.destroy)
         win.bind("<Escape>", lambda _e: win.destroy())
@@ -158,7 +158,8 @@ class LineCheckMixin:
             self.schedule_line_check(0)
             return
         self.code_text.delete(f"{number}.{check.start}", f"{number}.{check.end}")
-        self.code_text.insert(f"{number}.{check.start}", replacement)
+        if replacement:
+            self.code_text.insert(f"{number}.{check.start}", replacement)
         win.destroy()
         self.schedule_line_check(0)
 

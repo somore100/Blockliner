@@ -43,6 +43,11 @@ def main():
     check("imports define names", {"np", "path", "os"} <= lc.defined_names(["import numpy as np", "from os import path", "import os.path"]))
     check("words from a pattern skip params and syntax", lc.words_from_pattern(r"^print\((?P<value>.*?)\)$") == {"print"}
           and lc.words_from_pattern(r"^(?P<name>[A-Za-z_]\w*)\.append\((?P<v>.*?)\)$") == {"append"})
+    semi = lc.analyse_line('print("hi");', matchers, vocab)
+    check("a stray ; that blocks a fit is offered as a fix", semi.state == lc.TYPO and semi.word == ";"
+          and lc.apply_fix('print("hi");', semi, "") == 'print("hi")' and "Remove" in lc.describe(semi))
+    nomatch = lc.analyse_line("print 'a' 'b'", [], vocab)
+    check("a known head word that doesn't fit says so", nomatch.state == lc.UNVERIFIED and '"print"' in nomatch.message)
     d = lc.describe(c)
     check("bulb text says what is wrong and the fix", '"pritn"' in d and '"print"' in d and "%" in d)
     check("unverified text explains raw code", "raw code" in lc.describe(one("requests.get(url)")))

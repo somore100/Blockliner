@@ -205,7 +205,28 @@ def analyse_line(line, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD)
         return best
     if any(m.match(text) for m in matchers) or any(m.match(line.strip()) for m in matchers):
         return Check(KNOWN, 1.0)
+    semi = _stray_semicolon(code, text, matchers)
+    if semi is not None:
+        return Check(TYPO, 0.95, ";", semi, semi + 1,
+                     'The trailing ";" is not needed here, and it stops this line from becoming a block.',
+                     [("", 0.95)])
+    heads = [w for w, _s, _e in _candidates(code) if w in vocab and w not in _JOINERS]
+    if heads and not heads[0] in keyword.kwlist:
+        return Check(UNVERIFIED, 0.0, message=f'It starts with "{heads[0]}", but the rest does not fit a block for it, '
+                                              "so it stays raw code.")
     return Check(UNVERIFIED, 0.0, message="Blockliner has no block for this line, so it stays raw code.")
+
+
+def _stray_semicolon(code, text, matchers):
+    """Position of a trailing ';' when the line fits a block without it (Python
+    and friends where the block does not write one), else None."""
+    bare = text.rstrip()
+    if not bare.endswith(";"):
+        return None
+    without = bare[:-1].rstrip()
+    if any(m.match(without) for m in matchers):
+        return len(code.rstrip()) - 1
+    return None
 
 
 def analyse_text(lines, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD):
@@ -223,6 +244,8 @@ def apply_fix(line, check, replacement):
 
 def describe(check):
     """Text for the bulb: what is wrong and what to do."""
+    if check.state == TYPO and check.suggestions and check.suggestions[0][0] == "":
+        return f'{check.message}\nRemove it? ({round(check.suggestions[0][1] * 100)}% sure)'
     if check.state == TYPO and check.suggestions:
         name, score = check.suggestions[0]
         text = f'{check.message}\nDid you mean "{name}"? ({round(score * 100)}% sure)'

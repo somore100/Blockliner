@@ -35,6 +35,7 @@ class TopBarMixin:
             ]),
             ("Tools", [
                 ("Manage Custom Blocks...", self.manage_custom_blocks_dialog),
+                ("Imports...", self.show_import_manager),
                 ("Settings", self.settings_dialog),
             ]),
             ("Help", [

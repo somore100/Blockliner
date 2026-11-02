@@ -25,6 +25,7 @@ from ui_codegen import CodegenMixin
 from ui_codesync import CodeSyncMixin
 from ui_linecheck import LineCheckMixin
 from ui_libraries import LibrariesMixin
+from ui_importmanager import ImportManagerMixin
 from ui_nodetemplates import NodeTemplatesMixin
 from ui_topbar import TopBarMixin
 from ui_canvasview import CanvasViewMixin
@@ -40,7 +41,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")

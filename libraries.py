@@ -210,3 +210,42 @@ def dedupe_imports(libs, code_lines):
             seen.add(key)
         out.append(ln)
     return out
+
+
+def raw_import_blocks(libs, blocks, raw_id, raw_param):
+    """[(index, library name)] of top-level blocks that are only a library's
+    import line typed by hand (as a Raw Code block)."""
+    by_line = {}
+    for name, lib in libs.items():
+        for line in [lib["import"]] + lib["aliases"]:
+            by_line[_norm(line)] = name
+    found = []
+    for i, (block_id, params) in enumerate(blocks):
+        if block_id == raw_id and isinstance(params, dict):
+            name = by_line.get(_norm(str(params.get(raw_param, ""))))
+            if name:
+                found.append((i, name))
+    return found
+
+
+def used_by(lib, code_lines):
+    """The first command of `lib` found in the code (for 'used by time.sleep'), or ''."""
+    body = "\n".join(code_lines)
+    for c in lib["commands"]:
+        if re.search(rf"(?<![\w.]){re.escape(c['use'])}(?!\w)", body):
+            return c["use"]
+    return lib["namespace"] + "." if lib["namespace"] and re.search(rf"(?<![\w.]){re.escape(lib['namespace'])}\s*\.", body) else ""
+
+
+def save_preset(path, name, library_names):
+    """Add or replace one preset in the user's presets file; True when written."""
+    existing = load_presets(path)
+    kept = [p for p in existing if p["name"] != name]
+    kept.append({"name": name, "description": "", "libraries": list(library_names)})
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"presets": kept}, f, indent=2)
+        return True
+    except OSError:
+        return False

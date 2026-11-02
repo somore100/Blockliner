@@ -54,6 +54,14 @@ def main():
     c, _n = L.load_libraries(os.path.join(root, "c", "libraries"))
     check("C functions count as use without a namespace", L.tidy_report(c, ["int *p = malloc(4);", "free(p);"])["missing"] == ["stdlib.h"])
     check("C unused is never guessed", L.tidy_report(c, ["#include <math.h>", "int x = 1;"])["unused"] == [])
+    blocks = [("raw", {"code": "import time"}), ("print", {"value": "1"}), ("raw", {"code": "x = 1"}), ("raw", {"code": "import   math"})]
+    check("typed import lines are found as raw blocks", L.raw_import_blocks(py, blocks, "raw", "code") == [(0, "time"), (3, "math")])
+    check("used_by names the command in use", L.used_by(py["time"], ["time.sleep(2)"]) == "time.sleep" and L.used_by(py["time"], ["x = 1"]) == "")
+    with tempfile.TemporaryDirectory() as d:
+        pp = os.path.join(d, "sub", "presets.json")
+        check("a preset is saved and read back", L.save_preset(pp, "Mine", ["time"]) and L.load_presets(pp)[0]["libraries"] == ["time"])
+        L.save_preset(pp, "Mine", ["math"]); L.save_preset(pp, "Other", ["os"])
+        check("saving the same name replaces it", sorted((p["name"], p["libraries"][0]) for p in L.load_presets(pp)) == [("Mine", "math"), ("Other", "os")])
     import project_file as pf
     from nodes_model import make_node
     f = {"title": "a", "language": "python", "nodes": [make_node("main", node_id="main")], "active_node_id": "main", "imports": ["time", "math"]}

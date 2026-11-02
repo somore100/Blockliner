@@ -142,8 +142,9 @@ def main():
         app.reattach_ui_node()
         settle(app)
         check("reattached: the designer shows again", app.designer_node() is node)
-        check("reattached: the widget is still there",
-              ui_node.load_tree(node, pack).find(wid) is not None)
+        # reading the code back gives widgets new ids; their names are what carries over
+        check("reattached: the widget is still there (by name)",
+              any(w["name"] == "btn_smoke" for w in widgets(ui_node.load_tree(node, pack))))
 
         # leave the node: the lock goes away
         app.switch_to_file_view()

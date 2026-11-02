@@ -14,6 +14,7 @@ import json
 import groups_model
 import node_ports
 import ui_node
+import doc_types
 from nodes_model import make_node, normalize_orders, default_active_node_id
 
 FORMAT = "blockliner-project"
@@ -99,6 +100,7 @@ def build_project_data(language, nodes, active_node_id):
         return d
     return {
         "format": FORMAT,
+        "type": doc_types.CODEBUILDER,
         "version": VERSION,
         "language": language,
         "active_node_id": active_node_id,
@@ -159,6 +161,7 @@ def build_workspace_data(files, active_index, groups=None):
         d = build_project_data(f.get("language", "python"), f["nodes"], f.get("active_node_id"))
         d.pop("format", None)
         d.pop("version", None)
+        d.pop("type", None)
         d["title"] = f.get("title")
         if f.get("imports"):
             d["imports"] = [n for n in f["imports"] if isinstance(n, str)][:200]
@@ -168,7 +171,8 @@ def build_workspace_data(files, active_index, groups=None):
         if f.get("groups"):
             d["groups"] = groups_model.normalize_groups(f["groups"])
         out.append(d)
-    data = {"format": FORMAT, "version": WORKSPACE_VERSION,
+    data = {"format": FORMAT, "type": doc_types.CODEBUILDER,
+            "version": WORKSPACE_VERSION,
             "active_file": active_index, "files": out}
     if groups:
         data["groups"] = groups_model.normalize_groups(groups)   # Files-layer groups

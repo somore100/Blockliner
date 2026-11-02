@@ -10,6 +10,7 @@ import sys
 from nodes_model import make_node, skipped_names, sorted_function_nodes, strip_skipped_calls
 import portable
 import project_file
+import doc_types
 import code_autoclose
 from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
@@ -602,6 +603,10 @@ class CodegenMixin:
             try:
                 with open(filename, 'r') as f:
                     project_data = json.load(f)
+                problem = doc_types.unsupported_message(project_data)
+                if problem:
+                    messagebox.showerror("Load Error", problem)
+                    return
                 files, active_index, notes = project_file.parse_workspace_data(
                     project_data, PRESET_LANGUAGES, self.current_language)
                 stem = os.path.splitext(os.path.basename(filename))[0]

@@ -2,6 +2,7 @@
 import tkinter as tk
 import os
 import sys
+import app_paths
 
 
 def darken_hex(color, factor=0.75):
@@ -103,46 +104,12 @@ CATEGORY_COLORS = {
     "Custom Blocks": "#ff6b9d"
 }
 
-def get_persistent_data_path():
-    """
-    Where user data actually lives - user_data/, blockliner_saves/, etc.
-    Always next to the real executable/script, NEVER just 'whatever the
-    current working directory happens to be'. Running from source that
-    distinction doesn't matter (CWD is normally the script's own
-    folder anyway), but a built .exe/AppImage can be launched from
-    anywhere (double-clicked from Downloads, a desktop shortcut,
-    wherever) - and worse, PyInstaller's actual working files live in
-    a temporary extraction folder that's deleted when the app closes,
-    so relying on CWD there would risk data vanishing on exit with no
-    warning.
-
-    AppImage needs special handling: it mounts itself as a read-only
-    virtual filesystem before running, so sys.executable points INSIDE
-    that temporary mount, not the real .AppImage file - writing there
-    fails with a read-only-filesystem error. The AppImage runtime sets
-    the APPIMAGE env var to the actual file's real path before
-    launching, so that's checked first. Mirrors the same logic in
-    main.py.
-    """
-    appimage_path = os.environ.get("APPIMAGE")
-    if appimage_path:
-        return os.path.dirname(os.path.abspath(appimage_path))
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(os.path.abspath(sys.executable))
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-_PERSISTENT_DATA_PATH = get_persistent_data_path()
+_PERSISTENT_DATA_PATH = app_paths.data_root()
 CUSTOM_BLOCKS_PATH = os.path.join(_PERSISTENT_DATA_PATH, "user_data", "custom_blocks.json")
 BLOCKLINER_SAVES_PATH = os.path.join(_PERSISTENT_DATA_PATH, "blockliner_saves")
 
 
-def get_bundle_path():
-    """Where files shipped inside the app live (the PyInstaller bundle when
-    frozen, the source folder otherwise)."""
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+get_bundle_path = app_paths.bundle_dir
 
 
 # Node templates: shipped ones (read-only) and the user's own (writable).

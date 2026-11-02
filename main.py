@@ -11,58 +11,14 @@ import os
 import shutil
 import sys
 
+import app_paths
 from ui import start_ui
 from engine.loader import load_all_language_packs, load_master_concepts
 from engine.renderer import with_generate_code
 
 
-def get_bundle_path():
-    """
-    Where the app's bundled default assets live: PyInstaller's
-    temporary extraction directory when running as a built .exe or
-    AppImage (sys._MEIPASS), or this script's own folder when running
-    from source with `python main.py`.
-    """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return sys._MEIPASS
-    return os.path.dirname(os.path.realpath(__file__))
-
-
-def get_persistent_data_path():
-    """
-    Where user data actually lives - languages, custom blocks, saves,
-    settings. Always next to the real executable/script, NEVER inside
-    PyInstaller's bundle extraction folder: that folder is temporary
-    and gets deleted the moment the app closes, which would silently
-    discard anything created while running a built .exe/AppImage
-    (new languages, custom blocks, etc.) with no warning.
-
-    AppImage needs special handling: it mounts itself as a read-only
-    virtual filesystem before running, so sys.executable points INSIDE
-    that temporary mount (e.g. /tmp/.mount_XXXXXX/usr/bin/Blockliner),
-    not the real .AppImage file - writing there fails with a
-    read-only-filesystem error. The AppImage runtime sets the APPIMAGE
-    env var to the actual file's real path before launching, so that's
-    checked first.
-
-    Bug fixed 2026-09: APPIMAGE is only ever trusted when this build is
-    actually frozen/running as an AppImage. It's just an environment
-    variable - if ANY AppImage (this one or a completely unrelated
-    app) was ever launched in a shell, or a terminal was opened from
-    inside one, every child process (including `python3 main.py` run
-    from source, hours later, in an unrelated project) inherits it.
-    Checking it unconditionally meant a stray AppImage from a totally
-    different app could silently hijack where Blockliner looks for its
-    languages/ folder. Guarding on `frozen` first, and requiring the
-    path to actually exist, makes this immune to whatever else the
-    shell happens to have lying around in its environment.
-    """
-    if getattr(sys, "frozen", False):
-        appimage_path = os.environ.get("APPIMAGE")
-        if appimage_path and os.path.isfile(appimage_path):
-            return os.path.dirname(os.path.realpath(appimage_path))
-        return os.path.dirname(os.path.realpath(sys.executable))
-    return os.path.dirname(os.path.realpath(__file__))
+get_bundle_path = app_paths.bundle_dir
+get_persistent_data_path = app_paths.data_root
 
 
 def ensure_languages_available():

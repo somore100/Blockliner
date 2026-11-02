@@ -1,0 +1,14 @@
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "blockliner/copy-code",
+  "name": "Copy code",
+  "description": "Adds a command that copies the generated code of the open file to the clipboard. It has no panel and no icon: it only adds an entry to the ⋯ menu.",
+  "author": "Blockliner",
+  "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
+  "builtin": "copy_code",
+  "permissions": ["ui.menu", "project.read"],
+  "menus": [{"menu": "Tools", "label": "Copy generated code", "command": "copy"}],
+  "enabled_by_default": true
+}

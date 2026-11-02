@@ -1,0 +1,15 @@
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "blockliner/statistics",
+  "name": "Project statistics",
+  "description": "Counts files, nodes, blocks and imports in the open project.",
+  "author": "Blockliner",
+  "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
+  "icon": "📊",
+  "builtin": "statistics",
+  "permissions": ["ui.panel", "project.read"],
+  "panel": {"title": "Statistics", "dock": "right", "width": 260},
+  "enabled_by_default": true
+}

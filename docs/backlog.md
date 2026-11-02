@@ -48,3 +48,7 @@ Collected from testing; none of this is started.
 - Built: `libraries.py` (pure) + `languages/<lang>/libraries/*.json` + `presets.json`; tests/test_libraries.py. Imports are meant to live per file (top of each exported file); a project-wide manager lists all files.
 - Next: generic "Library call" block + palette-search results (grey = not imported yet, red = not installed, Python only; warning that the click adds the import); manager window with presets; Tidy imports (missing/unused/duplicate); library commands in the typo checker and a "missing import" bulb.
 - Idea (user): language checks per language — memory handling for C/C++ (malloc/free, fopen/fclose pairing; not needed in garbage-collected languages) and bracket/semicolon balance for JavaScript. Data-driven rule files per language, shown with the same gutter markers/bulb. These are heuristics, they can warn, not prove.
+
+## Extensions (first slice built, untested in app)
+- Design: docs/design-extensions.md. Built: `extensions.py` (manifest reader, compatibility, enabled/safe start, layout), `extensions_builtin.py` (statistics panel, copy-code command), `extensions/builtin/*`, `ui_extensions.py` (icon strip + "..." menu in the top-right plugin bar, side panel, Tools > Extensions... manager). Tests: tests/test_extensions.py.
+- Not yet: the process runner for outside extensions (they are listed with compatibility but not started), project.read/write, secrets and permission prompt, project snapshot undo, commands in the named menus (only in the "..." menu for now), project-wide imports view.

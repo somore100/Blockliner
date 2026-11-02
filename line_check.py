@@ -16,6 +16,7 @@ import keyword
 import re
 
 KNOWN, TYPO, UNVERIFIED, NONE = "known", "typo", "unverified", "none"
+IMPORT = "import"            # uses a library that this file does not import yet
 
 DEFAULT_THRESHOLD = 0.7      # lowest similarity that still counts as "probably a typo"
 TIE_WINDOW = 0.04            # suggestions this close to the best are offered too
@@ -32,6 +33,7 @@ _DEFS = (re.compile(rf"^\s*(?:async\s+)?def\s+({_IDENT})\s*\((.*?)\)"),
          re.compile(rf"^\s*({_IDENT}(?:\s*,\s*{_IDENT})*)\s*(?:[-+*/%|&^]|//|\*\*)?=(?!=)"),
          re.compile(rf"^\s*for\s+({_IDENT}(?:\s*,\s*{_IDENT})*)\s+in\b"),
          re.compile(rf"\bas\s+({_IDENT})"))
+_QUALIFIED_RE = re.compile(rf"(?<![\w.])({_IDENT})\.({_IDENT})")
 _IMPORT_RE = re.compile(r"^\s*(?:from\s+[\w.]+\s+)?import\s+(.+)$")
 
 OTHER_LANGUAGE_WORDS = {
@@ -55,8 +57,9 @@ OTHER_LANGUAGE_WORDS = {
 class Check:
     """The verdict for one line."""
 
-    def __init__(self, state, confidence=0.0, word="", start=0, end=0, message="", suggestions=()):
+    def __init__(self, state, confidence=0.0, word="", start=0, end=0, message="", suggestions=(), action=None):
         self.state = state
+        self.action = action                   # ("import", library name) for an IMPORT check
         self.confidence = confidence
         self.word = word                       # the doubtful name (typo only)
         self.start, self.end = start, end      # its position in the line
@@ -185,10 +188,36 @@ def _candidates(code):
 
 
 # ---- the verdict -----------------------------------------------------------
-def analyse_line(line, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD):
+def _library_check(code, libs, threshold, ignored):
+    """A typo in `namespace.method`, or a library that is used without being
+    imported. `libs` = {"index": libraries.qualified_index(..), "imported": {names}}."""
+    index, imported = libs["index"], libs["imported"]
+    best, missing = None, None
+    for m in _QUALIFIED_RE.finditer(code):
+        ns, method = m.group(1), m.group(2)
+        if ns in index:
+            entry = index[ns]
+            if entry["methods"] and method not in entry["methods"] and method not in ignored:
+                options = suggest(method, entry["methods"], threshold)
+                if options and (best is None or options[0][1] > best.confidence):
+                    best = Check(TYPO, options[0][1], method, m.start(2), m.end(2),
+                                 f'"{ns}" has no "{method}".', options)
+            if entry["lib"] not in imported and missing is None:
+                missing = Check(IMPORT, 0.9, ns, m.start(1), m.end(1), f'"{ns}" is used but not imported in this file.',
+                                action=("import", entry["lib"]))
+        elif ns not in ignored:
+            options = suggest(ns, index.keys(), threshold)
+            tail = code[m.end():].lstrip()[:1]
+            if options and tail in ("(", "."):
+                if best is None or options[0][1] > best.confidence:
+                    best = Check(TYPO, options[0][1], ns, m.start(1), m.end(1), f'"{ns}" is not a known name.', options)
+    return best or missing
+
+
+def analyse_line(line, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD, libs=None):
     """Judge one line. `matchers` are compiled block patterns (anything with
     .match), `vocab` the set of known names, `ignored` words the user chose to
-    keep as they are."""
+    keep as they are, `libs` the library info for namespace checks (optional)."""
     code = _blank_strings(line)
     text = code.strip()
     if not text or re.fullmatch(r"[\s{}()\[\],;:]*", text):
@@ -203,6 +232,10 @@ def analyse_line(line, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD)
                          f'"{word}" is not a known name.', options)
     if best is not None:
         return best
+    if libs:
+        found = _library_check(code, libs, threshold, ignored)
+        if found is not None:
+            return found
     if any(m.match(text) for m in matchers) or any(m.match(line.strip()) for m in matchers):
         return Check(KNOWN, 1.0)
     semi = _stray_semicolon(code, text, matchers)
@@ -229,10 +262,10 @@ def _stray_semicolon(code, text, matchers):
     return None
 
 
-def analyse_text(lines, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD):
+def analyse_text(lines, matchers, vocab, ignored=(), threshold=DEFAULT_THRESHOLD, libs=None):
     """One Check per line; names the text defines itself count as known."""
     allowed = set(vocab) | defined_names(lines)
-    return [analyse_line(ln, matchers, allowed, ignored, threshold) for ln in lines]
+    return [analyse_line(ln, matchers, allowed, ignored, threshold, libs) for ln in lines]
 
 
 def apply_fix(line, check, replacement):
@@ -252,6 +285,8 @@ def describe(check):
         if len(check.suggestions) > 1:
             text += "\nOr: " + ", ".join(f'"{n}"' for n, _s in check.suggestions[1:])
         return text
+    if check.state == IMPORT:
+        return f"{check.message}\nAdd the import line for it?"
     if check.state == UNVERIFIED:
         return check.message
     return ""

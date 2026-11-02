@@ -8,6 +8,7 @@ that explains a doubtful line and offers the fix. The judging itself is pure
 """
 import tkinter as tk
 
+import libraries
 import line_check
 import portable
 from ui_common import DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL
@@ -79,14 +80,18 @@ class LineCheckMixin:
         matchers, words = self._lc_vocabulary()
         tab = self.tabs[self.active_tab_index]
         words = words | {n["name"] for n, _p in self.iter_tab_nodes(tab) if n.get("name")}
+        libs = self.libraries_for(tab["language"])
+        words = words | {c["use"] for lib in libs.values() for c in lib["commands"] if c["use"].isidentifier()}
+        lib_info = {"index": libraries.qualified_index(libs),
+                    "imported": set(self.tab_imports(tab)) | set(libraries.imported_names(libs, lines))}
         checks = line_check.analyse_text(lines, matchers, words, set(self.settings.get("code_ignored_words", [])),
-                                         self.typo_threshold())
+                                         self.typo_threshold(), lib_info if lib_info["index"] else None)
         skip = portable.protected_line_numbers(lines)
         for number, check in enumerate(checks, 1):
             if number in skip or check.state == line_check.NONE:
                 continue
             self._lc_results[number] = check
-            if check.state == line_check.TYPO:
+            if check.state in (line_check.TYPO, line_check.IMPORT):
                 self.code_text.tag_add("lc_typo", f"{number}.{check.start}", f"{number}.{check.end}")
         self.draw_line_gutter()
 
@@ -132,7 +137,7 @@ class LineCheckMixin:
         line = self.code_text.get(f"{number}.0", f"{number}.end")
         tk.Label(win, text=f"Line {number}:  {line.strip()}", bg=DARK_PANEL, fg=DARK_FG, anchor="w",
                  font=("Consolas", 9)).pack(fill=tk.X, padx=12, pady=(10, 4))
-        tk.Label(win, text=line_check.describe(check), bg=DARK_PANEL, fg=TYPO_COLOR if check.state == line_check.TYPO else RAW_COLOR,
+        tk.Label(win, text=line_check.describe(check), bg=DARK_PANEL, fg=RAW_COLOR if check.state == line_check.UNVERIFIED else TYPO_COLOR,
                  anchor="w", justify=tk.LEFT, wraplength=360, font=("Segoe UI", 9)).pack(fill=tk.X, padx=12, pady=(0, 8))
 
         def button(text, command):
@@ -145,6 +150,10 @@ class LineCheckMixin:
                 label = f'Fix: remove "{check.word}"' if name == "" else f'Fix: change "{check.word}" to "{name}"'
                 button(f"{label}  ({round(score * 100)}%)", lambda n=name: self._lc_apply_fix(number, check, n, win))
             button(f'Keep "{check.word}" as it is', lambda: self._lc_keep_word(check.word, win))
+        if check.state == line_check.IMPORT:
+            lib_name = check.action[1]
+            lib = self.libraries_for(self.tabs[self.active_tab_index]["language"]).get(lib_name)
+            button(f'Add import: {lib["import"] if lib else lib_name}', lambda: self._lc_add_import(lib_name, win))
         button("Close", win.destroy)
         win.bind("<Escape>", lambda _e: win.destroy())
         tk.Frame(win, bg=DARK_PANEL, height=8).pack()
@@ -162,6 +171,15 @@ class LineCheckMixin:
             self.code_text.insert(f"{number}.{check.start}", replacement)
         win.destroy()
         self.schedule_line_check(0)
+
+    def _lc_add_import(self, lib_name, win):
+        """The bulb's fix for a library used without its import."""
+        tab = self.tabs[self.active_tab_index]
+        if lib_name not in self.tab_imports(tab):
+            tab["imports"] = self.tab_imports(tab) + [lib_name]
+            self.mark_active_tab_dirty()
+        win.destroy()
+        self.update_generated_code()
 
     def _lc_keep_word(self, word, win):
         """Remember that this word is meant (stored in settings, per user)."""

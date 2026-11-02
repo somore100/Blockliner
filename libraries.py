@@ -212,6 +212,21 @@ def dedupe_imports(libs, code_lines):
     return out
 
 
+def qualified_index(libs):
+    """{namespace: {"lib": library name, "methods": {names}}} for the line
+    check: what `time.` or `tk.` may be followed by."""
+    index = {}
+    for name, lib in libs.items():
+        ns = lib["namespace"]
+        if not ns:
+            continue
+        entry = index.setdefault(ns, {"lib": name, "methods": set()})
+        for c in lib["commands"]:
+            if c["use"].startswith(ns + "."):
+                entry["methods"].add(c["use"][len(ns) + 1:].split(".")[0])
+    return index
+
+
 def raw_import_blocks(libs, blocks, raw_id, raw_param):
     """[(index, library name)] of top-level blocks that are only a library's
     import line typed by hand (as a Raw Code block)."""

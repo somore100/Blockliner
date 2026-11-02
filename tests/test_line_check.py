@@ -48,6 +48,16 @@ def main():
           and lc.apply_fix('print("hi");', semi, "") == 'print("hi")' and "Remove" in lc.describe(semi))
     nomatch = lc.analyse_line("print 'a' 'b'", [], vocab)
     check("a known head word that doesn't fit says so", nomatch.state == lc.UNVERIFIED and '"print"' in nomatch.message)
+    import libraries as L
+    py, _n = L.load_libraries(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "languages", "python", "libraries"))
+    info = {"index": L.qualified_index(py), "imported": {"math"}}
+    q = lambda s: lc.analyse_line(s, matchers, vocab, libs=info)
+    check("a mistyped library command is a typo with the right fix", q("time.slepp(2)").state == lc.TYPO and q("time.slepp(2)").suggestions[0][0] == "sleep")
+    check("a mistyped library name is a typo", q("tiem.sleep(2)").suggestions[0][0] == "time")
+    check("a known command of an imported library is fine", q("math.sqrt(4)").state not in (lc.TYPO, lc.IMPORT))
+    miss = q("time.sleep(2)")
+    check("a library used without its import says so", miss.state == lc.IMPORT and miss.action == ("import", "time") and "not imported" in lc.describe(miss))
+    check("other objects with dots are left alone", q("obj.foo(2)").state != lc.TYPO and q("obj.foo(2)").state != lc.IMPORT)
     d = lc.describe(c)
     check("bulb text says what is wrong and the fix", '"pritn"' in d and '"print"' in d and "%" in d)
     check("unverified text explains raw code", "raw code" in lc.describe(one("requests.get(url)")))

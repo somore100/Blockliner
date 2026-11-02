@@ -75,6 +75,13 @@ def clean_manifest(raw, where="extension.json"):
         panel = {"title": _text(pr, "title") or name,
                  "dock": pr.get("dock") if pr.get("dock") in DOCKS else "right",
                  "width": width if isinstance(width, int) and not isinstance(width, bool) and 120 <= width <= 1000 else 280}
+    run = None
+    if isinstance(raw.get("run"), dict):
+        cmd = raw["run"].get("command")
+        if isinstance(cmd, list) and cmd and all(isinstance(c, str) and c for c in cmd):
+            run = list(cmd)
+        else:
+            notes.append(f"{where}: 'run.command' must be a list of text (not a shell string); the extension can't be started")
     commands = []
     for m in raw.get("menus") or []:
         if isinstance(m, dict) and _text(m, "label") and _text(m, "command"):
@@ -88,7 +95,7 @@ def clean_manifest(raw, where="extension.json"):
         "icon": _text(raw, "icon")[:4] or "⚙",
         "permissions": perms, "panel": panel, "commands": commands,
         "builtin": _text(raw, "builtin"),
-        "has_run": isinstance(raw.get("run"), dict),
+        "run": run,
         "pin": bool(raw["pin"]) if "pin" in raw else panel is not None,
         "enabled_by_default": bool(raw.get("enabled_by_default", False)),
     }, notes

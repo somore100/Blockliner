@@ -51,4 +51,5 @@ Collected from testing; none of this is started.
 
 ## Extensions (first slice built, untested in app)
 - Design: docs/design-extensions.md. Built: `extensions.py` (manifest reader, compatibility, enabled/safe start, layout), `extensions_builtin.py` (statistics panel, copy-code command), `extensions/builtin/*`, `ui_extensions.py` (icon strip + "..." menu in the top-right plugin bar, side panel, Tools > Extensions... manager). Tests: tests/test_extensions.py.
-- Not yet: the process runner for outside extensions (they are listed with compatibility but not started), project.read/write, secrets and permission prompt, project snapshot undo, commands in the named menus (only in the "..." menu for now), project-wide imports view.
+- Built next: `ext_runner.py` (child process, JSON lines, hello/ready, permission check, timeouts, restart limit, logs; tests/test_ext_runner.py with a fake extension), permission prompt when turning an outside extension on, example in docs/examples/extension-hello. Pinned icon now shows icon + title (the bare emoji did not show on the user's desktop).
+- Not yet: project.read/write, secrets and permission prompt, project snapshot undo, commands in the named menus (only in the "..." menu for now), project-wide imports view.

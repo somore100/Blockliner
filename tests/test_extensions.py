@@ -22,6 +22,10 @@ def main():
     m, notes = X.clean_manifest(GOOD)
     check("a good manifest is read, an unknown permission is noted", m["id"] == "me/demo" and m["permissions"] == ["ui.panel"] and len(notes) == 1)
     check("panel settings are cleaned", m["panel"] == {"title": "P", "dock": "left", "width": 300} and m["pin"] is True)
+    check("run.command is kept as a list; a shell string is refused with a note",
+          X.clean_manifest({**GOOD, "run": {"command": ["python3", "main.py"]}})[0]["run"] == ["python3", "main.py"]
+          and X.clean_manifest({**GOOD, "run": {"command": "python3 main.py"}})[0]["run"] is None
+          and len(X.clean_manifest({**GOOD, "run": {"command": "python3 main.py"}})[1]) == 2)
     check("a command-only extension is not pinned", X.clean_manifest({**GOOD, "panel": None, "menus": [{"label": "Go", "command": "go"}]})[0]["pin"] is False)
     check("pin can be asked for", X.clean_manifest({**GOOD, "pin": False})[0]["pin"] is False)
     for label, bad in (("wrong format", {**GOOD, "format": "x"}), ("bad id", {**GOOD, "id": "Demo"}), ("no name", {**GOOD, "name": ""}),

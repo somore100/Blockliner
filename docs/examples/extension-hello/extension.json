@@ -1,0 +1,14 @@
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "example/hello",
+  "name": "Hello example",
+  "description": "A tiny outside extension: a panel with a button that shows a message. Copy it to user_data/extensions/hello/ to try it.",
+  "author": "Blockliner",
+  "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
+  "icon": "👋",
+  "run": {"command": ["python3", "main.py"]},
+  "permissions": ["ui.panel", "ui.notify"],
+  "panel": {"title": "Hello", "dock": "right", "width": 260}
+}

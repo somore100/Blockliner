@@ -8,15 +8,20 @@ runner comes next), so the manager marks them "not started yet".
 """
 import json
 import os
+import queue
+import threading
 import tkinter as tk
+from tkinter import messagebox
 
 import extensions as X
+import ext_runner
 import extensions_builtin as B
 from panels import PanelSpec
 from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_bundle_path
 
 OK_COLOR, WARN_COLOR, BAD_COLOR = "#4caf50", "#e5a50a", "#d9534f"
-REFRESH_MS = 1500
+PUMP_MS = 200                   # how often messages from extension programs are taken in
+REFRESH_EVERY = 8               # pump ticks between panel refreshes / restart checks
 
 
 class ExtensionsMixin:
@@ -28,12 +33,37 @@ class ExtensionsMixin:
     def install_extensions(self):
         self._ext_all = X.find_extensions(self.extension_roots())
         self._ext_panels = {}           # panel id -> {"ext", "body", "shown": json text}
+        self._ext_remote = {}           # extension id -> the panel description it last sent
+        self._ext_inbox = queue.Queue()  # messages from extension threads, handled on the Tk thread
+        self._ext_starting = set()
+        self._ext_ticks = 0
+        self._ext_host = ext_runner.Host(self._ext_handler)
+        self.protocol("WM_DELETE_WINDOW", self._ext_close)
         self.refresh_extensions()
-        self.after(REFRESH_MS, self._ext_tick)
+        self.after(PUMP_MS, self._ext_pump)
+
+    def _ext_close(self):
+        try:
+            self._ext_host.stop_all()
+        finally:
+            self.destroy()
 
     def _ext_runnable(self, ext):
-        """Only the extensions shipped with Blockliner run in this first slice."""
-        return ext["manifest"] is not None and bool(ext["manifest"]["builtin"])
+        """Shipped extensions run in-process; outside ones run as their own program."""
+        m = ext["manifest"]
+        return m is not None and (bool(m["builtin"]) or bool(m["run"]))
+
+    def _ext_by_id(self, ext_id):
+        return next((e for e in self._ext_all if e["manifest"] and e["manifest"]["id"] == ext_id), None)
+
+    def _ext_handler(self, ext_id, method, params, is_event):
+        """Called on an extension's reader thread: only queue, never touch Tk here."""
+        if is_event:
+            return None
+        if method in ("panel.set", "notify"):
+            self._ext_inbox.put((ext_id, method, params))
+            return {"ok": True}
+        raise ext_runner.ExtensionError("not_available", f"{method} is not available yet")
 
     def refresh_extensions(self):
         active = [e for e in X.active(self._ext_all, self.settings) if self._ext_runnable(e)]
@@ -42,7 +72,23 @@ class ExtensionsMixin:
         for pid in list(self._ext_panels):
             if pid not in live and pid in self.panels.ids():
                 self.panels.hide(pid)
+        wanted = {e["manifest"]["id"]: e for e in active if e["manifest"]["run"]}
+        for ext_id in list(self._ext_host.procs):
+            if ext_id not in wanted:
+                threading.Thread(target=self._ext_host.stop, args=(ext_id,), daemon=True).start()
+        for ext_id, ext in wanted.items():
+            if ext_id not in self._ext_host.procs and ext_id not in self._ext_starting:
+                self._ext_starting.add(ext_id)
+                m = ext["manifest"]
+                threading.Thread(target=self._ext_start, args=(ext_id, ext["folder"], m["run"], m["permissions"]),
+                                 daemon=True).start()
         self.draw_extension_bar()
+
+    def _ext_start(self, ext_id, folder, command, permissions):
+        try:
+            self._ext_host.start(ext_id, folder, command, permissions)
+        finally:
+            self._ext_starting.discard(ext_id)
 
     # ---- icon strip and "..." menu ---------------------------------------------
     def draw_extension_bar(self):
@@ -58,7 +104,7 @@ class ExtensionsMixin:
         for ext in lay["pinned"]:
             m = ext["manifest"]
             shown = f"ext:{m['id']}" in self.panels.ids() and self.panels.is_visible(f"ext:{m['id']}")
-            b = flat(m["icon"], ("Segoe UI Emoji", 12))
+            b = flat(f"{m['icon']} {m['panel']['title']}", ("Segoe UI", 9))
             if shown:
                 b.configure(bg=DARK_ACCENT)
             b.configure(command=lambda e=ext: self.toggle_extension_panel(e))
@@ -107,7 +153,10 @@ class ExtensionsMixin:
 
     def _panel_description(self, ext):
         build = B.PANELS.get(ext["manifest"]["builtin"])
-        return build(self.tabs) if build else None
+        if build:
+            return build(self.tabs)
+        waiting = {"type": "label", "text": "Waiting for the extension...", "style": "muted"}
+        return self._ext_remote.get(ext["manifest"]["id"], waiting)
 
     def render_extension_panel(self, pid):
         info = self._ext_panels.get(pid)
@@ -123,14 +172,35 @@ class ExtensionsMixin:
         if desc:
             self._draw_description(info["body"], desc, info["ext"])
 
-    def _ext_tick(self):
-        for pid, info in list(self._ext_panels.items()):
-            try:
-                if pid in self.panels.ids() and self.panels.is_visible(pid):
-                    self.render_extension_panel(pid)
-            except tk.TclError:
-                pass
-        self.after(REFRESH_MS, self._ext_tick)
+    def _ext_pump(self):
+        """Every PUMP_MS: take in what extension programs sent; now and then
+        redraw panels and restart what died."""
+        try:
+            while True:
+                ext_id, method, params = self._ext_inbox.get_nowait()
+                ext = self._ext_by_id(ext_id)
+                if ext is None:
+                    continue
+                if method == "notify" and isinstance(params.get("text"), str):
+                    self.maybe_notify(ext["manifest"]["name"], params["text"][:500])
+                elif method == "panel.set" and isinstance(params.get("description"), dict):
+                    self._ext_remote[ext_id] = params["description"]
+                    pid = f"ext:{ext_id}"
+                    if pid in self._ext_panels:
+                        self.render_extension_panel(pid)
+        except queue.Empty:
+            pass
+        self._ext_ticks += 1
+        if self._ext_ticks % REFRESH_EVERY == 0:
+            for pid in list(self._ext_panels):
+                try:
+                    if pid in self.panels.ids() and self.panels.is_visible(pid):
+                        self.render_extension_panel(pid)
+                except tk.TclError:
+                    pass
+            for ext_id, note in self._ext_host.check():
+                self._ext_remote.pop(ext_id, None)
+        self.after(PUMP_MS, self._ext_pump)
 
     def _draw_description(self, parent, node, ext):
         """Draw a widget description (see extensions_builtin.py). Unknown types are skipped."""
@@ -163,6 +233,9 @@ class ExtensionsMixin:
                 if info["ext"] is ext:
                     info["shown"] = ""
                     self.render_extension_panel(pid)
+            return
+        if not ext["manifest"]["builtin"]:
+            self._ext_host.send_event(ext["manifest"]["id"], "command", {"command": command})
             return
         tab = self.tabs[self.active_tab_index]
         result = B.run_command(ext["manifest"]["builtin"], command, {"code": self.generate_code_for_tab(tab)})
@@ -220,9 +293,15 @@ class ExtensionsMixin:
             label(right, m["description"], wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(6, 6))
             label(right, X.STATUS_TEXT[status] + (f": {reason}" if reason else ""),
                   fg=OK_COLOR if status == "ok" else BAD_COLOR, wraplength=440, justify=tk.LEFT).pack(fill=tk.X)
-            if not self._ext_runnable(ext):
-                label(right, "Not started yet: outside extensions can be read and listed, but running them comes in the next step.",
-                      fg=WARN_COLOR, wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(4, 0))
+            if m["run"]:
+                st = self._ext_host.status(m["id"])
+                text = {"running": "Running", "failed": "Failed", "starting": "Starting...", "stopped": "Not running"}[st["state"]]
+                label(right, text + (f": {st['note']}" if st["note"] else ""),
+                      fg=OK_COLOR if st["state"] == "running" else (BAD_COLOR if st["state"] == "failed" else "#888888"),
+                      wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(4, 0))
+                if st["log"]:
+                    tk.Button(right, text="Show log", command=lambda l=st["log"]: messagebox.showinfo(m["name"], "\n".join(l[-30:]), parent=win),
+                              bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 8)).pack(anchor="w", pady=2)
             label(right, "Permissions", font=("Segoe UI", 9, "bold")).pack(fill=tk.X, pady=(10, 2))
             for p in m["permissions"] or []:
                 label(right, f"• {X.PERMISSIONS[p]}", fg="#bbbbbb", wraplength=440, justify=tk.LEFT).pack(fill=tk.X)
@@ -238,6 +317,14 @@ class ExtensionsMixin:
             label(right, f"{ext['scope']}  •  {ext['folder']}", fg="#666666", wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(10, 0))
 
         def toggle(ext, var):
+            m = ext["manifest"]
+            if var.get() and m["run"] and not messagebox.askyesno(
+                    "Turn on extension",
+                    f"\"{m['name']}\" runs as a program on your computer and asks for:\n\n" +
+                    ("\n".join(f"  \u2022 {X.PERMISSIONS[p]}" for p in m["permissions"]) or "  (nothing)") +
+                    "\n\nOnly turn it on if you trust where it came from.", parent=win):
+                var.set(False)
+                return
             X.set_enabled(self.settings, ext["manifest"]["id"], var.get())
             self.save_app_settings()
             self.refresh_extensions()

@@ -18,7 +18,8 @@ def show_panel():
             {"type": "label", "text": "Hello from an extension", "style": "title"},
             {"type": "label", "text": summary, "style": "muted"},
             {"type": "label", "text": f"Button pressed {counter} times", "style": "muted"},
-            {"type": "button", "text": "Press me", "command": "press"}]}}})
+            {"type": "button", "text": "Press me", "command": "press"},
+            {"type": "button", "text": "Add a demo node", "command": "add_node"}]}}})
 
 
 def ask_project():
@@ -43,6 +44,12 @@ for line in sys.stdin:
         counter += 1
         send({"id": 2, "method": "notify", "params": {"text": f"Pressed {counter} times"}})
         show_panel()
+    elif msg.get("event") == "command" and msg["params"].get("command") == "add_node":
+        send({"id": 3, "method": "project.edit", "params": {"edits": [
+            {"op": "add_node", "name": "hello_node",
+             "blocks": [{"block": "print_output", "params": {"value": "\"Hi from an extension\""}}]}]}})
+    elif msg.get("id") == 3 and "error" in msg:                                  # the edit was refused
+        send({"id": 4, "method": "notify", "params": {"text": msg["error"]["message"]}})
     elif isinstance(msg.get("result"), dict) and "files" in msg["result"]:      # the project.read answer
         files = msg["result"]["files"]
         summary = f"{len(files)} file(s), {sum(count_nodes(f['nodes']) for f in files)} node(s)"

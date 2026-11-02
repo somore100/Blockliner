@@ -15,9 +15,11 @@ from tkinter import messagebox
 
 import extensions as X
 import extensions_api
+import project_undo
 import ext_runner
 import extensions_builtin as B
 from panels import PanelSpec
+from ui_common import get_block_attr
 from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_bundle_path
 
 OK_COLOR, WARN_COLOR, BAD_COLOR = "#4caf50", "#e5a50a", "#d9534f"
@@ -64,13 +66,16 @@ class ExtensionsMixin:
         if method in ("panel.set", "notify"):
             self._ext_inbox.put((ext_id, method, params, None))
             return {"ok": True}
-        if method == "project.read":
+        if method in ("project.read", "project.edit"):
             reply = queue.Queue()
             self._ext_inbox.put((ext_id, method, params, reply))        # answered on the Tk thread
             try:
-                return reply.get(timeout=5)
+                answer = reply.get(timeout=5)
             except queue.Empty:
                 raise ext_runner.ExtensionError("busy", "Blockliner did not answer in time; try again")
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
         raise ext_runner.ExtensionError("not_available", f"{method} is not available yet")
 
     def refresh_extensions(self):
@@ -180,37 +185,49 @@ class ExtensionsMixin:
         if desc:
             self._draw_description(info["body"], desc, info["ext"])
 
+    def _ext_handle_message(self, ext_id, method, params, reply):
+        ext = self._ext_by_id(ext_id)
+        if ext is None:
+            if reply is not None:
+                reply.put(ext_runner.ExtensionError("gone", "extension not found"))
+            return
+        if method == "project.read":
+            reply.put(self._project_snapshot())
+        elif method == "project.edit":
+            reply.put(self._ext_apply_edits(ext, params))
+        elif method == "notify" and isinstance(params.get("text"), str):
+            self.maybe_notify(ext["manifest"]["name"], params["text"][:500])
+        elif method == "panel.set" and isinstance(params.get("description"), dict):
+            self._ext_remote[ext_id] = params["description"]
+            pid = f"ext:{ext_id}"
+            if pid in self._ext_panels:
+                self.render_extension_panel(pid)
+
     def _ext_pump(self):
         """Every PUMP_MS: take in what extension programs sent; now and then
-        redraw panels and restart what died."""
+        redraw panels and restart what died. Nothing here may raise: this loop
+        must keep running."""
         try:
             while True:
-                ext_id, method, params, reply = self._ext_inbox.get_nowait()
-                ext = self._ext_by_id(ext_id)
-                if ext is None:
-                    continue
-                if method == "project.read":
-                    reply.put(self._project_snapshot())
-                elif method == "notify" and isinstance(params.get("text"), str):
-                    self.maybe_notify(ext["manifest"]["name"], params["text"][:500])
-                elif method == "panel.set" and isinstance(params.get("description"), dict):
-                    self._ext_remote[ext_id] = params["description"]
-                    pid = f"ext:{ext_id}"
-                    if pid in self._ext_panels:
-                        self.render_extension_panel(pid)
+                item = self._ext_inbox.get_nowait()
+                try:
+                    self._ext_handle_message(*item)
+                except Exception as e:                      # a bug here must not stop the loop or leave a caller waiting
+                    if item[3] is not None:
+                        item[3].put(ext_runner.ExtensionError("failed", f"Blockliner could not do that ({e})"))
         except queue.Empty:
             pass
         self._ext_ticks += 1
         if self._ext_ticks % REFRESH_EVERY == 0:
-            for pid in list(self._ext_panels):
-                try:
+            try:
+                for pid in list(self._ext_panels):
                     if pid in self.panels.ids() and self.panels.is_visible(pid):
                         self.render_extension_panel(pid)
-                except tk.TclError:
-                    pass
-            for ext_id, note in self._ext_host.check():
-                self._ext_remote.pop(ext_id, None)
-            self._announce_project_changes()
+                for ext_id, note in self._ext_host.check():
+                    self._ext_remote.pop(ext_id, None)
+                self._announce_project_changes()
+            except Exception as e:                          # keep the loop alive; show nothing noisy
+                print(f"extensions: {e}")
         self.after(PUMP_MS, self._ext_pump)
 
     def _draw_description(self, parent, node, ext):
@@ -239,6 +256,31 @@ class ExtensionsMixin:
     def _project_snapshot(self):
         self.sync_active_tab_state()
         return extensions_api.snapshot(self.tabs, self.active_tab_index)
+
+    def _ext_apply_edits(self, ext, params):
+        """project.edit on the Tk thread: all or nothing, one undoable step."""
+        self.sync_active_tab_state()
+        ws = self.workspaces[self.active_ws_index]
+        lang = self.current_language
+        known = {lang: {bid: {p["name"]: p.get("default", "") for p in get_block_attr(mod, "params", [])}
+                        for bid, mod in self.blocks.items()}}
+
+        def code_to_blocks(language, text):
+            with self._language_scope(language):
+                return self.import_code_to_blocks(text)[0]
+        try:
+            new_files, summary = extensions_api.apply_edits(ws["files"], params.get("edits"), known, code_to_blocks)
+        except extensions_api.EditError as e:
+            return ext_runner.ExtensionError("invalid", str(e))
+        name = ext["manifest"]["name"]
+        self.record_project_undo(f"{name}: {summary[0]}" + (f" (+{len(summary) - 1} more)" if len(summary) > 1 else ""))
+        ws["active_index"] = project_undo.restore_files(ws["files"], {"files": new_files, "active_index": ws["active_index"]})
+        self._show_active_file(self.view_mode)
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        self.update_generated_code()
+        self.show_change_bar(f"{name} changed the project: " + "; ".join(summary[:2]) + ("..." if len(summary) > 2 else ""))
+        return {"ok": True, "summary": summary}
 
     def _announce_project_changes(self):
         """Tell extensions that may read the project when it changed (checked

@@ -224,6 +224,7 @@ class CodeSyncMixin:
         """keep = {(id(entry), op)} of replace/remove hunks to leave as blocks."""
         if not self._plan_is_current(plan):
             return
+        self.record_project_undo("Code edit")
         tab = plan["tab"]
         caret = self.code_text.index("insert")   # refresh_workspace() rewrites the panel
         top = self.code_text.yview()[0]

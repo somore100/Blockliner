@@ -3,7 +3,7 @@
   "version": 1,
   "id": "example/hello",
   "name": "Hello example",
-  "description": "A tiny outside extension: a panel with a button, and a live count of the project's nodes. Copy it to user_data/extensions/hello/ to try it.",
+  "description": "A tiny outside extension: a panel with a live node count and a button that adds a node to your project (one undoable step). Copy it to user_data/extensions/hello/ to try it.",
   "author": "Blockliner",
   "extension_version": "0.1.0",
   "requires": {
@@ -19,7 +19,8 @@
   "permissions": [
     "ui.panel",
     "ui.notify",
-    "project.read"
+    "project.read",
+    "project.write"
   ],
   "panel": {
     "title": "Hello",

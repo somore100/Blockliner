@@ -109,7 +109,7 @@ event     {"event": "project.changed", "params": {...}}     (no id, no answer)
 | `panel.set` | `ui.panel` | replace the panel's content (section 6) |
 | `notify` | `ui.notify` | show a short message |
 | `project.read` | `project.read` | nodes, blocks, imports of the open file (a copy; never the live objects) |
-| `project.edit` | `project.write` | a list of edits (add node, add block, set code); Blockliner applies them as one undoable step and shows a summary |
+| `project.edit` | `project.write` | `{"edits": [...]}`: operations `add_node`, `add_block`, `set_code`, `rename_node` (see `extensions_api.apply_edits`). All or nothing, applied to a copy and swapped in only when every operation is valid; one undoable step; a bar shows what changed with an Undo button. Only blocks that exist for the file's language are accepted (so far: the language that is open). |
 | `files.read` / `files.write` | `files.read` / `files.write` | only inside folders the user picked for this extension |
 | `settings.get` / `settings.set` | none | the extension's own settings (never the app's) |
 | `secrets.get` / `secrets.set` | none | the extension's own secrets, see section 7 |

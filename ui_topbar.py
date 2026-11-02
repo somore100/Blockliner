@@ -15,6 +15,9 @@ class TopBarMixin:
         """[(title, [(label, command) | None for a separator])]"""
         return [
             ("File", [
+                ("Undo", self.undo_project),
+                ("Redo", lambda: self.undo_project(redo=True)),
+                None,
                 ("Save", self.save_project),
                 ("Load", self.load_project),
                 ("Open Project...", self.open_project_dialog),

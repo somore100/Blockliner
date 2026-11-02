@@ -7,25 +7,29 @@
       "name": "randint",
       "use": "random.randint",
       "signature": "random.randint(a, b)",
-      "does": "Whole number from a to b"
+      "does": "Whole number from a to b",
+      "example": "random.randint(1, 6)"
     },
     {
       "name": "choice",
       "use": "random.choice",
       "signature": "random.choice(items)",
-      "does": "One random item of a list"
+      "does": "One random item of a list",
+      "example": "random.choice([\"a\", \"b\", \"c\"])"
     },
     {
       "name": "random",
       "use": "random.random",
       "signature": "random.random()",
-      "does": "Number from 0 to 1"
+      "does": "Number from 0 to 1",
+      "example": "random.random()"
     },
     {
       "name": "shuffle",
       "use": "random.shuffle",
       "signature": "random.shuffle(items)",
-      "does": "Mix a list in place"
+      "does": "Mix a list in place",
+      "example": "random.shuffle(items)"
     }
   ],
   "namespace": "random",

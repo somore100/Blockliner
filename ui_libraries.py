@@ -98,5 +98,5 @@ class LibrariesMixin:
             tab.setdefault("imports", []).append(lib["name"])
             self.mark_active_tab_dirty()
         raw_module = self.blocks.get(raw_id)
-        self.edit_block_params(raw_module, {param: command["signature"]}, add_mode=True)
+        self.edit_block_params(raw_module, {param: command["example"] or command["signature"]}, add_mode=True)
         self.update_generated_code()

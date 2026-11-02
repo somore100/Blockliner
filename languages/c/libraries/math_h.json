@@ -7,19 +7,22 @@
       "name": "sqrt",
       "use": "sqrt",
       "signature": "sqrt(x)",
-      "does": "Square root"
+      "does": "Square root",
+      "example": "sqrt(16.0)"
     },
     {
       "name": "pow",
       "use": "pow",
       "signature": "pow(x, y)",
-      "does": "x to the power y"
+      "does": "x to the power y",
+      "example": "pow(2.0, 3.0)"
     },
     {
       "name": "floor",
       "use": "floor",
       "signature": "floor(x)",
-      "does": "Round down"
+      "does": "Round down",
+      "example": "floor(2.7)"
     }
   ]
 }

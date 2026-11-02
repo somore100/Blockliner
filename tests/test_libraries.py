@@ -12,6 +12,7 @@ def main():
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "languages")
     py, notes = L.load_libraries(os.path.join(root, "python", "libraries"))
     check("python libraries load without notes", {"time", "math", "random", "tkinter"} <= set(py) and notes == [])
+    check("every shipped command has a ready example", all(c["example"] for lib in py.values() for c in lib["commands"]))
     check("each language has its own libraries", "fs" in L.load_libraries(os.path.join(root, "javascript", "libraries"))[0]
           and "stdlib.h" in L.load_libraries(os.path.join(root, "c", "libraries"))[0])
     check("a missing folder is no libraries", L.load_libraries("/nonexistent") == ({}, []))

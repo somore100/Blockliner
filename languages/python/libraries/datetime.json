@@ -7,7 +7,8 @@
       "name": "now",
       "use": "datetime.datetime.now",
       "signature": "datetime.datetime.now()",
-      "does": "Current date and time"
+      "does": "Current date and time",
+      "example": "datetime.datetime.now()"
     }
   ],
   "namespace": "datetime",

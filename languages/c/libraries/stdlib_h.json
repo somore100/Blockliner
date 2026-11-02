@@ -7,31 +7,36 @@
       "name": "malloc",
       "use": "malloc",
       "signature": "malloc(bytes)",
-      "does": "Reserve memory (give it back with free)"
+      "does": "Reserve memory (give it back with free)",
+      "example": "malloc(sizeof(int) * 10)"
     },
     {
       "name": "free",
       "use": "free",
       "signature": "free(pointer)",
-      "does": "Give memory back"
+      "does": "Give memory back",
+      "example": "free(ptr);"
     },
     {
       "name": "rand",
       "use": "rand",
       "signature": "rand()",
-      "does": "Random number"
+      "does": "Random number",
+      "example": "rand()"
     },
     {
       "name": "atoi",
       "use": "atoi",
       "signature": "atoi(text)",
-      "does": "Text to whole number"
+      "does": "Text to whole number",
+      "example": "atoi(\"42\")"
     },
     {
       "name": "exit",
       "use": "exit",
       "signature": "exit(code)",
-      "does": "Stop the program"
+      "does": "Stop the program",
+      "example": "exit(0);"
     }
   ]
 }

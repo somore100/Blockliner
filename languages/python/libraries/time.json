@@ -7,25 +7,29 @@
       "name": "sleep",
       "use": "time.sleep",
       "signature": "time.sleep(seconds)",
-      "does": "Waits for that many seconds"
+      "does": "Waits for that many seconds",
+      "example": "time.sleep(1)"
     },
     {
       "name": "time",
       "use": "time.time",
       "signature": "time.time()",
-      "does": "Seconds since 1970 (for timing)"
+      "does": "Seconds since 1970 (for timing)",
+      "example": "time.time()"
     },
     {
       "name": "strftime",
       "use": "time.strftime",
       "signature": "time.strftime(format)",
-      "does": "Current time as text"
+      "does": "Current time as text",
+      "example": "time.strftime(\"%H:%M:%S\")"
     },
     {
       "name": "perf_counter",
       "use": "time.perf_counter",
       "signature": "time.perf_counter()",
-      "does": "Precise stopwatch value"
+      "does": "Precise stopwatch value",
+      "example": "time.perf_counter()"
     }
   ],
   "namespace": "time",

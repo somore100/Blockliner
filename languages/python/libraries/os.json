@@ -7,19 +7,22 @@
       "name": "listdir",
       "use": "os.listdir",
       "signature": "os.listdir(path)",
-      "does": "Names in a folder"
+      "does": "Names in a folder",
+      "example": "os.listdir(\".\")"
     },
     {
       "name": "getcwd",
       "use": "os.getcwd",
       "signature": "os.getcwd()",
-      "does": "Current folder"
+      "does": "Current folder",
+      "example": "os.getcwd()"
     },
     {
       "name": "remove",
       "use": "os.remove",
       "signature": "os.remove(path)",
-      "does": "Delete a file"
+      "does": "Delete a file",
+      "example": "os.remove(\"file.txt\")"
     }
   ],
   "namespace": "os",

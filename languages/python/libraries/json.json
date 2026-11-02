@@ -7,13 +7,15 @@
       "name": "dumps",
       "use": "json.dumps",
       "signature": "json.dumps(value)",
-      "does": "Value to JSON text"
+      "does": "Value to JSON text",
+      "example": "json.dumps({\"a\": 1})"
     },
     {
       "name": "loads",
       "use": "json.loads",
       "signature": "json.loads(text)",
-      "does": "JSON text to value"
+      "does": "JSON text to value",
+      "example": "json.loads('{\"a\": 1}')"
     }
   ],
   "namespace": "json",

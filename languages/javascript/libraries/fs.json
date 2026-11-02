@@ -7,19 +7,22 @@
       "name": "readFileSync",
       "use": "fs.readFileSync",
       "signature": "fs.readFileSync(path, 'utf8')",
-      "does": "Whole file as text"
+      "does": "Whole file as text",
+      "example": "fs.readFileSync(\"file.txt\", \"utf8\")"
     },
     {
       "name": "writeFileSync",
       "use": "fs.writeFileSync",
       "signature": "fs.writeFileSync(path, text)",
-      "does": "Write text to a file"
+      "does": "Write text to a file",
+      "example": "fs.writeFileSync(\"file.txt\", \"hello\")"
     },
     {
       "name": "existsSync",
       "use": "fs.existsSync",
       "signature": "fs.existsSync(path)",
-      "does": "Does it exist?"
+      "does": "Does it exist?",
+      "example": "fs.existsSync(\"file.txt\")"
     }
   ],
   "namespace": "fs"

@@ -7,7 +7,8 @@
       "name": "createInterface",
       "use": "readline.createInterface",
       "signature": "readline.createInterface({input: process.stdin})",
-      "does": "Start reading lines"
+      "does": "Start reading lines",
+      "example": "readline.createInterface({ input: process.stdin })"
     }
   ],
   "namespace": "readline"

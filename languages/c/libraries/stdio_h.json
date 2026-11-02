@@ -7,25 +7,29 @@
       "name": "printf",
       "use": "printf",
       "signature": "printf(format, ...)",
-      "does": "Print formatted text"
+      "does": "Print formatted text",
+      "example": "printf(\"Hello\\n\");"
     },
     {
       "name": "scanf",
       "use": "scanf",
       "signature": "scanf(format, ...)",
-      "does": "Read formatted input"
+      "does": "Read formatted input",
+      "example": "scanf(\"%d\", &x);"
     },
     {
       "name": "fopen",
       "use": "fopen",
       "signature": "fopen(path, mode)",
-      "does": "Open a file (close it with fclose)"
+      "does": "Open a file (close it with fclose)",
+      "example": "fopen(\"file.txt\", \"r\")"
     },
     {
       "name": "fclose",
       "use": "fclose",
       "signature": "fclose(file)",
-      "does": "Close a file"
+      "does": "Close a file",
+      "example": "fclose(file);"
     }
   ]
 }

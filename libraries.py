@@ -13,7 +13,8 @@ A language pack may hold a `libraries/` folder with one JSON file per library:
     aliases       other spellings of that line that count as imported
     namespace     optional: any `namespace.something` in the code counts as using it
     installed_module  Python only: the module name to look for on this computer
-    commands      what it offers; `use` is the text that appears in code
+    commands      what it offers; `use` is the text that appears in code, `example`
+                  a ready-to-run line used when the command is added as a block
 
 Presets are named lists of library names ("App basic: tkinter, math, time").
 Nothing here edits a file: the functions return lists and lines for the caller.
@@ -48,6 +49,7 @@ def _clean_library(raw, where, notes):
             use = c["use"] if isinstance(c.get("use"), str) and c["use"].strip() else c["name"]
             commands.append({"name": c["name"], "use": use,
                              "signature": c["signature"] if isinstance(c.get("signature"), str) else use + "()",
+                             "example": c["example"] if isinstance(c.get("example"), str) and c["example"].strip() else "",
                              "does": c["does"] if isinstance(c.get("does"), str) else ""})
         else:
             notes.append(f"{where}: a command without a name was skipped")

@@ -7,13 +7,15 @@
       "name": "join",
       "use": "path.join",
       "signature": "path.join(a, b)",
-      "does": "Join path parts"
+      "does": "Join path parts",
+      "example": "path.join(\"a\", \"b\")"
     },
     {
       "name": "basename",
       "use": "path.basename",
       "signature": "path.basename(p)",
-      "does": "File name of a path"
+      "does": "File name of a path",
+      "example": "path.basename(\"/a/b.txt\")"
     }
   ],
   "namespace": "path"

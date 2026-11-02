@@ -7,43 +7,50 @@
       "name": "sqrt",
       "use": "math.sqrt",
       "signature": "math.sqrt(x)",
-      "does": "Square root"
+      "does": "Square root",
+      "example": "math.sqrt(16)"
     },
     {
       "name": "floor",
       "use": "math.floor",
       "signature": "math.floor(x)",
-      "does": "Round down"
+      "does": "Round down",
+      "example": "math.floor(2.7)"
     },
     {
       "name": "ceil",
       "use": "math.ceil",
       "signature": "math.ceil(x)",
-      "does": "Round up"
+      "does": "Round up",
+      "example": "math.ceil(2.1)"
     },
     {
       "name": "sin",
       "use": "math.sin",
       "signature": "math.sin(x)",
-      "does": "Sine (radians)"
+      "does": "Sine (radians)",
+      "example": "math.sin(math.pi / 2)"
     },
     {
       "name": "cos",
       "use": "math.cos",
       "signature": "math.cos(x)",
-      "does": "Cosine (radians)"
+      "does": "Cosine (radians)",
+      "example": "math.cos(0)"
     },
     {
       "name": "pi",
       "use": "math.pi",
       "signature": "math.pi",
-      "does": "The number pi"
+      "does": "The number pi",
+      "example": "math.pi"
     },
     {
       "name": "pow",
       "use": "math.pow",
       "signature": "math.pow(x, y)",
-      "does": "x to the power y"
+      "does": "x to the power y",
+      "example": "math.pow(2, 3)"
     }
   ],
   "namespace": "math",

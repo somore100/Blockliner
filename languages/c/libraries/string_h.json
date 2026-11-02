@@ -7,19 +7,22 @@
       "name": "strlen",
       "use": "strlen",
       "signature": "strlen(text)",
-      "does": "Length of text"
+      "does": "Length of text",
+      "example": "strlen(text)"
     },
     {
       "name": "strcpy",
       "use": "strcpy",
       "signature": "strcpy(to, from)",
-      "does": "Copy text"
+      "does": "Copy text",
+      "example": "strcpy(dest, src);"
     },
     {
       "name": "strcmp",
       "use": "strcmp",
       "signature": "strcmp(a, b)",
-      "does": "Compare text"
+      "does": "Compare text",
+      "example": "strcmp(a, b)"
     }
   ]
 }

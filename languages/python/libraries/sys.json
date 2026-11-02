@@ -7,13 +7,15 @@
       "name": "exit",
       "use": "sys.exit",
       "signature": "sys.exit()",
-      "does": "Stop the program"
+      "does": "Stop the program",
+      "example": "sys.exit()"
     },
     {
       "name": "argv",
       "use": "sys.argv",
       "signature": "sys.argv",
-      "does": "Command-line arguments"
+      "does": "Command-line arguments",
+      "example": "sys.argv"
     }
   ],
   "namespace": "sys",

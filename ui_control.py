@@ -148,8 +148,10 @@ class ControlMixin:
 
         bridge = os.path.join(get_bundle_path(), "blockliner_mcp.py")
         python = "python3" if getattr(sys, "frozen", False) else sys.executable
-        command = f'claude mcp add blockliner -- {python} "{bridge}"'
-        config = json.dumps({"mcpServers": {"blockliner": {"command": python, "args": [bridge]}}}, indent=2)
+        link = self.control_file_path()
+        command = f'claude mcp add blockliner -e BLOCKLINER_CONTROL="{link}" -- {python} "{bridge}"'
+        config = json.dumps({"mcpServers": {"blockliner": {"command": python, "args": [bridge],
+                                                           "env": {"BLOCKLINER_CONTROL": link}}}}, indent=2)
         label("Connect an agent", font=("Segoe UI", 9, "bold")).pack(fill=tk.X, padx=16, pady=(14, 2))
         label("Add the bridge to the agent's MCP settings once, switch this on, then tell the agent to use Blockliner.",
               fg="#888888").pack(fill=tk.X, padx=16)

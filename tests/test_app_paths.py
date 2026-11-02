@@ -22,7 +22,6 @@ try:
     reset()
     check("source bundle", app_paths.bundle_dir() == src)
     check("source legacy", app_paths.legacy_data_dir() == src)
-    check("source root", app_paths.data_root() == src)
 
     with tempfile.TemporaryDirectory() as d:
         real = os.path.realpath(d)
@@ -43,6 +42,7 @@ try:
 
         os.environ[app_paths.OVERRIDE_ENV] = real
         check("override wins", app_paths.data_root() == real)
+        check("override reason", app_paths.resolve()[1] == "override")
 finally:
     reset()
     os.environ.update(saved[2])

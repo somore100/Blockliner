@@ -12,6 +12,15 @@ import shutil
 import sys
 
 import app_paths
+import data_migration
+
+# Must run before `ui` is imported: ui_common fixes its paths at import time.
+MIGRATION = data_migration.run(frozen=getattr(sys, "frozen", False))
+if MIGRATION:
+    print(MIGRATION[1])
+elif app_paths.resolve()[1] == "fresh":
+    data_migration.mark_fresh(app_paths.user_data_dir())
+
 from ui import start_ui
 from engine.loader import load_all_language_packs, load_master_concepts
 from engine.renderer import with_generate_code
@@ -36,6 +45,9 @@ def ensure_languages_available():
     forever and never get repopulated, even after the path itself is
     fixed.
     """
+    if not getattr(sys, "frozen", False):
+        # From source the bundled languages/ is the working copy.
+        return os.path.join(get_bundle_path(), "languages")
     persistent_languages = os.path.join(get_persistent_data_path(), "languages")
 
     if not os.path.isdir(persistent_languages) or not os.listdir(persistent_languages):
@@ -59,6 +71,19 @@ LANGUAGES_PATH = ensure_languages_available()
 DEFAULT_LANGUAGE = "python"
 
 
+def _tell_user(text):
+    """One-time notice after a data move (or a failed attempt)."""
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showinfo("Blockliner data", text)
+        root.destroy()
+    except Exception:
+        pass
+
+
 def main():
     print("Starting Blockliner...")
     print(f"Languages folder: {LANGUAGES_PATH}")
@@ -77,6 +102,8 @@ def main():
         blocks = with_generate_code(default_pack["blocks"])
         print(f"Active language: {DEFAULT_LANGUAGE} ({len(blocks)} block(s))")
 
+    if MIGRATION and MIGRATION[0]:
+        _tell_user(MIGRATION[1])
     start_ui(blocks, languages_path=LANGUAGES_PATH)
 
 

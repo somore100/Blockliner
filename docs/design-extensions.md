@@ -56,6 +56,7 @@ my-extension/
   "description": "Counts nodes and blocks.",
   "author": "Someone",
   "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
   "icon": "icon.png",
   "run": {"command": ["python3", "main.py"]},
   "permissions": ["project.read"],
@@ -256,7 +257,44 @@ off by default, marked "unsafe" in the manager, applied only at launch (never
 written to disk), and covered by **safe start**: a launch option that starts with
 all extensions off, so a broken one can always be disabled.
 
-## 12. Decisions so far
+## 12. Versions and compatibility
+
+The Minecraft problem: a mod built for one game version breaks on the next,
+because it hooks into the game's insides. Resource packs and shaders mostly
+survive, because they are data. The same split applies here, and the fix is to
+**version the extension API separately from the app**.
+
+- **Two numbers.** The app has its version (2.4.4). The extension API has its own,
+  `major.minor` (starts at 1.0). Most app releases do not change the API at all,
+  so an extension built for API 1.x keeps working across many app versions.
+  - Adding something (a new message, a new contribution point) raises the **minor**
+    number. Old extensions keep working.
+  - Changing or removing something raises the **major** number. That is the only
+    kind of release that can break extensions, it is announced, and the old major
+    is kept working for at least one more major release where possible.
+- **The manifest says what it was built for:**
+  `"requires": {"api": "1.2"}` means API 1.2 or newer within major 1. An optional
+  `"app": ">=2.4"` can add a minimum app version for something that really needs one.
+- **Data extensions** (blocks, libraries, languages, themes, UI packs) carry a
+  format version, as packs already do (`"version": 1`). A newer format than the
+  app understands is skipped with a note, and it is read-only when it can be, like
+  a UI made by a newer Blockliner today. Older formats are always read.
+- **Checked before anything runs.** The manager shows each extension as
+  *compatible*, *needs a newer Blockliner*, or *built for an older API*. An
+  incompatible extension is greyed out with the exact reason and is never started,
+  so it can't crash anything. Nothing is deleted; update the extension or
+  Blockliner and it works again.
+- **Negotiated at start.** `hello` carries the API version Blockliner speaks;
+  the extension answers with the versions it supports, and a mismatch ends the
+  start cleanly with a message.
+- **Extension version** (`extension_version`) is the extension's own number. An
+  extension may name others it needs (`"depends": {"example/core": ">=1.0"}`);
+  a missing or too-old dependency is shown the same way as an incompatible API.
+- **Profiles later.** Like a Minecraft instance, a project could list the
+  extensions and versions it was made with, so opening it elsewhere shows what is
+  missing. Not in the first slice.
+
+## 13. Decisions so far
 
 1. **Panel content**: a widget description that Blockliner draws, not embedded
    windows. (User unsure; this is the recommendation and the default.)

@@ -40,6 +40,7 @@ class TopBarMixin:
                 ("Manage Custom Blocks...", self.manage_custom_blocks_dialog),
                 ("Imports...", self.show_import_manager),
                 ("Extensions...", self.show_extension_manager),
+                ("AI tools connection...", self.show_control_dialog),
                 ("Settings", self.settings_dialog),
             ]),
             ("Help", [

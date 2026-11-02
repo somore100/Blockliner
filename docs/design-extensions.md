@@ -323,7 +323,7 @@ change it makes is one undoable step with a summary bar. `project.read` includes
 `available_blocks` so the model uses real block ids instead of guessing.
 
 **B. An outside AI agent (Claude Code, another MCP client) controlling a running
-Blockliner.** Proposal, not built: Blockliner offers a local control channel and a
+Blockliner.** Built (first version: read_project, list_blocks, edit_project, undo; no run_project yet): Blockliner offers a local control channel and a
 small bridge program that speaks MCP to the agent.
 - **Off by default.** Tools > "Allow AI tools to connect..." turns it on, and shows
   the status.

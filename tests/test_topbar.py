@@ -31,7 +31,7 @@ def main():
     m = app.topbar_menus
     check("menus: burger + File Run Tools Help", set(m) == {"☰", "File", "Run", "Tools", "Help"})
     check("File menu entries", labels(m["File"]) == ["Undo", "Redo", "Save", "Load", "Open Project...", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."])
-    check("Tools menu entries", labels(m["Tools"]) == ["Manage Custom Blocks...", "Imports...", "Extensions...", "Settings"])
+    check("Tools menu entries", labels(m["Tools"]) == ["Manage Custom Blocks...", "Imports...", "Extensions...", "AI tools connection...", "Settings"])
     check("Help has Feedback and About", labels(m["Help"]) == ["Leave Feedback...", "About Blockliner"])
     check("Run menu has Run + Clear", "Run in Blockliner" in labels(m["Run"]) and "Clear" in labels(m["Run"]))
     check("burger holds all four as cascades", labels(m["☰"]) == ["File", "Run", "Tools", "Help"])

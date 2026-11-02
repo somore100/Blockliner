@@ -50,6 +50,8 @@ class ExtensionsMixin:
 
     def _ext_close(self):
         try:
+            if hasattr(self, "stop_control"):
+                self.stop_control()
             self._ext_host.stop_all()
         finally:
             self.destroy()
@@ -296,7 +298,13 @@ class ExtensionsMixin:
         return extensions_api.snapshot(self.tabs, self.active_tab_index, self._available_blocks())
 
     def _ext_apply_edits(self, ext, params):
-        """project.edit on the Tk thread: all or nothing, one undoable step."""
+        """project.edit from an extension: all or nothing, one undoable step."""
+        return self._apply_project_edits(ext["manifest"]["name"], params.get("edits"))
+
+    def _apply_project_edits(self, source, edits, confirm=False):
+        """Check the edits on a copy, (optionally ask), then swap them in as one undoable
+        step. Returns {"ok", "summary"} or an ExtensionError to hand back. Shared by
+        extensions and by outside AI tools. Runs on the Tk thread."""
         self.sync_active_tab_state()
         ws = self.workspaces[self.active_ws_index]
         known = {lang: {bid: info["params"] for bid, info in blocks.items()}
@@ -306,17 +314,21 @@ class ExtensionsMixin:
             with self._language_scope(language):
                 return self.import_code_to_blocks(text)[0]
         try:
-            new_files, summary = extensions_api.apply_edits(ws["files"], params.get("edits"), known, code_to_blocks)
+            new_files, summary = extensions_api.apply_edits(ws["files"], edits, known, code_to_blocks)
         except extensions_api.EditError as e:
             return ext_runner.ExtensionError("invalid", str(e))
-        name = ext["manifest"]["name"]
-        self.record_project_undo(f"{name}: {summary[0]}" + (f" (+{len(summary) - 1} more)" if len(summary) > 1 else ""))
+        if confirm:
+            shown = "\n".join(f"  \u2022 {line}" for line in summary[:10]) + (f"\n  ... and {len(summary) - 10} more" if len(summary) > 10 else "")
+            if not messagebox.askyesno("Allow this change?", f"{source} wants to change your project:\n\n{shown}\n\n"
+                                       "You can undo it afterwards (File > Undo)."):
+                return ext_runner.ExtensionError("declined", "the user declined the change")
+        self.record_project_undo(f"{source}: {summary[0]}" + (f" (+{len(summary) - 1} more)" if len(summary) > 1 else ""))
         ws["active_index"] = project_undo.restore_files(ws["files"], {"files": new_files, "active_index": ws["active_index"]})
         self._show_active_file(self.view_mode)
         self.mark_active_tab_dirty()
         self.refresh_workspace()
         self.update_generated_code()
-        self.show_change_bar(f"{name} changed the project: " + "; ".join(summary[:2]) + ("..." if len(summary) > 2 else ""))
+        self.show_change_bar(f"{source} changed the project: " + "; ".join(summary[:2]) + ("..." if len(summary) > 2 else ""))
         return {"ok": True, "summary": summary}
 
     def _announce_project_changes(self):

@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import extensions as X
+import extensions_api
 import ext_runner
 import extensions_builtin as B
 from panels import PanelSpec
@@ -61,8 +62,15 @@ class ExtensionsMixin:
         if is_event:
             return None
         if method in ("panel.set", "notify"):
-            self._ext_inbox.put((ext_id, method, params))
+            self._ext_inbox.put((ext_id, method, params, None))
             return {"ok": True}
+        if method == "project.read":
+            reply = queue.Queue()
+            self._ext_inbox.put((ext_id, method, params, reply))        # answered on the Tk thread
+            try:
+                return reply.get(timeout=5)
+            except queue.Empty:
+                raise ext_runner.ExtensionError("busy", "Blockliner did not answer in time; try again")
         raise ext_runner.ExtensionError("not_available", f"{method} is not available yet")
 
     def refresh_extensions(self):
@@ -177,11 +185,13 @@ class ExtensionsMixin:
         redraw panels and restart what died."""
         try:
             while True:
-                ext_id, method, params = self._ext_inbox.get_nowait()
+                ext_id, method, params, reply = self._ext_inbox.get_nowait()
                 ext = self._ext_by_id(ext_id)
                 if ext is None:
                     continue
-                if method == "notify" and isinstance(params.get("text"), str):
+                if method == "project.read":
+                    reply.put(self._project_snapshot())
+                elif method == "notify" and isinstance(params.get("text"), str):
                     self.maybe_notify(ext["manifest"]["name"], params["text"][:500])
                 elif method == "panel.set" and isinstance(params.get("description"), dict):
                     self._ext_remote[ext_id] = params["description"]
@@ -200,6 +210,7 @@ class ExtensionsMixin:
                     pass
             for ext_id, note in self._ext_host.check():
                 self._ext_remote.pop(ext_id, None)
+            self._announce_project_changes()
         self.after(PUMP_MS, self._ext_pump)
 
     def _draw_description(self, parent, node, ext):
@@ -224,6 +235,25 @@ class ExtensionsMixin:
             tk.Button(parent, text=str(node.get("text", "")), command=lambda c=node.get("command"): self.extension_command(ext, c),
                       bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, cursor="hand2", activebackground=DARK_BORDER,
                       activeforeground=DARK_FG, font=("Segoe UI", 9), padx=8).pack(anchor="w", pady=4)
+
+    def _project_snapshot(self):
+        self.sync_active_tab_state()
+        return extensions_api.snapshot(self.tabs, self.active_tab_index)
+
+    def _announce_project_changes(self):
+        """Tell extensions that may read the project when it changed (checked
+        every few ticks, so it is at most a couple of events per second)."""
+        readers = [i for i, pr in self._ext_host.procs.items() if pr.state == "running" and "project.read" in pr.permissions]
+        if not readers:
+            self._ext_last_print = None
+            return
+        print_now = extensions_api.fingerprint(self._project_snapshot())
+        if print_now != getattr(self, "_ext_last_print", None):
+            first = getattr(self, "_ext_last_print", None) is None
+            self._ext_last_print = print_now
+            if not first:
+                for ext_id in readers:
+                    self._ext_host.send_event(ext_id, "project.changed", {})
 
     # ---- commands -----------------------------------------------------------------
     def extension_command(self, ext, command):

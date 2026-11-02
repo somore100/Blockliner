@@ -17,6 +17,8 @@ for line in sys.stdin:
             send({"event": "ready", "params": {"api": ["1.0"]}})
         if mode == "crash":
             sys.exit(3)
+    elif ev == "command" and mode == "reader":
+        send({"id": 5, "method": "project.read", "params": {}})
     elif ev == "command":
         send({"id": 1, "method": "notify", "params": {"text": "hi " + msg["params"].get("command", "")}})
         send({"id": 2, "method": "project.read", "params": {}})

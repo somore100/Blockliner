@@ -51,6 +51,19 @@ def main():
     bad = R.ExtensionProcess("me/x", HERE, ["/nonexistent/program"], [], handler)
     check("a program that can't start is a failure, not a crash", not bad.start() and bad.state == "failed" and "could not start" in bad.note)
 
+    snap = {"files": [{"title": "a"}]}
+    def h3(ext_id, method, params, is_event):
+        if method == "project.read": return snap
+        return {}
+    r1 = R.ExtensionProcess("me/r", HERE, [sys.executable, FAKE, "reader"], ["project.read"], h3, ready_timeout=2.0, stop_timeout=1.0)
+    r1.start(); r1.send_event("command", {"command": "x"})
+    check("project.read with permission gets the data", wait(lambda: any('"result"' in l and '"files"' in l for l in r1.log)))
+    r1.stop()
+    r2 = R.ExtensionProcess("me/r2", HERE, [sys.executable, FAKE, "reader"], [], h3, ready_timeout=2.0, stop_timeout=1.0)
+    r2.start(); r2.send_event("command", {"command": "x"})
+    check("project.read without permission is denied", wait(lambda: any('"denied"' in l for l in r2.log)))
+    r2.stop()
+
     host = R.Host(handler, max_restarts=2, ready_timeout=2.0, stop_timeout=1.0)
     check("host starts one", host.start("me/crashy", HERE, [sys.executable, FAKE, "crash"], []))
     check("a crash is noticed", wait(lambda: not host.procs["me/crashy"].alive()))

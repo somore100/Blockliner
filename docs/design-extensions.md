@@ -217,14 +217,56 @@ are therefore warnings, not locks. So:
 Steps 2 to 5 are pure logic except the panel drawing, so they get tests like the
 other pure modules.
 
-## 11. Open questions
+## 11. How an extension changes Blockliner
 
-1. **Panel content**: is the widget description (section 6) enough, or do you want
-   real embedded windows from the start? (Recommendation: the description.)
-2. **Where do icons go when there are many?** Recommendation: icons in the top
-   bar up to 6, then an overflow menu.
-3. **Undo**: `project.write` needs a project-wide undo, which Blockliner does not
-   have yet (only the Clean Project undo). Recommendation: build a small
-   snapshot undo first (also fixes Ctrl+Z in the code panel).
-4. **Trust**: is "installed by the user, with a permission list" enough, or should
-   there be a signed-extension option later?
+Decided: **the program's own files are never changed by an extension** (the idea
+"base model plus an adapter loaded at start"). The core on disk stays exactly as
+shipped. At launch Blockliner reads the enabled extensions and adds what they
+contribute to the running program; turn one off, restart, and it is gone. Nothing
+is written into the source, so updating Blockliner never conflicts with an
+extension and nothing needs an "undo patch" step.
+
+Rejected: letting an extension rewrite Blockliner's code. It breaks on every
+update, can't be audited, can't be switched off cleanly, and one bad patch can
+stop the app from starting.
+
+Instead the core offers named **contribution points**: places where an extension
+may add something, declared in its manifest.
+
+| Contribution | What it adds | Runs extension code? |
+|---|---|---|
+| `commands` | a button or menu entry that runs a command; **not pinned** unless it asks (see section 12) | only when used |
+| `panels` | a side panel and its icon | yes (the process) |
+| `blocks` | palette blocks (same JSON as `languages/<lang>/blocks`) | no |
+| `libraries`, `presets` | library files and import presets | no |
+| `languages` | a language pack | no |
+| `ui_packs` | UI builder packs | no |
+| `themes` | colours and fonts | no |
+| `settings` | a page in Settings, stored in the extension's own settings | no |
+| `run_targets` | how to run a file: a command with `{file}`, `{dir}` and environment variables, e.g. another interpreter or a virtual environment | only the command the user starts |
+
+So "changing the runtime environment" is a `run_targets` entry: a declared command
+line, not a patch. Anything that needs real logic goes through the process
+protocol (sections 4 and 6).
+
+**Possible later tier: in-process hooks.** A trusted extension could load a Python
+module at launch and attach to named hook points (before export, after a node is
+added). It runs inside Blockliner, so it can crash it. If ever added it would be
+off by default, marked "unsafe" in the manager, applied only at launch (never
+written to disk), and covered by **safe start**: a launch option that starts with
+all extensions off, so a broken one can always be disabled.
+
+## 12. Decisions so far
+
+1. **Panel content**: a widget description that Blockliner draws, not embedded
+   windows. (User unsure; this is the recommendation and the default.)
+2. **Icons**: a few pinned icons in the top bar plus a "..." menu holding the
+   rest. Some extensions are not meant to be opened: they only add a command (a
+   button or menu entry), like a Run or Format action in VS Code. Those have no
+   panel and no icon unless the manifest says `"pin": true`; otherwise they live
+   in the "..." menu and in the menus they named.
+3. **Undo**: build a small project snapshot undo first (also fixes Ctrl+Z in the
+   code panel). Agreed.
+4. **Trust**: installed by the user, with a permission list. Signing may come later.
+5. **How extensions apply**: overlay at launch, never by editing the program
+   (section 11).

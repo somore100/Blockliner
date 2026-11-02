@@ -113,7 +113,12 @@ def regenerate(node, pack, raw_block_id, raw_param, resolve_handler=None):
         return None
     new_blocks = [(raw_block_id, {raw_param: text.rstrip("\n")})]
     if node.get("blocks") != new_blocks:
-        node["blocks"] = new_blocks
+        # In place: the app keeps this same list as project_blocks, and a
+        # replaced list would be written back over the new code on the next sync.
+        if isinstance(node.get("blocks"), list):
+            node["blocks"][:] = new_blocks
+        else:
+            node["blocks"] = new_blocks
     return problems
 
 

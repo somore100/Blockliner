@@ -35,6 +35,14 @@ def main():
     before = node["blocks"]
     ui_node.regenerate(node, pack, "raw_code", "code", resolve)
     check("regenerating twice keeps the same blocks", node["blocks"] == before)
+    held = node["blocks"]
+    old_title = node[ui_node.UI_KEY]["root"]["props"].get("title")
+    node[ui_node.UI_KEY]["root"]["props"]["title"] = "Changed"
+    ui_node.regenerate(node, pack, "raw_code", "code", resolve)
+    check("regenerate updates the list in place (project_blocks aliases it)",
+          node["blocks"] is held and "Changed" in held[0][1]["code"])
+    node[ui_node.UI_KEY]["root"]["props"]["title"] = old_title
+    ui_node.regenerate(node, pack, "raw_code", "code", resolve)
     check("matches_code: exact, with edges ignored, edited", ui_node.matches_code(node, pack, text, resolve)
           and ui_node.matches_code(node, pack, "\n" + text + "\n\n", resolve) and not ui_node.matches_code(node, pack, text + "x = 1", resolve))
 

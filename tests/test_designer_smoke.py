@@ -74,6 +74,7 @@ def main():
         added = widgets(tree)
         check("adding a button adds one widget", len(added) == before + 1)
         wid = app._dz()["sel"]
+        trace(app, node, pack, "added a widget")
         check("the new widget is selected", wid is not None and tree.find(wid) is not None)
         check("the tab is marked dirty", tab_dirty(app))
         check("generated code mentions the widget",
@@ -85,6 +86,7 @@ def main():
         tree = ui_node.load_tree(node, pack)
         check("the property is stored", tree.find(wid)["props"].get("text") == "Smoke")
         check("the code follows the property", "Smoke" in code_of(app, node))
+        trace(app, node, pack, "set property")
 
         # undo / redo
         app._dz_undo()
@@ -95,6 +97,7 @@ def main():
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("redo brings it back", tree.find(wid)["props"].get("text") == "Smoke")
+        trace(app, node, pack, "undo+redo")
 
         # undo survives a refresh of the workspace
         app.refresh_workspace()
@@ -105,12 +108,14 @@ def main():
         check("undo still works after a refresh", tree.find(wid)["props"].get("text") != "Smoke")
         app._dz_redo()
         settle(app)
+        trace(app, node, pack, "refresh, undo, redo")
 
         # rename
         app._dz_rename(wid, "btn_smoke")
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("rename is stored", tree.find(wid)["name"] == "btn_smoke")
+        trace(app, node, pack, "rename")
 
         # a new event handler is a new function node next to the UI node
         count = len(list(app.iter_tab_nodes(app.tabs[app.active_tab_index])))
@@ -118,12 +123,14 @@ def main():
         names = {n["name"]: n for n, _p in app.iter_tab_nodes(app.tabs[app.active_tab_index])}
         check("a handler node was added", len(names) == count + 1 and "on_btn_smoke_command" in names)
         check("the id points at it", names["on_btn_smoke_command"]["id"] == handler_id)
+        trace(app, node, pack, "new handler")
 
         # save and reload (pure round trip of the open workspace)
         app.sync_active_tab_state()
         ws = app.workspaces[app.active_ws_index]
         data = project_file.build_workspace_data(ws["files"], ws["active_index"])
         check("the save is typed", data.get("type") == "codebuilder.workspace")
+        trace(app, node, pack, "sync+build save data")
         files, _ai, _notes = project_file.parse_workspace_data(data, ["python"], "python")
         again = next((n for n in files[0]["nodes"] if ui_node.is_ui_node(n)), None)
         check("the UI node survives a save and reload", again is not None)
@@ -134,8 +141,10 @@ def main():
             check("still attached after reload", not ui_node.is_detached(again))
 
         # detach / reattach
+        pre = ([w["name"] for w in widgets(ui_node.load_tree(node, pack))], code_of(app, node))
         app._dz_detach()
         settle(app)
+        post = ([w["name"] for w in widgets(ui_node.load_tree(node, pack))], code_of(app, node))
         check("detached: the designer no longer shows", app.designer_node() is None)
         check("detached: the workspace is unlocked", getattr(app, "_workspace_locked", False) is False)
         check("detached: the node says so", ui_node.is_detached(node))
@@ -143,8 +152,18 @@ def main():
         settle(app)
         check("reattached: the designer shows again", app.designer_node() is node)
         # reading the code back gives widgets new ids; their names are what carries over
-        check("reattached: the widget is still there (by name)",
-              any(w["name"] == "btn_smoke" for w in widgets(ui_node.load_tree(node, pack))))
+        names_now = [w["name"] for w in widgets(ui_node.load_tree(node, pack))]
+        check("reattached: the widget is still there (by name)", "btn_smoke" in names_now)
+        if "btn_smoke" not in names_now:       # diagnostics for a failing run
+            print("  widgets now:", names_now)
+            print("  detached:", ui_node.is_detached(node))
+            print("  trace:")
+            for line in TRACE:
+                print("   ", line)
+            print("  code before detach:\n" + pre[1])
+            print("  before detach: widgets", pre[0], "| has button in code:", "btn_smoke" in pre[1])
+            print("  after detach:  widgets", post[0], "| has button in code:", "btn_smoke" in post[1])
+            print("  code:\n" + code_of(app, node))
 
         # leave the node: the lock goes away
         app.switch_to_file_view()
@@ -155,6 +174,17 @@ def main():
 
     print("\nFAILURES:" if FAILURES else "\nALL OK", FAILURES or "")
     sys.exit(1 if FAILURES else 0)
+
+
+TRACE = []
+
+
+def trace(app, node, pack, label):
+    """One line per step: the node's widget names and whether the code has them."""
+    names = [w["name"] for w in widgets(ui_node.load_tree(node, pack))]
+    code = code_of(app, node)
+    TRACE.append(f"{label}: widgets={names} code_has_all={all(n in code for n in names)} "
+                 f"code_lines={len(code.splitlines())}")
 
 
 def tab_dirty(app):

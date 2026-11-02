@@ -9,3 +9,7 @@ build/
 .stfolder
 *.sync-conflict-*
 blockliner_script.*
+
+# the user's installed extensions and their saved settings / API keys: never commit these
+user_data/extensions/
+user_data/extension_data/

@@ -45,11 +45,15 @@ def _nodes(nodes, depth=0):
     return out
 
 
-def snapshot(files, active_index=0):
-    """{"version", "active_file", "files": [{title, language, imports, active_node, nodes}]}"""
+def snapshot(files, active_index=0, available_blocks=None):
+    """{"version", "active_file", "available_blocks", "files": [{title, language, imports, active_node, nodes}]}
+
+    `available_blocks` is {language: {block id: {"name", "params": {param: default}}}}: the
+    block ids an edit may use, so an extension (or the AI behind it) never has to guess."""
     return {
         "version": API_PROJECT_VERSION,
         "active_file": active_index,
+        "available_blocks": available_blocks or {},
         "files": [{"title": f.get("title"), "language": f.get("language", "?"),
                    "imports": [i for i in f.get("imports", []) if isinstance(i, str)],
                    "active_node": f.get("active_node_id"), "nodes": _nodes(f.get("nodes"))} for f in files],

@@ -8,6 +8,7 @@ This file never runs extension code.
 import json
 import os
 import re
+import shutil
 
 API_VERSION = (1, 0)                 # the extension API Blockliner speaks (major, minor)
 FORMAT = "blockliner-extension"
@@ -195,3 +196,30 @@ def layout(active_exts, max_pinned=MAX_PINNED):
     rest = [e for e in with_panel if e not in pinned]
     commands = [(e, c) for e in active_exts for c in e["manifest"]["commands"]]
     return {"pinned": pinned, "overflow_panels": rest, "commands": commands}
+
+
+# ---- removing -------------------------------------------------------------------
+def can_remove(ext, user_root):
+    """True for an extension the user installed (a folder inside the user's
+    extensions folder, not a link out of it). Shipped extensions can only be turned off."""
+    if ext.get("scope") != "user" or not user_root:
+        return False
+    folder, root = os.path.realpath(ext["folder"]), os.path.realpath(user_root)
+    return (not os.path.islink(ext["folder"]) and os.path.dirname(folder) == root
+            and os.path.isfile(os.path.join(folder, "extension.json")))
+
+
+def remove_extension(ext, user_root):
+    """Delete an installed extension's folder. Returns True when it is gone.
+    Refuses anything that is not a direct, real subfolder of `user_root`."""
+    if not can_remove(ext, user_root):
+        return False
+    shutil.rmtree(ext["folder"], ignore_errors=True)
+    return not os.path.exists(ext["folder"])
+
+
+def forget_settings(settings, ext_id):
+    """Drop the user's on/off choice for an extension that is gone."""
+    enabled = settings.get("extensions_enabled") if isinstance(settings, dict) else None
+    if isinstance(enabled, dict):
+        enabled.pop(ext_id, None)

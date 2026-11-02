@@ -1,0 +1,14 @@
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "example/assistant",
+  "name": "AI assistant",
+  "description": "Chat with an AI model that can read your project and change it (every change is one undoable step). Needs your own API key.",
+  "author": "Blockliner",
+  "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
+  "icon": "🤖",
+  "run": {"command": ["python3", "main.py"]},
+  "permissions": ["ui.panel", "project.read", "project.write", "net"],
+  "panel": {"title": "AI", "dock": "right", "width": 340}
+}

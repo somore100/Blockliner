@@ -17,6 +17,7 @@ import extensions as X
 import extensions_api
 import project_undo
 import ext_runner
+import ext_storage
 import extensions_builtin as B
 from panels import PanelSpec
 from ui_common import get_block_attr
@@ -36,6 +37,8 @@ class ExtensionsMixin:
     def install_extensions(self):
         self._ext_all = X.find_extensions(self.extension_roots())
         self._ext_panels = {}           # panel id -> {"ext", "body", "shown": json text}
+        self._ext_storage = ext_storage.ExtStorage(os.path.join(os.path.dirname(APP_SETTINGS_PATH), "extension_data"))
+        self._ext_values = {}           # extension id -> {input id: text typed so far}
         self._ext_remote = {}           # extension id -> the panel description it last sent
         self._ext_inbox = queue.Queue()  # messages from extension threads, handled on the Tk thread
         self._ext_starting = set()
@@ -76,7 +79,25 @@ class ExtensionsMixin:
             if isinstance(answer, Exception):
                 raise answer
             return answer
+        if method in ("settings.get", "settings.set", "secrets.get", "secrets.set"):
+            return self._ext_storage_call(ext_id, method, params)
         raise ext_runner.ExtensionError("not_available", f"{method} is not available yet")
+
+    def _ext_storage_call(self, ext_id, method, params):
+        """Settings and secrets of one extension (file work only: fine off the Tk thread)."""
+        store = self._ext_storage
+        try:
+            if method == "settings.get":
+                return {"value": store.get_settings(ext_id, params.get("key"))}
+            if method == "settings.set":
+                store.set_setting(ext_id, params.get("key"), params.get("value"))
+            elif method == "secrets.get":
+                return {"value": store.get_secret(ext_id, params.get("name"))}
+            else:
+                store.set_secret(ext_id, params.get("name"), params.get("value"))
+            return {"ok": True}
+        except ext_storage.StorageError as e:
+            raise ext_runner.ExtensionError("invalid", str(e))
 
     def refresh_extensions(self):
         active = [e for e in X.active(self._ext_all, self.settings) if self._ext_runnable(e)]
@@ -248,22 +269,38 @@ class ExtensionsMixin:
             tk.Label(parent, text=str(node.get("text", "")), bg=DARK_PANEL, anchor="w", justify=tk.LEFT,
                      fg="#888888" if style == "muted" else DARK_FG,
                      font=("Segoe UI", 10, "bold") if style == "title" else ("Segoe UI", 9)).pack(fill=tk.X)
+        elif kind == "text":
+            box = tk.Text(parent, height=int(node.get("height", 12)) if str(node.get("height", 12)).isdigit() else 12,
+                          bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, wrap=tk.WORD, font=("Segoe UI", 9), padx=6, pady=6)
+            box.insert("1.0", str(node.get("text", "")))
+            if node.get("follow"):
+                box.see(tk.END)
+            box.configure(state=tk.DISABLED)
+            box.pack(fill=tk.X, pady=2)
+        elif kind == "input":
+            self._draw_input(parent, node, ext)
         elif kind == "button":
             tk.Button(parent, text=str(node.get("text", "")), command=lambda c=node.get("command"): self.extension_command(ext, c),
                       bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, cursor="hand2", activebackground=DARK_BORDER,
                       activeforeground=DARK_FG, font=("Segoe UI", 9), padx=8).pack(anchor="w", pady=4)
 
+    def _available_blocks(self):
+        """{language: {block id: {"name", "params"}}} for the language that is open."""
+        return {self.current_language: {
+            bid: {"name": str(get_block_attr(mod, "display_name", bid)),
+                  "params": {p["name"]: p.get("default", "") for p in get_block_attr(mod, "params", [])}}
+            for bid, mod in self.blocks.items()}}
+
     def _project_snapshot(self):
         self.sync_active_tab_state()
-        return extensions_api.snapshot(self.tabs, self.active_tab_index)
+        return extensions_api.snapshot(self.tabs, self.active_tab_index, self._available_blocks())
 
     def _ext_apply_edits(self, ext, params):
         """project.edit on the Tk thread: all or nothing, one undoable step."""
         self.sync_active_tab_state()
         ws = self.workspaces[self.active_ws_index]
-        lang = self.current_language
-        known = {lang: {bid: {p["name"]: p.get("default", "") for p in get_block_attr(mod, "params", [])}
-                        for bid, mod in self.blocks.items()}}
+        known = {lang: {bid: info["params"] for bid, info in blocks.items()}
+                 for lang, blocks in self._available_blocks().items()}
 
         def code_to_blocks(language, text):
             with self._language_scope(language):
@@ -297,9 +334,37 @@ class ExtensionsMixin:
                 for ext_id in readers:
                     self._ext_host.send_event(ext_id, "project.changed", {})
 
+    def _draw_input(self, parent, node, ext):
+        """A one-line input with a button; what is typed survives a redraw of the panel."""
+        key = str(node.get("id", "input"))
+        values = self._ext_values.setdefault(ext["manifest"]["id"], {})
+        row = tk.Frame(parent, bg=DARK_PANEL)
+        row.pack(fill=tk.X, pady=2)
+        if node.get("label"):
+            tk.Label(row, text=str(node["label"]), bg=DARK_PANEL, fg="#888888", font=("Segoe UI", 8), anchor="w").pack(fill=tk.X)
+        line = tk.Frame(row, bg=DARK_PANEL)
+        line.pack(fill=tk.X)
+        entry = tk.Entry(line, bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG, relief=tk.FLAT,
+                         show="\u2022" if node.get("secret") else "", highlightthickness=1,
+                         highlightbackground=DARK_BORDER, highlightcolor=DARK_ACCENT)
+        entry.insert(0, values.get(key, str(node.get("value", ""))))
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
+        entry.bind("<KeyRelease>", lambda _e: values.__setitem__(key, entry.get()))
+
+        def submit(_e=None):
+            text = entry.get()
+            if not node.get("keep"):
+                entry.delete(0, tk.END)
+                values[key] = ""
+            self.extension_command(ext, node.get("command"), {"value": text, "id": key})
+        entry.bind("<Return>", submit)
+        tk.Button(line, text=str(node.get("button", "Send")), command=submit, bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT,
+                  cursor="hand2", activebackground=DARK_BORDER, activeforeground=DARK_FG, font=("Segoe UI", 9),
+                  padx=8).pack(side=tk.LEFT, padx=(4, 0))
+
     # ---- commands -----------------------------------------------------------------
-    def extension_command(self, ext, command):
-        """A button or menu entry of an extension was used."""
+    def extension_command(self, ext, command, extra=None):
+        """A button, input or menu entry of an extension was used."""
         if command == "refresh":
             for pid, info in self._ext_panels.items():
                 if info["ext"] is ext:
@@ -307,7 +372,7 @@ class ExtensionsMixin:
                     self.render_extension_panel(pid)
             return
         if not ext["manifest"]["builtin"]:
-            self._ext_host.send_event(ext["manifest"]["id"], "command", {"command": command})
+            self._ext_host.send_event(ext["manifest"]["id"], "command", {"command": command, **(extra or {})})
             return
         tab = self.tabs[self.active_tab_index]
         result = B.run_command(ext["manifest"]["builtin"], command, {"code": self.generate_code_for_tab(tab)})
@@ -349,6 +414,40 @@ class ExtensionsMixin:
         right = tk.Frame(body, bg=DARK_PANEL)
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(12, 0))
 
+        user_root = self.extension_roots()[1][0]
+
+        def add_remove(ext):
+            """A Remove button for extensions the user installed (shipped ones can only be turned off)."""
+            if X.can_remove(ext, user_root):
+                tk.Button(right, text="Remove extension...", command=lambda e=ext: remove(e), bg=DARK_BG, fg=BAD_COLOR,
+                          relief=tk.FLAT, cursor="hand2", activebackground=DARK_BORDER, activeforeground=BAD_COLOR,
+                          font=("Segoe UI", 9), padx=8).pack(anchor="w", pady=(10, 0))
+            else:
+                label(right, "Shipped with Blockliner: it can be turned off but not removed.", fg="#666666").pack(fill=tk.X, pady=(10, 0))
+
+        def remove(ext):
+            m = ext["manifest"]
+            name = m["name"] if m else os.path.basename(ext["folder"])
+            if not messagebox.askyesno("Remove extension", f"Delete \"{name}\" and its files?\n\n{ext['folder']}\n\nThis cannot be undone.", parent=win):
+                return
+            also = bool(m) and bool(self._ext_storage.get_settings(m["id"]) or self._ext_storage.secret_names(m["id"])) and messagebox.askyesno(
+                "Remove extension", "Also delete its saved settings and API keys?", parent=win)
+            if m:
+                self._ext_host.stop(m["id"])
+            if not X.remove_extension(ext, user_root):
+                messagebox.showwarning("Remove extension", "The folder could not be deleted.", parent=win)
+                return
+            if m:
+                X.forget_settings(self.settings, m["id"])
+                self.save_app_settings()
+                self._ext_remote.pop(m["id"], None)
+                if also:
+                    self._ext_storage.delete_all(m["id"])
+            self._ext_all = X.find_extensions(self.extension_roots())
+            self.refresh_extensions()
+            win.destroy()
+            self.show_extension_manager()
+
         def show_detail(ext):
             for w in right.winfo_children():
                 w.destroy()
@@ -358,6 +457,7 @@ class ExtensionsMixin:
                 label(right, os.path.basename(ext["folder"]), fg="#888888").pack(fill=tk.X)
                 for note in ext["notes"]:
                     label(right, note, fg=BAD_COLOR, wraplength=420, justify=tk.LEFT).pack(fill=tk.X, pady=2)
+                add_remove(ext)
                 return
             status, reason = X.compatibility(m)
             label(right, f"{m['icon']}  {m['name']}", font=("Segoe UI", 11, "bold")).pack(fill=tk.X)
@@ -386,7 +486,12 @@ class ExtensionsMixin:
                 label(right, f"Command: {c['label']} ({c['menu']})", fg="#bbbbbb").pack(fill=tk.X)
             for note in ext["notes"]:
                 label(right, note, fg=WARN_COLOR, wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(6, 0))
+            names = self._ext_storage.secret_names(m["id"])
+            if names:
+                label(right, "Saved secrets: " + ", ".join(names) + " (values are never shown)", fg="#bbbbbb",
+                      wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(8, 0))
             label(right, f"{ext['scope']}  •  {ext['folder']}", fg="#666666", wraplength=440, justify=tk.LEFT).pack(fill=tk.X, pady=(10, 0))
+            add_remove(ext)
 
         def toggle(ext, var):
             m = ext["manifest"]

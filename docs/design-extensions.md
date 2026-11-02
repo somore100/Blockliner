@@ -308,3 +308,35 @@ survive, because they are data. The same split applies here, and the fix is to
 4. **Trust**: installed by the user, with a permission list. Signing may come later.
 5. **How extensions apply**: overlay at launch, never by editing the program
    (section 11).
+
+## 14. Where an AI comes from, and AI tools that drive Blockliner from outside
+
+Two different things, both built on the same project.read / project.edit pair.
+
+**A. An assistant inside Blockliner (an extension).** The model comes from an HTTP
+API the user chooses: their own key for Anthropic's API by default, any compatible
+server (including a local model) through the extension's `api_base` setting. The key
+is stored through the secrets API, never in a project. The example is
+`docs/examples/extension-assistant/`: a chat panel, two tools for the model
+(`read_project`, `edit_project`), a loop of at most 8 tool rounds per message. Every
+change it makes is one undoable step with a summary bar. `project.read` includes
+`available_blocks` so the model uses real block ids instead of guessing.
+
+**B. An outside AI agent (Claude Code, another MCP client) controlling a running
+Blockliner.** Proposal, not built: Blockliner offers a local control channel and a
+small bridge program that speaks MCP to the agent.
+- **Off by default.** Tools > "Allow AI tools to connect..." turns it on, and shows
+  the status.
+- **Local only.** The channel listens on the loopback address with a random token
+  created each time it is turned on; nothing leaves the computer.
+- **Access level chosen by the user:** read-only (project.read) or read and edit
+  (project.read + project.edit). Edits go through exactly the same all-or-nothing
+  path, undo and summary bar as an extension's.
+- **How an agent connects:** the bridge (`blockliner-mcp`, a stdio MCP server) is
+  added to the agent's MCP configuration, and the user tells the agent "use
+  Blockliner". The bridge asks the running app for the project and relays edits.
+- **Tools it would expose:** `read_project`, `edit_project`, `list_blocks`,
+  `run_project` (needs its own permission), `undo`.
+- **Why a bridge and not the app itself as an MCP server:** MCP clients start their
+  servers as programs on stdio; the bridge is that program, and the app stays the one
+  place that decides what is allowed.

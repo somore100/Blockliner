@@ -12,7 +12,8 @@ files = [{"title": "main.py", "language": "python", "imports": ["time", 5], "act
           "nodes": [{"id": "n1", "name": "main", "kind": "function", "references": ["x"], "ref_kinds": {"x": "call"},
                      "blocks": [("print", {"value": "'hi'"}), ["if", {"cond": "x", "_children": [("print", {"value": "1"})], "_collapsed": True}]]},
                     {"id": "c1", "name": "Tools", "kind": "category", "child_nodes": [{"id": "n2", "name": "f", "kind": "function", "blocks": [], "ui": {"root": {}}}]}]}]
-snap = A.snapshot(files, 0)
+snap = A.snapshot(files, 0, {"python": {"print": {"name": "Print", "params": {"value": "x"}}}})
+check("the snapshot lists the block ids an edit may use", snap["available_blocks"]["python"]["print"]["params"] == {"value": "x"} and A.snapshot([]) ["available_blocks"] == {})
 check("a snapshot is plain JSON", json.loads(json.dumps(snap)) == snap)
 f = snap["files"][0]
 check("file basics and imports (junk dropped)", f["title"] == "main.py" and f["language"] == "python" and f["imports"] == ["time"] and f["active_node"] == "n1")

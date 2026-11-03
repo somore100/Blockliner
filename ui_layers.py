@@ -2,7 +2,9 @@
 import tkinter as tk
 from tkinter import simpledialog
 import uuid
+import doc_types
 import ui_node
+from editors import EditorContext
 from nodes_model import find_node_by_id, make_node, next_order, normalize_orders
 from ui_common import BLOCK_CHUNK, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, DEFAULT_SETTINGS, KEYBIND_ACTIONS, TEXT_INPUT_CLASSES, keybind_is_bare
 from ui_widgets import BlockWidget
@@ -35,8 +37,9 @@ class LayersMixin:
                 segs.append((together, None))
             else:
                 segs.append(("\U0001F9E9 " + self.get_active_node(tab)["name"], None))
-                if self.designer_node() is not None:
-                    segs.append(("UI designer", None))
+                spec = self.current_editor()
+                if spec is not None:
+                    segs.append((spec.title, None))
         segs[-1] = (segs[-1][0], None)
         return segs
 
@@ -684,7 +687,7 @@ class LayersMixin:
         """The block palette is useless on the Nodes layer (view_mode ==
         "file"): hide it and its edge strip there, and put both back the
         way they were when you leave."""
-        on_nodes = (self.view_mode in ("file", "files")) or self.designer_node() is not None
+        on_nodes = (self.view_mode in ("file", "files")) or self.current_editor() is not None
         hidden = getattr(self, "_palette_hidden_by_layer", False)
         if on_nodes and not hidden:
             self._palette_was_visible = self.panels.is_visible("palette")
@@ -696,6 +699,36 @@ class LayersMixin:
                                     before=self.panels.paned)
             self.panels.set_visible("palette", getattr(self, "_palette_was_visible", True))
             self._palette_hidden_by_layer = False
+
+    def editor_context(self):
+        """What is open, for the editor registry."""
+        facet = self.view_mode
+        ref = None
+        if self.view_mode == "node":
+            node = self.designer_node()
+            if node is not None:
+                facet, ref = "ui-node", node["id"]
+        return EditorContext(doc_types.CODEBUILDER, facet, ref)
+
+    def current_editor(self):
+        """The registered editor that owns the centre panel now, or None
+        (Code Builder's own canvas and block views)."""
+        return self.editor_registry.resolve(self.editor_context())
+
+    def show_editor_frame(self, on):
+        """Swap the scrolling canvas for the editor frame (or back). The frame
+        takes the canvas's place in the packing order."""
+        if on == getattr(self, "_editor_frame_shown", False):
+            return
+        self._editor_frame_shown = on
+        if on:
+            self.workspace_canvas.pack_forget()
+            self.workspace_scrollbar.pack_forget()
+            self.editor_frame.pack(fill=tk.BOTH, expand=True, after=self.crumb_bar)
+        else:
+            self.editor_frame.pack_forget()
+            self.workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, after=self.crumb_bar)
+            self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, after=self.crumb_bar)
 
     def refresh_workspace(self):
         """Refresh the visual workspace - either the file-level node
@@ -717,6 +750,8 @@ class LayersMixin:
 
         self._more_footer = None   # before destroying: scroll events must not touch dead widgets
         for widget in self.workspace_frame.winfo_children():
+            widget.destroy()
+        for widget in self.editor_frame.winfo_children():
             widget.destroy()
         # Phase C2's node boxes/wires live directly on workspace_canvas
         # (not inside workspace_frame, so they can be freely positioned
@@ -759,8 +794,8 @@ class LayersMixin:
         else:
             self.workspace_canvas.itemconfigure(wid, height=0, state="normal")
 
-        designer = self.designer_node()
-        self.lock_workspace_for_designer(designer is not None)
+        editor = self.current_editor()
+        self.show_editor_frame(editor is not None)
         self.refresh_node_nav()
         self.refresh_layer_bar()
 
@@ -782,9 +817,9 @@ class LayersMixin:
 
         self._more_footer = None
         self.after_idle(self._reveal_block_view)
-        if designer is not None:
-            self.render_designer()
-            self.block_count_label.config(text="UI designer")
+        if editor is not None:
+            editor.create(self).render()
+            self.block_count_label.config(text=editor.title)
             return
         if not self.project_blocks:
             self.show_empty_state()

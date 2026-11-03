@@ -990,7 +990,7 @@ class CanvasMixin:
         if legend is not None:
             legend.destroy()
             self._wire_legend = None
-        if not entries or getattr(self, "_workspace_locked", False):
+        if not entries:
             return
         legend = tk.Frame(self.workspace_canvas, bg=DARK_BG, highlightthickness=1,
                           highlightbackground=DARK_BORDER)
@@ -1288,8 +1288,6 @@ class CanvasMixin:
 
     def _pan_press(self, e):
         self._pan_active = False
-        if getattr(self, "_workspace_locked", False):
-            return                         # the UI designer view is not draggable
         c = self.workspace_canvas
         rx, ry = e.x_root - c.winfo_rootx(), e.y_root - c.winfo_rooty()
         self._pan_active = False

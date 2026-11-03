@@ -36,7 +36,8 @@ from ui_groups import GroupsMixin
 from ui_openproject import OpenProjectMixin
 from ui_multiopen import MultiOpenMixin
 from ui_uinode import UINodeMixin
-from ui_designer import DesignerMixin
+from ui_designer import DESIGNER_SPEC, DesignerMixin
+from editors import EditorRegistry
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
 from block_templates import *  # noqa: F401,F403
@@ -68,6 +69,8 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.project_blocks = []
         self.blocks_by_category = {}
         self.custom_blocks = []
+        self.editor_registry = EditorRegistry()       # editors that own the centre panel
+        self.editor_registry.register(DESIGNER_SPEC)
         self.view_mode = "node"  # "files", "file", or "node" - see refresh_workspace
         # Files-layer "View Code" toggle - swaps the files-as-boxes
         # canvas for a stacked, read-only concatenation of every open
@@ -188,8 +191,6 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
                 if under is self.palette_canvas or under is self.workspace_canvas:
                     if first is not under and first.winfo_class() in self.WHEEL_SELF_SCROLLING:
                         return None          # that widget scrolls itself
-                    if under is self.workspace_canvas and getattr(self, "_workspace_locked", False):
-                        return "break"       # the UI designer fills the view and never scrolls
                     self._on_mousewheel(event, under)
                     return "break"
                 under = getattr(under, "master", None)
@@ -507,7 +508,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             lambda e: self.workspace_canvas.configure(scrollregion=self.workspace_canvas.bbox("all"))
         )
         
-        self.workspace_frame_width = 600   # the designer widens it to the whole canvas (_dz_fit)
+        self.workspace_frame_width = 600
         self.workspace_frame_window_id = self.workspace_canvas.create_window(
             (0, 0), window=self.workspace_frame, anchor="nw", width=self.workspace_frame_width
         )
@@ -518,6 +519,9 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         
         self.workspace_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # An embedded editor (see editors.py) gets this plain frame instead of the
+        # scrolling canvas; show_editor_frame() swaps the two.
+        self.editor_frame = tk.Frame(middle_panel, bg=DARK_BG)
         self._bind_workspace_context_menu()
         self.install_canvas_pan()
         self.install_grid()

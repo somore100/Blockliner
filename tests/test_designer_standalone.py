@@ -68,7 +68,6 @@ class BareHost:
     def bell(self): pass
     def winfo_rgb(self, colour): return self.root.winfo_rgb(colour)
     def view_width(self): return 900
-    def fit(self): pass
 
     def refresh(self):
         self.refreshes += 1

@@ -3,7 +3,7 @@ tree, a paper to arrange widgets on, and a properties panel.
 
 It knows two things outside itself and nothing else:
   host  the window it lives in: frame, after/after_idle, bell, winfo_rgb,
-        view_width(), fit(), refresh(), showing()
+        view_width(), refresh(), showing()
   port  the document it edits (designer_port.UIDocumentPort)
 Pure logic is in ui_designer_model.py; the tree in ui_tree.py."""
 import os
@@ -48,6 +48,9 @@ class UIDesignerEditor:
         if "wide" in self.state and self.state["wide"] != (width >= TOOLBAR_ONE_ROW):
             self.host.after_idle(lambda: self._dz_update(code=False))
 
+    def render(self):
+        self.render_designer()
+
     def reset(self):
         """Forget the cached tree and selection (the node was detached or taken back)."""
         self.state.clear()
@@ -71,7 +74,11 @@ class UIDesignerEditor:
             st["sel"] = None
         self._dz_style()
 
-        self.host.fit()
+        frame = self.host.frame
+        frame.update_idletasks()
+        if not getattr(self, "_frame_bound", False):
+            frame.bind("<Configure>", lambda ev: self.on_resized(ev.width) if ev.widget is frame else None, add="+")
+            self._frame_bound = True
         st["shown"] = (self.port.key(), st.get("hide_pal"), st.get("hide_props"))
         outer = tk.Frame(self.host.frame, bg=DARK_BG)
         outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=6)

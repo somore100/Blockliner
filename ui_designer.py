@@ -1,49 +1,20 @@
 """The UI designer inside the app: finds out when an attached UI node should show
-the designer, hosts it in the workspace canvas, and takes a node back from
-code-only. The designer itself is designer_editor.UIDesignerEditor."""
-import tkinter as tk
+the designer, registers it as an editor, and takes a node back from code-only.
+The designer itself is designer_editor.UIDesignerEditor."""
 from tkinter import messagebox
 
 import ui_node
 import ui_parse
 from codebuilder_api import CodeBuilderFacade
+import doc_types
 from designer_editor import UIDesignerEditor
 from designer_port import CodeBuilderUIPort
+from editor_host import AppEditorHost
+from editors import EditorSpec
 
 
-class AppDesignerHost:
-    """What the designer needs from the app's window."""
-
-    def __init__(self, app):
-        self._app = app
-
-    @property
-    def frame(self):
-        return self._app.workspace_frame
-
-    def after(self, ms, func=None, *args):
-        return self._app.after(ms, func, *args)
-
-    def after_idle(self, func, *args):
-        return self._app.after_idle(func, *args)
-
-    def bell(self):
-        self._app.bell()
-
-    def winfo_rgb(self, colour):
-        return self._app.winfo_rgb(colour)
-
-    def view_width(self):
-        return self._app.workspace_canvas.winfo_width() - 2
-
-    def fit(self):
-        self._app._dz_fit()
-
-    def refresh(self):
-        self._app.refresh_workspace()
-
-    def showing(self):
-        return self._app.designer_node() is not None
+DESIGNER_SPEC = EditorSpec("ui-designer", "UI designer", doc_types.CODEBUILDER, "ui-node",
+                           lambda app: app.designer_editor)
 
 
 class DesignerMixin:
@@ -57,7 +28,7 @@ class DesignerMixin:
     def designer_editor(self):
         ed = self.__dict__.get("_designer_editor")
         if ed is None:
-            ed = self.__dict__["_designer_editor"] = UIDesignerEditor(AppDesignerHost(self), CodeBuilderUIPort(self.cb))
+            ed = self.__dict__["_designer_editor"] = UIDesignerEditor(AppEditorHost(self, "ui-designer"), CodeBuilderUIPort(self.cb))
         return ed
 
     @property
@@ -82,35 +53,6 @@ class DesignerMixin:
         if tree is None or tree.pack_id != pack.id or tree.read_only:
             return None
         return node
-
-    # ---- the workspace canvas while the designer shows ----------------------
-    def lock_workspace_for_designer(self, on):
-        """The designer fills the workspace canvas: no scrollbar, wheel or
-        drag-panning (see ui.py _install_wheel, ui_canvas _pan_press)."""
-        was = getattr(self, "_workspace_locked", False)
-        self._workspace_locked = on
-        if not getattr(self, "_dz_fit_bound", False):
-            self.workspace_canvas.bind("<Configure>", self._dz_fit, add="+")
-            self._dz_fit_bound = True
-        if on and not was:
-            self.workspace_scrollbar.pack_forget()
-        elif was and not on:
-            self.workspace_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, before=self.workspace_canvas)
-            self.workspace_canvas.itemconfigure(self.workspace_frame_window_id, width=self.workspace_frame_width)
-
-    def _dz_fit(self, _event=None):
-        """Size the designer to the visible canvas and pin the view at (0, 0)."""
-        if not getattr(self, "_workspace_locked", False):
-            return
-        c = self.workspace_canvas
-        w, h = c.winfo_width() - 2, c.winfo_height() - 2         # inside the 1px highlight border
-        if w < 10 or h < 10:
-            return
-        c.itemconfigure(self.workspace_frame_window_id, width=w, height=h)
-        if c.canvasx(0) != 0 or c.canvasy(0) != 0:
-            self._set_view_origin(0, 0)
-        c.configure(scrollregion=(0, 0, w, h))
-        self.designer_editor.on_resized(w)
 
     # ---- back from code-only ------------------------------------------------
     def reattach_ui_node(self):

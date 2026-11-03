@@ -29,6 +29,9 @@ for module in ("ui", "ui_tabs", "ui_layers", "ui_canvas", "ui_node", "ui_parse",
           not re.search(rf"^\s*(import {module}\b|from {module} import)", ed, re.M))
 check("port needs no Tk", not re.search(r"^\s*(import|from)\s+tkinter", read("designer_port.py"), re.M))
 
+for shell in ("ui.py", "ui_canvas.py", "ui_layers.py", "ui_designer.py"):
+    check(f"{shell} has no workspace lock", "_workspace_locked" not in read(shell) and "lock_workspace" not in read(shell))
+
 src = read("ui_designer.py")
 code = strip_comments(src)
 

@@ -62,7 +62,8 @@ def main():
         settle(app)
 
         check("the designer shows for an attached UI node", app.designer_node() is node)
-        check("the workspace is locked for the designer", getattr(app, "_workspace_locked", False) is True)
+        check("the designer has its own frame, not the scrolling canvas",
+              shows_editor(app) and app.current_editor() is not None and app.current_editor().id == "ui-designer")
         check("the designer drew its frame", app.designer_editor._dz_root.winfo_exists())
 
         # add a widget
@@ -146,7 +147,7 @@ def main():
         settle(app)
         post = ([w["name"] for w in widgets(ui_node.load_tree(node, pack))], code_of(app, node))
         check("detached: the designer no longer shows", app.designer_node() is None)
-        check("detached: the workspace is unlocked", getattr(app, "_workspace_locked", False) is False)
+        check("detached: the scrolling canvas is back", not shows_editor(app) and app.current_editor() is None)
         check("detached: the node says so", ui_node.is_detached(node))
         app.reattach_ui_node()
         settle(app)
@@ -168,7 +169,7 @@ def main():
         # leave the node: the lock goes away
         app.switch_to_file_view()
         settle(app)
-        check("leaving the node unlocks the workspace", getattr(app, "_workspace_locked", False) is False)
+        check("leaving the node brings the canvas back", not shows_editor(app))
     finally:
         app.destroy()
 
@@ -185,6 +186,11 @@ def trace(app, node, pack, label):
     code = code_of(app, node)
     TRACE.append(f"{label}: widgets={names} code_has_all={all(n in code for n in names)} "
                  f"code_lines={len(code.splitlines())}")
+
+
+def shows_editor(app):
+    """The editor frame is on screen and the canvas is not."""
+    return bool(app.editor_frame.winfo_ismapped()) and not app.workspace_canvas.winfo_ismapped()
 
 
 def tab_dirty(app):

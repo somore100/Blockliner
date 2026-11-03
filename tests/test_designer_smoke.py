@@ -192,8 +192,7 @@ def tab_dirty(app):
 
 
 def code_of(app, node):
-    tab = app.tabs[app.active_tab_index]
-    text = app._dz_code_text(tab, node)
+    text = app.cb.raw_code_text(node)
     return text if text is not None else str(node.get("blocks"))
 
 

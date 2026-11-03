@@ -3,20 +3,18 @@ outline of the widget tree and a properties panel. Pure logic is in
 ui_designer_model.py; the tree in ui_tree.py; code comes from ui_gen via
 ui_node.regenerate() (the right-hand code panel shows it live)."""
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import threading
 import tkinter as tk
-import uuid
 from tkinter import colorchooser, messagebox, ttk
 
 import ui_designer_model as dm
 import ui_node
 import ui_paper
 import ui_parse
-from nodes_model import make_node, next_order
+from codebuilder_api import CodeBuilderFacade
 from ui_common import BLOCK_BG, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL
 
 NONE_LABEL = "(none)"
@@ -37,17 +35,21 @@ HANDLE_CURSORS = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow", "e": "sb_h
 
 class DesignerMixin:
 
+    @property
+    def cb(self):
+        """The designer's only way into Code Builder's document."""
+        return self.__dict__.setdefault("_cb_facade", CodeBuilderFacade(self))
+
     # ---- is the designer what this node shows? ----------------------------
     def designer_node(self):
         """The active node when the Blocks layer should show the designer for
         it (an attached UI node whose pack is installed), else None."""
-        if getattr(self, "view_mode", None) != "node" or not getattr(self, "tabs", None):
+        if not self.cb.in_node_view() or not self.cb.available():
             return None
-        tab = self.tabs[self.active_tab_index]
-        node = self.get_active_node(tab)
+        node = self.cb.active_node()
         if not ui_node.is_ui_node(node) or ui_node.is_detached(node):
             return None
-        pack = self.ui_pack_for(tab["language"])
+        pack = self.cb.ui_pack()
         tree = ui_node.load_tree(node, pack) if pack else None
         if tree is None or tree.pack_id != pack.id or tree.read_only:
             return None
@@ -99,9 +101,7 @@ class DesignerMixin:
 
     # ---- rendering ------------------------------------------------------
     def render_designer(self):
-        tab = self.tabs[self.active_tab_index]
-        node = self.get_active_node(tab)
-        pack = self.ui_pack_for(tab["language"])
+        node, pack = self.cb.context()
         tree = self._dz_tree(node, pack)
         st = self._dz()
         if st.get("sel") and tree.find(st["sel"]) is None:
@@ -166,8 +166,7 @@ class DesignerMixin:
         if node is None or root is None or not root.winfo_exists():
             self.refresh_workspace()
             return
-        tab = self.tabs[self.active_tab_index]
-        pack = self.ui_pack_for(tab["language"])
+        pack = self.cb.ui_pack()
         tree = self._dz_tree(node, pack)
         st = self._dz()
         if st.get("shown") != (id(node), st.get("hide_pal"), st.get("hide_props")):
@@ -176,8 +175,7 @@ class DesignerMixin:
         if st.get("sel") and tree.find(st["sel"]) is None:
             st["sel"] = None
         if code:
-            self.regenerate_ui_nodes()
-            self.update_generated_code()
+            self.cb.regenerate()
         self._dz_toolbar(self._dz_bar, node, tree, pack)
         if code or self._dz_out is None:
             self._dz_rebuild_outline(tree, pack)
@@ -271,8 +269,7 @@ class DesignerMixin:
         self._dz_apply(lambda t: t.set_design(root_id, device=key))
 
     def _dz_tree_now(self):
-        tab = self.tabs[self.active_tab_index]
-        return self._dz_tree(self.get_active_node(tab), self.ui_pack_for(tab["language"]))
+        return self._dz_tree(*self.cb.context())
 
     def _dz_palette(self, body, tree, pack):
         """Widget types; click one to add it (inside the selected container,
@@ -401,8 +398,7 @@ class DesignerMixin:
     def _dz_paper_press(self, event):
         """Press on a handle of the selected widget: resize it. Press on a
         widget: select it, and dragging it moves it (grid: to another cell)."""
-        tab = self.tabs[self.active_tab_index]
-        tree, pack = self._dz_tree_now(), self.ui_pack_for(tab["language"])
+        tree, pack = self._dz_tree_now(), self.cb.ui_pack()
         px, py = self._dz_paper_point(event)
         st = self._dz()
         self._dz_drag = None
@@ -444,8 +440,7 @@ class DesignerMixin:
         if d is None or d["rect"] is None:
             return
         self._dz_canvas.delete("ghost")
-        tab = self.tabs[self.active_tab_index]
-        tree, pack = self._dz_tree_now(), self.ui_pack_for(tab["language"])
+        tree, pack = self._dz_tree_now(), self.cb.ui_pack()
         if d["mode"] == "move":
             changes = dm.move_changes(tree, self._dz_paper_obj, self._dz_boxes, d["id"], *d["rect"], pack=pack)
         else:
@@ -457,8 +452,7 @@ class DesignerMixin:
         """Resize cursor over a handle, move cursor over the selected widget."""
         if self._dz_drag is not None:
             return
-        tab = self.tabs[self.active_tab_index]
-        tree, pack = self._dz_tree_now(), self.ui_pack_for(tab["language"])
+        tree, pack = self._dz_tree_now(), self.cb.ui_pack()
         px, py = self._dz_paper_point(event)
         handle = self._dz_handle_under(tree, pack, px, py)
         sel = self._dz().get("sel")
@@ -498,7 +492,7 @@ class DesignerMixin:
     def _dz_toggle_outline(self):
         st = self._dz()
         st["outline_open"] = not st.get("outline_open", True)
-        self._dz_rebuild_outline(self._dz_tree_now(), self.ui_pack_for(self.tabs[self.active_tab_index]["language"]))
+        self._dz_rebuild_outline(self._dz_tree_now(), self.cb.ui_pack())
 
     def _dz_on_select(self, _event=None):
         picked = self._dz_out.selection()
@@ -696,10 +690,8 @@ class DesignerMixin:
 
     def _dz_function_names(self, ui_node_dict):
         """[(name, id)] of the function nodes an event can call."""
-        tab = self.tabs[self.active_tab_index]
         return [(OPEN_WINDOW + n["name"] if ui_node.is_ui_node(n) else n["name"], n["id"])
-                for n, _p in self.iter_tab_nodes(tab)
-                if n.get("kind", "function") == "function" and n is not ui_node_dict]
+                for n in self.cb.function_nodes(exclude=ui_node_dict)]
 
     def _dz_event_row(self, parent, wid, widget, ev, names):
         target = widget["events"].get(ev["key"])
@@ -719,8 +711,7 @@ class DesignerMixin:
     # ---- edits ----------------------------------------------------------
     def _dz_apply(self, change):
         """Run `change(tree)`, save the tree into the node and refresh."""
-        tab = self.tabs[self.active_tab_index]
-        node, pack = self.get_active_node(tab), self.ui_pack_for(tab["language"])
+        node, pack = self.cb.context()
         tree = self._dz_tree(node, pack)
         try:
             change(tree)
@@ -728,7 +719,7 @@ class DesignerMixin:
             messagebox.showinfo("UI builder", str(e))
             return
         ui_node.store_tree(node, tree)
-        self.mark_active_tab_dirty()
+        self.cb.mark_dirty()
         self.after_idle(self._dz_update)
 
     def _dz_set_prop(self, wid, p, value):
@@ -750,8 +741,7 @@ class DesignerMixin:
         self._dz_apply(lambda t: t.rename(wid, text.strip()))
 
     def _dz_add_type(self, wtype):
-        tab = self.tabs[self.active_tab_index]
-        pack = self.ui_pack_for(tab["language"])
+        pack = self.cb.ui_pack()
         st = self._dz()
         added = []
 
@@ -789,43 +779,32 @@ class DesignerMixin:
         self._dz_history(lambda t: t.redo())
 
     def _dz_history(self, step):
-        tab = self.tabs[self.active_tab_index]
-        node, pack = self.get_active_node(tab), self.ui_pack_for(tab["language"])
+        node, pack = self.cb.context()
         tree = self._dz_tree(node, pack)
         if step(tree):
             ui_node.store_tree(node, tree)
-            self.mark_active_tab_dirty()
+            self.cb.mark_dirty()
             self._dz_update()
 
     def _dz_detach(self):
         """No confirm: "Back to designer" reads the code back afterwards."""
-        node = self.get_active_node(self.tabs[self.active_tab_index])
+        node = self.cb.active_node()
         ui_node.detach(node)
         self._dz().clear()
-        self.mark_active_tab_dirty()
+        self.cb.mark_dirty()
         self.refresh_workspace()
 
     def _dz_new_handler(self, widget_name, event_key):
         """Add an empty function node (on_<widget>_<event>) next to the UI node
         and return its id, so an event can point at it straight away."""
-        tab = self.tabs[self.active_tab_index]
-        taken = {n["name"] for n, _p in self.iter_tab_nodes(tab)}
-        base = re.sub(r"\W+", "_", f"on_{widget_name}_{event_key}").strip("_")
-        name, i = base, 2
-        while name in taken:
-            name, i = f"{base}_{i}", i + 1
-        node = make_node(name, node_id=str(uuid.uuid4())[:8], kind="function", blocks=[],
-                         order=next_order(tab["nodes"]))
-        tab["nodes"].append(node)
-        return node["id"]
+        return self.cb.add_function_node(f"on_{widget_name}_{event_key}")
 
     # ---- preview ----------------------------------------------------------
     def _dz_preview(self):
         """Run just this window in its own process. Handlers are stubs that
         print, so nothing else of the project runs."""
-        tab = self.tabs[self.active_tab_index]
-        node, pack = self.get_active_node(tab), self.ui_pack_for(tab["language"])
-        source, problems = ui_node.preview_source(node, pack, self._ui_handler_resolver(tab))
+        node, pack = self.cb.context()
+        source, problems = ui_node.preview_source(node, pack, self.cb.handler_resolver())
         if source is None:
             messagebox.showinfo("Preview", "\n".join(problems) or "Nothing to preview.")
             return
@@ -856,29 +835,17 @@ class DesignerMixin:
         threading.Thread(target=watch, daemon=True).start()
 
     # ---- back from code-only ------------------------------------------------
-    def _dz_code_text(self, tab, node):
-        """The node's code as one text, or None unless it is only raw-code blocks."""
-        raw_id = self.get_raw_code_block_id(tab["language"])
-        if not raw_id or not node.get("blocks"):
-            return None
-        param = self.get_raw_code_param_name(raw_id)
-        if any(b != raw_id for b, _p in node["blocks"]):
-            return None
-        return "\n".join(str(p.get(param, "")) for _b, p in node["blocks"])
-
     def reattach_ui_node(self):
         """Hand a code-only UI node back to the designer. If the code still has
         the shape the designer writes, it is read back (edits included); if not,
         the user may replace it with what the designer generates."""
-        tab = self.tabs[self.active_tab_index]
-        node = self.get_active_node(tab)
+        node, pack = self.cb.context()
         if not ui_node.is_ui_node(node) or not ui_node.is_detached(node):
             return
-        pack = self.ui_pack_for(tab["language"])
-        resolve = self._ui_handler_resolver(tab)
+        resolve = self.cb.handler_resolver()
         names = {(ui_node.function_name(n) if ui_node.is_ui_node(n) else n["name"]): n["id"]
-                 for n, _p in self.iter_tab_nodes(tab) if n.get("kind", "function") == "function" and n is not node}
-        text = self._dz_code_text(tab, node)
+                 for n in self.cb.function_nodes(exclude=node)}
+        text = self.cb.raw_code_text(node)
         tree, problems = (None, ["the node has blocks other than one code block"])
         if text is not None and pack is not None:
             tree, problems = ui_parse.read_back(node, pack, text, resolve, names.get,
@@ -898,7 +865,7 @@ class DesignerMixin:
                     "generates and your edits to the code are lost.\n\nReplace the code?"):
                 return
         ui_node.reattach(node)
-        self.__dict__.setdefault("_ui_last_blocks", {}).pop((id(tab), node["id"]), None)
+        self.cb.forget_generated(node)
         self._dz().clear()
-        self.mark_active_tab_dirty()
+        self.cb.mark_dirty()
         self.refresh_workspace()

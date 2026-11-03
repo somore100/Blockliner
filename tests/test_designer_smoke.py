@@ -63,17 +63,17 @@ def main():
 
         check("the designer shows for an attached UI node", app.designer_node() is node)
         check("the workspace is locked for the designer", getattr(app, "_workspace_locked", False) is True)
-        check("the designer drew its frame", app._dz_root.winfo_exists())
+        check("the designer drew its frame", app.designer_editor._dz_root.winfo_exists())
 
         # add a widget
         tree = ui_node.load_tree(node, pack)
         before = len(widgets(tree))
-        app._dz_add_type("button")
+        app.designer_editor._dz_add_type("button")
         settle(app)
         tree = ui_node.load_tree(node, pack)
         added = widgets(tree)
         check("adding a button adds one widget", len(added) == before + 1)
-        wid = app._dz()["sel"]
+        wid = app.designer_editor.state["sel"]
         trace(app, node, pack, "added a widget")
         check("the new widget is selected", wid is not None and tree.find(wid) is not None)
         check("the tab is marked dirty", tab_dirty(app))
@@ -81,7 +81,7 @@ def main():
               any(w["name"] in code_of(app, node) for w in added))
 
         # set a property
-        app._dz_set_prop(wid, {"key": "text"}, "Smoke")
+        app.designer_editor._dz_set_prop(wid, {"key": "text"}, "Smoke")
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("the property is stored", tree.find(wid)["props"].get("text") == "Smoke")
@@ -89,11 +89,11 @@ def main():
         trace(app, node, pack, "set property")
 
         # undo / redo
-        app._dz_undo()
+        app.designer_editor._dz_undo()
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("undo restores the property", tree.find(wid)["props"].get("text") != "Smoke")
-        app._dz_redo()
+        app.designer_editor._dz_redo()
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("redo brings it back", tree.find(wid)["props"].get("text") == "Smoke")
@@ -102,16 +102,16 @@ def main():
         # undo survives a refresh of the workspace
         app.refresh_workspace()
         settle(app)
-        app._dz_undo()
+        app.designer_editor._dz_undo()
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("undo still works after a refresh", tree.find(wid)["props"].get("text") != "Smoke")
-        app._dz_redo()
+        app.designer_editor._dz_redo()
         settle(app)
         trace(app, node, pack, "refresh, undo, redo")
 
         # rename
-        app._dz_rename(wid, "btn_smoke")
+        app.designer_editor._dz_rename(wid, "btn_smoke")
         settle(app)
         tree = ui_node.load_tree(node, pack)
         check("rename is stored", tree.find(wid)["name"] == "btn_smoke")
@@ -119,7 +119,7 @@ def main():
 
         # a new event handler is a new function node next to the UI node
         count = len(list(app.iter_tab_nodes(app.tabs[app.active_tab_index])))
-        handler_id = app._dz_new_handler("btn_smoke", "command")
+        handler_id = app.designer_editor._dz_new_handler("btn_smoke", "command")
         names = {n["name"]: n for n, _p in app.iter_tab_nodes(app.tabs[app.active_tab_index])}
         check("a handler node was added", len(names) == count + 1 and "on_btn_smoke_command" in names)
         check("the id points at it", names["on_btn_smoke_command"]["id"] == handler_id)
@@ -142,7 +142,7 @@ def main():
 
         # detach / reattach
         pre = ([w["name"] for w in widgets(ui_node.load_tree(node, pack))], code_of(app, node))
-        app._dz_detach()
+        app.designer_editor._dz_detach()
         settle(app)
         post = ([w["name"] for w in widgets(ui_node.load_tree(node, pack))], code_of(app, node))
         check("detached: the designer no longer shows", app.designer_node() is None)

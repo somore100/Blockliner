@@ -11,14 +11,32 @@ def check(name, cond):
     if not cond:
         fails.append(name)
 
-src = open(os.path.join(HERE, "..", "ui_designer.py"), encoding="utf-8").read()
-code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+def read(name):
+    return open(os.path.join(HERE, "..", name), encoding="utf-8").read()
+
+def strip_comments(text):
+    return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+
+# The editor is a component: it must not know the app, tabs, or Code Builder.
+ed = read("designer_editor.py")
+ed_code = strip_comments(ed)
+for banned in ("self.tabs", "active_tab_index", "get_active_node", "iter_tab_nodes", "ui_pack_for",
+               "workspace_canvas", "workspace_frame", "workspace_scrollbar", "project_blocks",
+               "_workspace_locked", "view_mode", "designer_node", "self.cb", "make_node"):
+    check(f"editor does not use {banned}", banned not in ed_code)
+for module in ("ui", "ui_tabs", "ui_layers", "ui_canvas", "ui_node", "ui_parse", "codebuilder_api", "nodes_model"):
+    check(f"editor does not import {module}",
+          not re.search(rf"^\s*(import {module}\b|from {module} import)", ed, re.M))
+check("port needs no Tk", not re.search(r"^\s*(import|from)\s+tkinter", read("designer_port.py"), re.M))
+
+src = read("ui_designer.py")
+code = strip_comments(src)
 
 for banned in ("self.tabs", "active_tab_index", "get_active_node", "iter_tab_nodes", "ui_pack_for",
                "get_raw_code", "_ui_handler_resolver", "regenerate_ui_nodes", "update_generated_code",
                "mark_active_tab_dirty", "_ui_last_blocks", "project_blocks", "make_node"):
-    check(f"designer does not use {banned}", banned not in code)
-check("designer imports the facade", "from codebuilder_api import" in src)
+    check(f"adapter does not use {banned}", banned not in code)
+check("adapter imports the facade", "from codebuilder_api import" in src)
 
 facade_src = open(os.path.join(HERE, "..", "codebuilder_api.py"), encoding="utf-8").read()
 check("facade needs no Tk", not re.search(r"^\s*(import|from)\s+tkinter", facade_src, re.M))

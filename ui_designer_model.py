@@ -1,6 +1,6 @@
 """Pure helpers for the UI designer view (no Tk): where a new widget goes, what
 layout it starts with, turning typed text into property values, outline rows.
-The Tk side is in ui_designer.py."""
+The Tk side is in designer_editor.py."""
 
 import ui_paper
 

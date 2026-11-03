@@ -2,7 +2,7 @@
 UITree is drawn on the design surface. A rough layouter, not the real toolkit:
 grid children get rows/columns sized by their contents, place children go at
 their x/y, anything else is stacked. Real widgets are never created here, so
-it works for any pack. The Tk side is in ui_designer.py."""
+it works for any pack. The Tk side is in designer_editor.py."""
 
 # key -> (label, paper width, paper height)
 DEVICES = {

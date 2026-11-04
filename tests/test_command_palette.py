@@ -4,6 +4,7 @@ palette finds and runs commands, and extension commands join and leave.
 """
 import os
 import sys
+import time
 import tkinter as tk
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,11 +59,13 @@ def main():
     app.update()
     check("typing narrows the list; Save comes first", box.size() >= 1 and "Save" in box.get(0))
     called.clear()
-    entry.event_generate("<Return>")
+    entry.focus_force()
     app.update()
-    app.after(100, lambda: None)
-    for _ in range(5):
+    entry.event_generate("<Return>")
+    deadline = time.time() + 1.0            # the command runs 30 ms after the palette closes
+    while time.time() < deadline and not called:
         app.update()
+        time.sleep(0.01)
     check("Enter runs the chosen command and closes the palette", called == ["save"] and not win.winfo_exists())
 
     app.show_command_palette()

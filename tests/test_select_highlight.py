@@ -76,6 +76,8 @@ def main():
           and border([w for w in top if w.index == 1][0]) != SELECT_COLOR)
     app.refresh_workspace(); app.update()
     top = [w for w in block_widgets(app.workspace_frame) if w.container_list is app.project_blocks]
+    for w in top:
+        w.on_leave(None)        # a pointer resting over a new block would paint its hover colour
     check("block selection survives redraw", border([w for w in top if w.index == 0][0]) == SELECT_COLOR)
     # a different node's block list must not show a stale highlight
     app.project_blocks = b["blocks"]; app.refresh_workspace(); app.update()

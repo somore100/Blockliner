@@ -233,8 +233,80 @@ class ImportManagerMixin:
             show_tidy()
 
         button(head, "Check again", show_tidy).pack(side=tk.RIGHT)
+        button(head, "All files…", self.show_project_imports).pack(side=tk.RIGHT, padx=(0, 6))
         show_tidy()
         win.bind("<Escape>", lambda _e: win.destroy())
+        return win
+
+    # ---- the whole project at a glance -----------------------------------------------
+    def project_import_files(self):
+        """[{"title", "language", "code_lines", "tab"}] for every file of the open project."""
+        out = []
+        for i, tab in enumerate(self.tabs):
+            lang = tab["language"]
+            out.append({"title": tab.get("title") or f"File {i + 1}", "language": lang, "tab": tab,
+                        "code_lines": self.generate_code_for_tab(tab, lang).split("\n")})
+        return out
+
+    def show_project_imports(self):
+        """One table for the whole project: per library, the files that import it,
+        miss it or never use it. "Add missing everywhere" is the only button that changes anything."""
+        existing = getattr(self, "_project_imports_win", None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
+            return existing
+        win = tk.Toplevel(self)
+        self._project_imports_win = win
+        win.title("Imports of all files")
+        win.configure(bg=DARK_PANEL)
+        win.geometry("860x420")
+        win.transient(self)
+        tk.Label(win, text="Imports across the project", bg=DARK_PANEL, fg=DARK_FG, anchor="w",
+                 font=("Segoe UI", 11, "bold")).pack(fill=tk.X, padx=14, pady=(12, 2))
+        columns = ("library", "importing", "missing", "unused")
+        table = ttk.Treeview(win, columns=columns, show="headings", height=12)
+        for name, text, width in (("library", "Library", 160), ("importing", "Imported in", 240),
+                                  ("missing", "Used but not imported in", 240), ("unused", "Imported but unused in", 200)):
+            table.heading(name, text=text)
+            table.column(name, width=width, anchor="w")
+        table.pack(fill=tk.BOTH, expand=True, padx=14, pady=8)
+        note = tk.Label(win, text="", bg=DARK_PANEL, fg="#888888", anchor="w", font=("Segoe UI", 9))
+        note.pack(fill=tk.X, padx=14)
+        bar = tk.Frame(win, bg=DARK_PANEL)
+        bar.pack(fill=tk.X, padx=14, pady=10)
+        state = {"rows": []}
+
+        def refresh():
+            files = self.project_import_files()
+            libs = {lang: self.libraries_for(lang) for lang in {f["language"] for f in files}}
+            state["files"] = files
+            state["rows"] = libraries.project_overview(libs, files)
+            table.delete(*table.get_children())
+            for row in state["rows"]:
+                table.insert("", tk.END, values=(row["library"], ", ".join(row["importing"]) or "-",
+                                                 ", ".join(row["missing"]) or "-", ", ".join(row["unused"]) or "-"))
+            missing = sum(len(r["missing"]) for r in state["rows"])
+            note.configure(text=f"{len(files)} file(s), {len(state['rows'])} librar{'y' if len(state['rows']) == 1 else 'ies'}; "
+                                f"{missing} missing import(s).")
+
+        def add_missing():
+            by_title = {f["title"]: f["tab"] for f in state["files"]}
+            for row in state["rows"]:
+                for title in row["missing"]:
+                    self._tidy_add(by_title[title], row["library"])
+            self.mark_active_tab_dirty()
+            self.refresh_workspace()
+            self.update_generated_code()
+            refresh()
+
+        def button(text, command):
+            tk.Button(bar, text=text, command=command, bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                      activebackground=DARK_BORDER, activeforeground=DARK_FG, font=("Segoe UI", 9), padx=8).pack(side=tk.LEFT, padx=(0, 6))
+        button("Add missing everywhere", add_missing)
+        button("Refresh", refresh)
+        button("Close", win.destroy)
+        win.bind("<Escape>", lambda _e: win.destroy())
+        refresh()
         return win
 
     # ---- tidy fixes (each one a small, visible change) ----------------------------

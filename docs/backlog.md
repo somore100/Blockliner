@@ -62,3 +62,9 @@ Collected from testing; none of this is started.
 
 - Built (untested in app): AI tools connection (Tools menu): control_server.py (loopback only, random token per switch-on, read / edit access, request log), blockliner_mcp.py (stdio MCP bridge: read_project, list_blocks, edit_project, undo), ui_control.py (dialog with switch, access choice, "ask before each change", copy-config buttons, activity list), shared edit path `_apply_project_edits` (also used by extensions). Off at every start; control.json is owner-only and removed on switch-off/close. Tests: tests/test_control.py, tests/test_mcp_bridge.py.
 - Not yet: run_project tool, per-agent names/tokens, a bridge for HTTP/SSE-only MCP clients, other languages' block ids when a file in another language is open.
+
+## Backlog round 2 (built, untested in a real window)
+- Blocks can ask for a library with `"requires": ["time"]` in the block file; the file's import head adds it (ui_libraries `import_head_lines`). Sleep uses it, so it no longer carries its own `import time`.
+- UI nodes now get call wires to the handlers and popup windows their widgets point at (`ui_node.event_targets`, `recompute_references`). Rolled-up/branch labels do not apply to them.
+- Language checks (language_checks.py, `languages/<lang>/checks.json`): bracket balance and open strings for the brace languages, malloc/free and fopen/fclose pairing for C/C++ (new/delete[] for C++), semicolon consistency for JavaScript. Shown as a red triangle with the reason in the code panel's bulb. Heuristics only.
+- Imports manager: "All files..." opens a project-wide table (per library: imported in / used but not imported in / imported but unused in) with "Add missing everywhere".

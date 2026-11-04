@@ -72,6 +72,18 @@ def main():
     check("imports load back per file", back[0]["imports"] == ["time", "math"] and "imports" not in back[1])
     bad = json.loads(json.dumps(data)); bad["files"][0]["imports"] = ["time", 5, None]
     check("junk in saved imports is dropped", pf.parse_workspace_data(bad, {"python"})[0][0]["imports"] == ["time"])
+    # project-wide overview
+    libs_by = {"python": py}
+    files = [{"title": "a", "language": "python", "code_lines": ["import time", "time.sleep(1)"]},
+             {"title": "b", "language": "python", "code_lines": ["time.sleep(2)"]},
+             {"title": "c", "language": "python", "code_lines": ["import math", "print(1)"]},
+             {"title": "d", "language": "ruby", "code_lines": ["x"]}]
+    rows = {r["library"]: r for r in L.project_overview(libs_by, files)}
+    check("overview: who imports a library", rows["time"]["importing"] == ["a"])
+    check("overview: who uses it without importing", rows["time"]["missing"] == ["b"])
+    check("overview: who imports it for nothing", rows["math"]["importing"] == ["c"] and rows["math"]["unused"] == ["c"])
+    check("overview: languages without libraries are skipped", all(r["language"] == "python" for r in rows.values()))
+    check("overview: empty project", L.project_overview({}, []) == [])
     # blocks that ask for a library ("requires")
     libs = py
     if libs:

@@ -256,6 +256,29 @@ def raw_import_blocks(libs, blocks, raw_id, raw_param):
     return found
 
 
+def project_overview(libs_by_language, files):
+    """Which libraries every file of a project imports, misses or leaves unused.
+
+    files: [{"title", "language", "code_lines"}]. Returns rows
+    [{"library", "language", "importing": [titles], "missing": [titles],
+    "unused": [titles]}] sorted by language then name, only for libraries that
+    some file imports, misses or leaves unused."""
+    rows = {}
+    for f in files:
+        libs = libs_by_language.get(f["language"]) or {}
+        if not libs:
+            continue
+        report = tidy_report(libs, f["code_lines"])
+        importing = set(imported_names(libs, f["code_lines"]))
+        for name, field in [(n, "importing") for n in importing] + \
+                [(n, "missing") for n in report["missing"]] + [(n, "unused") for n in report["unused"]]:
+            row = rows.setdefault((f["language"], name), {"library": name, "language": f["language"],
+                                                         "importing": [], "missing": [], "unused": []})
+            if f["title"] not in row[field]:
+                row[field].append(f["title"])
+    return [rows[k] for k in sorted(rows)]
+
+
 def used_by(lib, code_lines):
     """The first command of `lib` found in the code (for 'used by time.sleep'), or ''."""
     body = "\n".join(code_lines)

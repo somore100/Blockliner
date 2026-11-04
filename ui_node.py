@@ -59,6 +59,27 @@ def widget_count(node):
     return max(0, count(doc.get("root")) - 1)          # the window itself isn't counted
 
 
+def event_targets(node):
+    """Ids of the nodes the UI's events call (handlers and popup windows), in
+    the order the widgets appear, each once. [] for a node without a UI."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    out = []
+
+    def walk(w):
+        if not isinstance(w, dict):
+            return
+        events = w.get("events")
+        if isinstance(events, dict):
+            for target in events.values():
+                if isinstance(target, str) and target and target not in out:
+                    out.append(target)
+        for child in w.get("children") or []:
+            walk(child)
+    if isinstance(doc, dict):
+        walk(doc.get("root"))
+    return out
+
+
 def function_name(node):
     """build_<node name> as a valid identifier."""
     slug = re.sub(r"\W+", "_", str(node.get("name") or "ui")).strip("_") or "ui"

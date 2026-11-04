@@ -107,6 +107,13 @@ def main():
     class Other: id = "web/html"
     check("preview: refuses non-Python packs", ui_node.preview_source(node, Other())[0] is None)
 
+    check("event_targets lists what the widgets call, once each",
+          ui_node.event_targets(node) == ["h1"] and ui_node.event_targets(make_node("f")) == [])
+    popup_doc = {"root": {"events": {}, "children": [{"events": {"command": "p9", "other": "h1"}, "children": [
+        {"events": {"command": "p9"}, "children": []}]}]}}
+    check("event_targets walks nested widgets and skips repeats and junk",
+          ui_node.event_targets({"ui": popup_doc}) == ["p9", "h1"]
+          and ui_node.event_targets({"ui": {"root": {"events": {"x": None, "y": ""}, "children": "bad"}}}) == [])
     print(f"\n{len(FAILURES)} failure(s)")
     sys.exit(1 if FAILURES else 0)
 

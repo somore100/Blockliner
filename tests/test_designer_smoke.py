@@ -126,6 +126,12 @@ def main():
         check("the id points at it", names["on_btn_smoke_command"]["id"] == handler_id)
         trace(app, node, pack, "new handler")
 
+        # pointing the button at the handler draws a call wire from the UI node
+        app.designer_editor._dz_apply(lambda t: t.set_event(wid, "command", handler_id))
+        settle(app)
+        app.recompute_references()
+        check("an event handler becomes a call reference of the UI node", handler_id in node.get("references", []))
+
         # save and reload (pure round trip of the open workspace)
         app.sync_active_tab_state()
         ws = app.workspaces[app.active_ws_index]

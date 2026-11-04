@@ -4,6 +4,7 @@ from tkinter import messagebox, simpledialog
 import contextlib
 import nodes_model
 import node_ports
+import ui_node
 import wire_kinds
 import branch_labels
 from nodes_model import default_active_node_id, find_node_by_id, function_nodes_in_tree_order, normalize_orders
@@ -606,6 +607,7 @@ class NodeOpsMixin:
         tab = self.tabs[self.active_tab_index]
         nodes = self.all_function_nodes(tab)
         name_to_id = {n["name"]: n["id"] for n in nodes}
+        ids = {n["id"] for n in nodes}
 
         for node in nodes:
             refs = []
@@ -615,6 +617,10 @@ class NodeOpsMixin:
                     target_id = name_to_id.get(called_name)
                     if target_id and target_id not in refs:
                         refs.append(target_id)
+            # a UI node calls the handlers and popup windows its widgets point at
+            for target_id in ui_node.event_targets(node):
+                if target_id in ids and target_id != node["id"] and target_id not in refs:
+                    refs.append(target_id)
             node["references"] = refs
             kinds = wire_kinds.call_kinds(node["blocks"])
             node["ref_kinds"] = {t: kinds.get(n, "call") for n, t in name_to_id.items()

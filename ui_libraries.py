@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import libraries
-from ui_common import DARK_FG, DARK_PANEL
+from ui_common import DARK_FG, DARK_PANEL, get_block_attr
 
 STATUS_COLORS = {"imported": "#4caf50", "available": "#808080", "not_installed": "#d9534f"}
 STATUS_NOTES = {"imported": "already imported", "available": "adds the import", "not_installed": "not installed here"}
@@ -55,7 +55,21 @@ class LibrariesMixin:
 
     def import_head_lines(self, tab, lang):
         """The import lines a tab's generated code starts with."""
-        return libraries.import_lines(self.libraries_for(lang), self.tab_imports(tab))
+        libs = self.libraries_for(lang)
+        lines = libraries.import_lines(libs, self.tab_imports(tab))
+        return libraries.with_required(lines, libs, self.tab_required_libraries(tab))
+
+    def tab_required_libraries(self, tab):
+        """Libraries that blocks used in the tab ask for ("requires" in the block file)."""
+        blocks = self.collect_tab_blocks(tab)
+        if blocks is None and getattr(self, "tabs", None) and tab is self.tabs[self.active_tab_index]:
+            blocks = self.project_blocks
+        names = []
+        for block_id, _params in self.iter_all_blocks_recursive(blocks or []):
+            for n in get_block_attr(self.blocks.get(block_id), "requires", None) or []:
+                if n not in names:
+                    names.append(n)
+        return names
 
     # ---- palette search results --------------------------------------------
     def palette_library_section(self, term):

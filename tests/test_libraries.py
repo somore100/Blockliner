@@ -72,6 +72,14 @@ def main():
     check("imports load back per file", back[0]["imports"] == ["time", "math"] and "imports" not in back[1])
     bad = json.loads(json.dumps(data)); bad["files"][0]["imports"] = ["time", 5, None]
     check("junk in saved imports is dropped", pf.parse_workspace_data(bad, {"python"})[0][0]["imports"] == ["time"])
+    # blocks that ask for a library ("requires")
+    libs = py
+    if libs:
+        check("required libraries add their import once", L.with_required([], libs, ["time", "time"]) == ["import time"])
+        check("an import already there is not repeated", L.with_required(["import time"], libs, ["time"]) == ["import time"])
+        check("unknown required names are ignored", L.with_required(["import math"], libs, ["nope"]) == ["import math"])
+    sleep = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "languages", "python", "blocks", "sleep.json")))
+    check("Sleep asks for time instead of importing it", sleep.get("requires") == ["time"] and "import" not in sleep["template"])
     print("\nFAILURES:" if FAILURES else "\nALL OK", FAILURES or "")
     sys.exit(1 if FAILURES else 0)
 

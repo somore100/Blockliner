@@ -114,6 +114,17 @@ def import_lines(libs, names):
     return out
 
 
+def with_required(lines, libs, names):
+    """`lines` plus the import lines of the libraries `names` (what blocks
+    declare in their "requires" list), each once, unknown names ignored."""
+    out = list(lines)
+    for n in names:
+        lib = libs.get(n)
+        if lib and lib["import"] not in out:
+            out.append(lib["import"])
+    return out
+
+
 def imported_names(libs, code_lines):
     """Names of the libraries whose import line (or an alias) is in the code."""
     present = {_norm(ln) for ln in code_lines}

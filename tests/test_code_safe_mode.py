@@ -48,8 +48,10 @@ def main():
         yield w
         for c in w.winfo_children():
             yield from walk(c)
-    labels = {w.cget("text") for w in walk(app) if w.winfo_class() == "Checkbutton"}
-    check("both checkboxes exist in the window", {"Safe mode", "Show markers"} <= labels and app.safe_mode_var.get() and app.show_markers_var.get())
+    options = next(w for w in walk(app) if w.winfo_class() == "Menubutton" and "Options" in str(w.cget("text")))
+    omenu = options.nametowidget(options.cget("menu"))
+    labels = {omenu.entrycget(i, "label") for i in range(omenu.index("end") + 1) if omenu.type(i) == "checkbutton"}
+    check("both options exist in the code panel's Options menu", {"Safe mode", "Show markers"} <= labels and app.safe_mode_var.get() and app.show_markers_var.get())
 
     ml = marker_lines(); first = ml[0]
     before = text()

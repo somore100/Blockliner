@@ -103,7 +103,7 @@ def main():
     check("one separator row per node, one widget per block", len(rows) == 3 and len(bws) == 5)
     check("separator names the node and its run order", any("alpha" in t and "▶1" in t for t in texts(rows[0])))
     check("selection cleared after opening", app.selected_nodes() == set())
-    crumb = " ".join(texts(app.node_nav_frame))
+    crumb = " ".join(texts(app.node_nav_frame)) + " " + " ".join(texts(app.crumb_bar))   # the trail lives in the breadcrumb bar
     check("nav says it is editing 3 nodes together", "3 nodes together" in crumb)
     nums = [t for w in bws for t in texts(w.winfo_children()[0]) if t.isdigit()]
     check("block numbers run 1..5 (separators are not counted)", nums == ["1", "2", "3", "4", "5"])

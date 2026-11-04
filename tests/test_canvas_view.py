@@ -46,7 +46,7 @@ def main():
     w1 = app._fileview_boxes[node["id"]][1].winfo_reqwidth()
     ox, oy = c.coords(app._fileview_boxes[node["id"]][0])
     app.zoom_step(-1, 200, 200); app.apply_zoom(); app.update()
-    check("zoom in grows the zoom", abs(app.canvas_zoom - cv.ZOOM_STEP) < 1e-9)
+    check("zoom in grows the zoom", abs(app.canvas_zoom - cv.zoom_factor(app.settings)) < 1e-9)
     nx, ny = c.coords(app._fileview_boxes[node["id"]][0])
     check("box position scales with zoom", abs(nx - node["canvas_x"] * app.canvas_zoom) < 1.0)
     check("model position is untouched by zoom", node["canvas_x"] * app.canvas_zoom == nx or abs(node["canvas_x"] - nx / app.canvas_zoom) < 1e-6)

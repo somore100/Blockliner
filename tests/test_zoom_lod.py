@@ -88,6 +88,7 @@ def main():
     wins = list(c.find_withtag("node_box"))
     boxes = {n: app._fileview_boxes[n][1] for n in ("verify", "gen_pw", "ui")}
     w0 = boxes["verify"].winfo_width()
+    app.settings["zoom_speed"] = "fast"        # the default is slow; the test wants a visible change
     app.zoom_step(-1, 300, 200); app.zoom_step(-1, 300, 200); app.update()
     check("no stand-in rectangles any more", not c.find_withtag("zoom_proxy"))
     check("boxes never hidden while zooming", all(c.itemcget(w, "state") != "hidden" for w in wins))

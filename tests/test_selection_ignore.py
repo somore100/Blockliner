@@ -143,6 +143,7 @@ def main():
     orig_r, orig_s = app.rerender_canvas_layer, app.rescale_canvas_layer
     app.rerender_canvas_layer = lambda: (calls.append(1), orig_r())[1]
     app.rescale_canvas_layer = lambda: (rescales.append(1), orig_s())[1]
+    app.settings["zoom_speed"] = "fast"        # the default is slow; the test wants a visible change
     box0 = app._fileview_boxes["a1"][1]
     w0 = box0.winfo_reqwidth()
     for _ in range(6): app.zoom_step(-1, 300, 200)

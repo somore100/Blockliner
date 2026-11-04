@@ -35,6 +35,7 @@ CORE = [
     ("tools.ai", "AI tools connection...", "Tools", 0, lambda a: a.show_control_dialog(), "", "agent mcp claude"),
     ("tools.settings", "Settings", "Tools", 0, lambda a: a.settings_dialog(), "", "options preferences"),
     ("tools.palette", "Command palette...", "Tools", 1, lambda a: a.show_command_palette(), "Ctrl+Shift+P", "find run action search"),
+    ("tools.depot", "Extension depot...", None, 0, lambda a: a.show_depot(), "", "install update packages extensions"),
     ("help.feedback", "Leave Feedback...", "Help", 0, lambda a: a.show_feedback(), "", "report bug idea"),
     ("help.about", "About Blockliner", "Help", 0, lambda a: a.show_about(), "", "version license"),
 ]

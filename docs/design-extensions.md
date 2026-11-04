@@ -340,3 +340,27 @@ small bridge program that speaks MCP to the agent.
 - **Why a bridge and not the app itself as an MCP server:** MCP clients start their
   servers as programs on stdio; the bridge is that program, and the app stays the one
   place that decides what is allowed.
+
+## 15. Commands and the depot (built, untested in a real window)
+
+**Commands.** Everything the app can do has an id and lives in one registry
+(`commands.py`, the app's own list is `CORE` in `ui_commands.py`). The File / Run /
+Tools / Help menus are built from it, so are the burger menu and the command
+palette (Ctrl+Shift+P, or Tools > Command palette...). An extension's `menus`
+entries become commands with the id `ext:<extension id>:<command>`, shown in the
+menu they name (after the app's own entries, behind a separator) and in the palette;
+an extension with a panel also gets "Show <panel> panel" in the palette. Turning an
+extension off removes its commands again (`unregister_owner`).
+
+**Depot.** A folder `depot/` in the data folder holds extension packages: a folder
+or a `.zip` (`.blx`) with an `extension.json` at its root or inside one top-level
+folder. Extensions > Depot... lists them with their status (not installed, installed,
+update available, older, incompatible) and the permissions they ask for. Install and
+Update copy the files into the user's extensions folder (`depot.py`), and the
+extension stays **off** until the user turns it on and agrees to its permissions.
+Nothing is run and nothing is downloaded. Refused: paths that climb out, absolute
+paths, links, more than 500 files or 50 MB, a package that needs a newer extension
+API, an installed copy that is not a real subfolder of the extensions folder. An
+update replaces the installed folder as a whole (the old one is kept until the new
+one is in place). Not built: downloading from a web address, signatures, dependency
+between extensions, uninstall from the depot window (use Remove in the manager).

@@ -419,6 +419,8 @@ class ExtensionsMixin:
         label(win, "Safe start is on: every extension is off until you turn it off in Settings or unset BLOCKLINER_SAFE."
               if safe else "Only install extensions you trust: they run as programs on your computer.",
               fg=WARN_COLOR if safe else "#888888", wraplength=700, justify=tk.LEFT).pack(fill=tk.X, padx=14, pady=(0, 8))
+        tk.Button(win, text="Depot...", command=self.show_depot, bg=DARK_BG, fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                  activebackground=DARK_BORDER, activeforeground=DARK_FG, font=("Segoe UI", 9), padx=8).place(relx=1.0, x=-14, y=12, anchor="ne")
         body = tk.Frame(win, bg=DARK_PANEL)
         body.pack(fill=tk.BOTH, expand=True, padx=14, pady=(0, 12))
         left = tk.Frame(body, bg=DARK_BG, width=260)

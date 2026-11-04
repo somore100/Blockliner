@@ -11,44 +11,6 @@ from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BG, DARK_FG, DARK_HOV
 
 
 class TopBarMixin:
-    def topbar_menu_spec(self):
-        """[(title, [(label, command) | None for a separator])]"""
-        return [
-            ("File", [
-                ("Undo", self.undo_project),
-                ("Redo", lambda: self.undo_project(redo=True)),
-                None,
-                ("Save", self.save_project),
-                ("Load", self.load_project),
-                ("Open Project...", self.open_project_dialog),
-                ("Open Code File...", lambda: self.open_code_to_blocks_dialog(prefill_from_file=True)),
-                ("Paste Code as Nodes...", self.open_code_to_blocks_dialog),
-                ("Export", self.export_code),
-                None,
-                ("Clean Project...", self.clean_project),
-            ]),
-            ("Run", [
-                ("Run in Blockliner", self.run_code),
-                ("Run in Terminal", self.run_in_terminal),
-                ("Open in VS Code", self.open_in_vscode),
-                None,
-                ("Export & Run...", self.export_and_run),
-                None,
-                ("Clear", self.clear_all),
-            ]),
-            ("Tools", [
-                ("Manage Custom Blocks...", self.manage_custom_blocks_dialog),
-                ("Imports...", self.show_import_manager),
-                ("Extensions...", self.show_extension_manager),
-                ("AI tools connection...", self.show_control_dialog),
-                ("Settings", self.settings_dialog),
-            ]),
-            ("Help", [
-                ("Leave Feedback...", self.show_feedback),
-                ("About Blockliner", self.show_about),
-            ]),
-        ]
-
     def _fill_menu(self, menu, entries):
         for e in entries:
             if e is None:
@@ -73,8 +35,10 @@ class TopBarMixin:
         # Hamburger: everything, as cascades.
         burger = flat(bar, "☰", ("Segoe UI", 13))
         hmenu = self._new_menu(burger)
+        self._burger_subs = {}
         for title, entries in spec:
             sub = self._new_menu(hmenu)
+            self._burger_subs[title] = sub
             self._fill_menu(sub, entries)
             hmenu.add_cascade(label=title, menu=sub)
         burger.configure(menu=hmenu)

@@ -30,9 +30,11 @@ def main():
     # menus
     m = app.topbar_menus
     check("menus: burger + File Run Tools Help", set(m) == {"☰", "File", "Run", "Tools", "Help"})
-    check("File menu entries", labels(m["File"]) == ["Undo", "Redo", "Save", "Load", "Open Project...", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."])
-    check("Tools menu entries", labels(m["Tools"]) == ["Manage Custom Blocks...", "Imports...", "Extensions...", "AI tools connection...", "Settings"])
-    check("Help has Feedback and About", labels(m["Help"]) == ["Leave Feedback...", "About Blockliner"])
+    def starts_with(menu, expected):          # extensions may add entries after the app's own
+        return labels(menu)[:len(expected)] == expected
+    check("File menu entries", starts_with(m["File"], ["Undo", "Redo", "Save", "Load", "Open Project...", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."]))
+    check("Tools menu entries", starts_with(m["Tools"], ["Manage Custom Blocks...", "Imports...", "Extensions...", "AI tools connection...", "Settings", "Command palette..."]))
+    check("Help has Feedback and About", starts_with(m["Help"], ["Leave Feedback...", "About Blockliner"]))
     check("Run menu has Run + Clear", "Run in Blockliner" in labels(m["Run"]) and "Clear" in labels(m["Run"]))
     check("burger holds all four as cascades", labels(m["☰"]) == ["File", "Run", "Tools", "Help"])
 

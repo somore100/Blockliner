@@ -159,6 +159,7 @@ class ExtensionsMixin:
         menu.add_command(label="Manage extensions...", command=self.show_extension_manager)
         more.configure(menu=menu)
         more.pack(side=tk.LEFT)
+        self.sync_extension_commands()
 
     # ---- panels -----------------------------------------------------------------
     def toggle_extension_panel(self, ext):

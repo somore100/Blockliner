@@ -59,7 +59,7 @@ app.goto_layer("nodes"); app.update()
 src = app.get_current_node_list(tab)[0]
 menu = app.build_drop_menu(src["id"], (120, 80))
 labels = [menu.entrycget(i, "label") for i in range(menu.index("end") + 1) if menu.type(i) == "command"]
-check("menu: New node first, then the 4 starters", labels[0].endswith("New node") and labels[1:] == ["Empty function", "Class", "Category", "Raw code"])
+check("menu: New node first, then every starter node", labels[0].endswith("New node") and labels[1:] == [label for _key, label in app.STARTER_NODES])
 def run(label):
     for i in range(menu.index("end") + 1):
         if menu.type(i) == "command" and menu.entrycget(i, "label") == label:

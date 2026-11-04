@@ -40,7 +40,7 @@ def main():
     called = []
     app.save_project = lambda: called.append("save")
     spec = dict(app.topbar_menu_spec())
-    spec["File"][0][1]()
+    next(cmd for e in spec["File"] if e for lbl, cmd in [e] if lbl == "Save")()
     check("File>Save calls save_project", called == ["save"])
 
     # Run button + Clear stay visible, old buttons gone
@@ -48,7 +48,7 @@ def main():
     check("Run button still visible", any("Run" in t for t in texts))
     check("Clear button still visible", any("Clear" in t for t in texts))
     check("old toolbar Save button is gone", not any("Save" == t.split()[-1] and t.startswith("\U0001F4BE") for t in texts))
-    check("plugin icon strip is reserved and empty", app.plugin_bar.winfo_exists() and not app.plugin_bar.winfo_children())
+    check("plugin icon strip exists (extensions pin their icons there)", app.plugin_bar.winfo_exists())
 
     # footer gone
     lbls = {w.cget("text") for w in walk(app) if w.winfo_class() == "Label"}

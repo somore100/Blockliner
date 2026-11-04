@@ -1,0 +1,34 @@
+{
+  "brackets": true,
+  "quotes": [
+    "\"",
+    "'"
+  ],
+  "line_comment": "//",
+  "block_comment": [
+    "/*",
+    "*/"
+  ],
+  "pairs": [
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*(?:\\([^)]*\\)\\s*)?(?:malloc|calloc|realloc)\\s*\\(",
+      "release": "\\bfree\\s*\\(\\s*(?:\\([^)]*\\)\\s*)?{name}\\s*\\)",
+      "message": "'{name}' is allocated here, but free({name}) never appears in this file. (Fine if something else frees it.)"
+    },
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*fopen\\s*\\(",
+      "release": "\\bfclose\\s*\\(\\s*{name}\\s*\\)",
+      "message": "'{name}' is opened here, but fclose({name}) never appears in this file."
+    },
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*new\\s+[\\w:<>]+\\s*(?:\\(|;)",
+      "release": "\\bdelete\\s+{name}\\b",
+      "message": "'{name}' is created with new here, but delete {name} never appears in this file. (Fine if something else deletes it.)"
+    },
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*new\\s+[\\w:<>]+\\s*\\[",
+      "release": "\\bdelete\\s*\\[\\s*\\]\\s*{name}\\b",
+      "message": "'{name}' is an array made with new[] here, but delete[] {name} never appears in this file."
+    }
+  ]
+}

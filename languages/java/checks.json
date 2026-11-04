@@ -1,0 +1,12 @@
+{
+  "brackets": true,
+  "quotes": [
+    "\"",
+    "'"
+  ],
+  "line_comment": "//",
+  "block_comment": [
+    "/*",
+    "*/"
+  ]
+}

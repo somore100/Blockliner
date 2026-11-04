@@ -1,0 +1,24 @@
+{
+  "brackets": true,
+  "quotes": [
+    "\"",
+    "'"
+  ],
+  "line_comment": "//",
+  "block_comment": [
+    "/*",
+    "*/"
+  ],
+  "pairs": [
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*(?:\\([^)]*\\)\\s*)?(?:malloc|calloc|realloc)\\s*\\(",
+      "release": "\\bfree\\s*\\(\\s*(?:\\([^)]*\\)\\s*)?{name}\\s*\\)",
+      "message": "'{name}' is allocated here, but free({name}) never appears in this file. (Fine if something else frees it.)"
+    },
+    {
+      "acquire": "\\b(\\w+)\\s*=\\s*fopen\\s*\\(",
+      "release": "\\bfclose\\s*\\(\\s*{name}\\s*\\)",
+      "message": "'{name}' is opened here, but fclose({name}) never appears in this file."
+    }
+  ]
+}

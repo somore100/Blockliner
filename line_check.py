@@ -17,6 +17,7 @@ import re
 
 KNOWN, TYPO, UNVERIFIED, NONE = "known", "typo", "unverified", "none"
 IMPORT = "import"            # uses a library that this file does not import yet
+WARN = "warn"                # something language_checks.py finds suspicious (brackets, leaks, semicolons)
 
 DEFAULT_THRESHOLD = 0.7      # lowest similarity that still counts as "probably a typo"
 TIE_WINDOW = 0.04            # suggestions this close to the best are offered too
@@ -287,6 +288,6 @@ def describe(check):
         return text
     if check.state == IMPORT:
         return f"{check.message}\nAdd the import line for it?"
-    if check.state == UNVERIFIED:
+    if check.state in (UNVERIFIED, WARN):
         return check.message
     return ""

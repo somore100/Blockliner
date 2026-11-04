@@ -5,9 +5,13 @@ that explains a doubtful line and offers the fix. The judging itself is pure
     green dot      the line fits a block
     amber bulb     probably a typo: click for what is wrong and the fix
     grey ring      Blockliner has no block for it, so it stays raw code
+    red triangle   a language check (language_checks.py): unmatched bracket,
+                   memory never freed, missing semicolon; click for why
 """
+import os
 import tkinter as tk
 
+import language_checks
 import libraries
 import line_check
 import portable
@@ -16,6 +20,7 @@ from ui_common import DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL
 KNOWN_COLOR = "#4caf50"
 TYPO_COLOR = "#e5a50a"
 RAW_COLOR = "#808080"
+WARN_COLOR = "#e5534b"
 GUTTER_WIDTH = 22
 MAX_CHECKED_LINES = 4000
 DEFAULT_SENSITIVITY = 70      # percent: lowest name similarity still called a typo
@@ -93,7 +98,18 @@ class LineCheckMixin:
             self._lc_results[number] = check
             if check.state in (line_check.TYPO, line_check.IMPORT):
                 self.code_text.tag_add("lc_typo", f"{number}.{check.start}", f"{number}.{check.end}")
+        for number, warning in language_checks.check_text(lines, self._lc_rules(tab["language"])).items():
+            earlier = self._lc_results.get(number)
+            if number not in skip and (earlier is None or earlier.state not in (line_check.TYPO, line_check.IMPORT)):
+                self._lc_results[number] = warning
         self.draw_line_gutter()
+
+    def _lc_rules(self, lang):
+        """The language's whole-text check rules (languages/<lang>/checks.json), cached."""
+        cache = self.__dict__.setdefault("_lc_rules_cache", {})
+        if lang not in cache:
+            cache[lang] = language_checks.load_rules(os.path.join(self.languages_path, lang, "checks.json"))
+        return cache[lang]
 
     # ---- drawing --------------------------------------------------------------
     def draw_line_gutter(self):
@@ -109,6 +125,9 @@ class LineCheckMixin:
                 gutter.create_oval(x - 3, y - 3, x + 3, y + 3, fill=KNOWN_COLOR, outline="", tags=(f"line{number}",))
             elif check.state == line_check.UNVERIFIED:
                 gutter.create_oval(x - 3, y - 3, x + 3, y + 3, outline=RAW_COLOR, width=1, tags=(f"line{number}",))
+            elif check.state == line_check.WARN:
+                gutter.create_polygon(x, y - 8, x + 8, y + 7, x - 8, y + 7, fill=WARN_COLOR, outline="", tags=(f"line{number}",))
+                gutter.create_text(x, y + 2, text="!", fill="#ffffff", font=("Segoe UI", 8, "bold"), tags=(f"line{number}",))
             else:
                 gutter.create_oval(x - 7, y - 7, x + 7, y + 7, fill=TYPO_COLOR, outline="", tags=(f"line{number}",))
                 gutter.create_text(x, y, text="!", fill="#1e1e1e", font=("Segoe UI", 9, "bold"), tags=(f"line{number}",))
@@ -137,7 +156,7 @@ class LineCheckMixin:
         line = self.code_text.get(f"{number}.0", f"{number}.end")
         tk.Label(win, text=f"Line {number}:  {line.strip()}", bg=DARK_PANEL, fg=DARK_FG, anchor="w",
                  font=("Consolas", 9)).pack(fill=tk.X, padx=12, pady=(10, 4))
-        tk.Label(win, text=line_check.describe(check), bg=DARK_PANEL, fg=RAW_COLOR if check.state == line_check.UNVERIFIED else TYPO_COLOR,
+        tk.Label(win, text=line_check.describe(check), bg=DARK_PANEL, fg=RAW_COLOR if check.state == line_check.UNVERIFIED else WARN_COLOR if check.state == line_check.WARN else TYPO_COLOR,
                  anchor="w", justify=tk.LEFT, wraplength=360, font=("Segoe UI", 9)).pack(fill=tk.X, padx=12, pady=(0, 8))
 
         def button(text, command):

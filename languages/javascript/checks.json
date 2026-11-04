@@ -1,0 +1,19 @@
+{
+  "brackets": true,
+  "quotes": [
+    "\"",
+    "'",
+    "`"
+  ],
+  "multiline_quotes": [
+    "`"
+  ],
+  "line_comment": "//",
+  "block_comment": [
+    "/*",
+    "*/"
+  ],
+  "semicolons": {
+    "min_share": 0.6
+  }
+}

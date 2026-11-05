@@ -572,7 +572,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         ).pack(side=tk.LEFT, padx=5)
         
         # Get available languages
-        available_langs = self.get_available_languages()
+        available_langs = self.language_dropdown_values()
         
         self.lang_var = tk.StringVar(value=self.current_language)
         self.lang_combo = ttk.Combobox(
@@ -580,7 +580,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             textvariable=self.lang_var,
             values=available_langs,
             state="readonly",
-            width=10
+            width=min(26, max([10] + [len(v) for v in available_langs]))
         )
         self.lang_combo.pack(side=tk.LEFT, padx=5)
         self.lang_combo.bind("<<ComboboxSelected>>", self.on_language_pick)

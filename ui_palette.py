@@ -5,13 +5,15 @@ import os
 import shutil
 from block_templates import make_raw_code_block_source
 import palette_search
+import language_groups
 import language_switch
+import json
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
 import clean_undo
 from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
                          ZOOM_SPEED_CHOICES, lod_mode)
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
-from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, LANGUAGE_EXTENSIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
+from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, LANGUAGE_EXTENSIONS, ORDER_CONFLICT_CHOICES, PRESET_LANGUAGES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
 
 
@@ -21,12 +23,33 @@ SETTINGS_SECTION_ORDER = ("General", "Languages", "Block palette", "Canvas", "Co
 
 class PaletteMixin:
     
+    def language_kinds(self):
+        """{language: kind} from each language's manifest.json ('code' when it says nothing)."""
+        kinds = {}
+        for d in os.listdir(self.languages_path) if os.path.isdir(self.languages_path) else []:
+            if not os.path.isdir(os.path.join(self.languages_path, d)):
+                continue
+            try:
+                with open(os.path.join(self.languages_path, d, "manifest.json"), "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+            except (OSError, ValueError):
+                manifest = None
+            kinds[d] = language_groups.kind_of(manifest)
+        return kinds
+
     def get_available_languages(self):
-        """Get list of available languages"""
+        """Available languages in the dropdown's order (built-ins first, then
+        the user's own), without section headings."""
         if not os.path.exists(self.languages_path):
             return ["python"]
-        return sorted([d for d in os.listdir(self.languages_path) 
-                      if os.path.isdir(os.path.join(self.languages_path, d))])
+        return language_groups.ordered(self.language_kinds(), PRESET_LANGUAGES)
+
+    def language_dropdown_values(self):
+        """The main dropdown's rows: languages, with section headings when
+        more than one kind of language exists."""
+        if not os.path.exists(self.languages_path):
+            return ["python"]
+        return language_groups.dropdown_values(self.language_kinds(), PRESET_LANGUAGES)
 
     def refresh_language_list(self):
         """
@@ -38,7 +61,7 @@ class PaletteMixin:
         restarts, which does the same scan).
         """
         available = self.get_available_languages()
-        self.lang_combo['values'] = available
+        self.lang_combo['values'] = self.language_dropdown_values()
 
         if self.current_language not in available:
             fallback = available[0] if available else "python"
@@ -385,6 +408,9 @@ class PaletteMixin:
             return self.on_language_change()
         tab = self.tabs[self.active_tab_index]
         new, old = self.lang_var.get(), tab["language"]
+        if language_groups.is_heading(new):               # a section heading is not a language
+            self.lang_var.set(old)
+            return
         info = language_switch.assess(tab, new)
         what = language_switch.verdict(info)
         ending = language_switch.extension_for(old, LANGUAGE_EXTENSIONS)
@@ -448,10 +474,7 @@ class PaletteMixin:
             dialog.destroy()
             
             # Refresh language list and select new language
-            langs = list(self.lang_combo['values'])
-            langs.append(new_lang)
-            langs.sort()
-            self.lang_combo['values'] = langs
+            self.lang_combo['values'] = self.language_dropdown_values()
             self.lang_var.set(new_lang)
             self.on_language_change()
         
@@ -486,7 +509,7 @@ class PaletteMixin:
     def delete_language_dialog(self, lang=None):
         """Delete a language's entire folder (default: the current one), after confirming."""
         lang = lang or self.lang_var.get()
-        langs = list(self.lang_combo['values'])
+        langs = self.get_available_languages()
 
         if len(langs) <= 1:
             messagebox.showwarning("Can't Delete", "You need at least one language to remain.")
@@ -519,7 +542,7 @@ class PaletteMixin:
         self.save_custom_blocks_data(self.custom_blocks)
 
         langs.remove(lang)
-        self.lang_combo['values'] = langs
+        self.lang_combo['values'] = self.language_dropdown_values()
         if self.lang_var.get() == lang:
             self.lang_var.set(langs[0])
             self.on_language_change()

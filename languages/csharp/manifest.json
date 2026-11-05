@@ -2,6 +2,7 @@
   "name": "C#",
   "version": "1.0.0",
   "author": "Blockliner",
+  "kind": "code",
   "icon": "csharp.png",
   "comment_token": "//"
 }

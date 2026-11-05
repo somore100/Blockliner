@@ -2,6 +2,7 @@
   "name": "JavaScript",
   "version": "1.0.0",
   "author": "Blockliner",
+  "kind": "code",
   "icon": "javascript.png",
   "comment_token": "//"
 }

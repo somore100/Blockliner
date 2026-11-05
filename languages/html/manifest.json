@@ -2,6 +2,7 @@
   "name": "HTML",
   "version": "1.0.0",
   "author": "Blockliner",
+  "kind": "code",
   "icon": "html.png",
   "comment_token": [
     "<!--",

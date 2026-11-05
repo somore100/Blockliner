@@ -2,6 +2,7 @@
   "name": "Python",
   "version": "1.0.0",
   "author": "Blockliner",
+  "kind": "code",
   "icon": "python.png",
   "comment_token": "#"
 }

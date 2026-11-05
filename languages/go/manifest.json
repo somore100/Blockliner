@@ -2,6 +2,7 @@
   "name": "Go",
   "version": "1.0.0",
   "author": "Blockliner",
+  "kind": "code",
   "icon": "go.png",
   "comment_token": "//"
 }

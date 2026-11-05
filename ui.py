@@ -583,7 +583,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             width=10
         )
         self.lang_combo.pack(side=tk.LEFT, padx=5)
-        self.lang_combo.bind("<<ComboboxSelected>>", self.on_language_change)
+        self.lang_combo.bind("<<ComboboxSelected>>", self.on_language_pick)
         
         # Code display
         self.code_text = tk.Text(

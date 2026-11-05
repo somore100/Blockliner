@@ -6,13 +6,25 @@ import os
 import subprocess
 import sys
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 import depot
 import extensions as X
 from ui_common import APP_SETTINGS_PATH, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL
 
 OK_COLOR, WARN_COLOR, BAD_COLOR = "#4caf50", "#e5a50a", "#d9534f"
+HELP = (
+    "What is an extension?\n"
+    "A small program that adds something to Blockliner: a panel, a menu command, "
+    "an AI helper. It runs as its own process and can only do what you allow.\n\n"
+    "What is extension.json?\n"
+    "The package's ID card, a small text file that says its name, id (author/name), "
+    "version, what it may do (permissions: read the project, change it, show a panel...) "
+    "and the command that starts it. Blockliner reads it to list the package here and to ask "
+    "you before anything is turned on.\n\n"
+    "You don't have to write it by hand: press New extension... and Blockliner creates a "
+    "folder with a working extension.json and a starter script. Edit the script, press "
+    "Refresh, then Install. Extensions you download come with their own extension.json.")
 STATUS_LABEL = {"new": "Not installed", "installed": "Installed", "update": "Update available",
                 "older": "Older than installed", "incompatible": "Incompatible"}
 
@@ -62,7 +74,7 @@ class DepotMixin:
                              activebackground=DARK_BORDER, activeforeground=DARK_FG, font=("Segoe UI", 9), padx=8)
 
         label(win, "Extension depot", font=("Segoe UI", 12, "bold")).pack(fill=tk.X, padx=14, pady=(12, 0))
-        label(win, f"Put extension packages (a folder or a .zip with an extension.json) in:\n{folder}",
+        label(win, f"Extension packages (a folder or a .zip with an extension.json) are kept in:\n{folder}",
               fg="#888888", justify=tk.LEFT).pack(fill=tk.X, padx=14, pady=(0, 8))
         body = tk.Frame(win, bg=DARK_PANEL)
         body.pack(fill=tk.BOTH, expand=True, padx=14)
@@ -86,6 +98,7 @@ class DepotMixin:
             p = selected()
             install_button.configure(state=tk.DISABLED)
             if p is None:
+                label(detail, HELP, wraplength=380, justify=tk.LEFT, fg="#a0a0a0").pack(fill=tk.X)
                 return
             m = p["manifest"]
             if m is None:
@@ -145,8 +158,20 @@ class DepotMixin:
             messagebox.showinfo("Depot", message + "\n\nTurn it on in Tools > Extensions.", parent=win)
             refresh()
 
+        def new_extension():
+            name = simpledialog.askstring("New extension", "Name of the new extension:", parent=win)
+            if not name:
+                return
+            made, message = depot.scaffold(folder, name)
+            if made is None:
+                messagebox.showinfo("Depot", message, parent=win)
+                return
+            refresh()
+            self._open_folder(made)
+
         install_button = button(bar, "Install", install)
         install_button.pack(side=tk.LEFT, padx=(0, 6))
+        button(bar, "New extension...", new_extension).pack(side=tk.LEFT, padx=(0, 6))
         button(bar, "Open depot folder", lambda: self._open_folder(folder)).pack(side=tk.LEFT, padx=(0, 6))
         button(bar, "Refresh", refresh).pack(side=tk.LEFT, padx=(0, 6))
         button(bar, "Close", win.destroy).pack(side=tk.RIGHT)

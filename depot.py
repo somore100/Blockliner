@@ -208,3 +208,54 @@ def install(package, user_root, existing_folder=None):
         return False, str(e)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
+
+
+# ---- starting a new extension ----------------------------------------------------
+STARTER_MAIN = '''"""A Blockliner extension: it talks JSON lines on stdin/stdout.
+Docs: docs/design-extensions.md in the Blockliner folder."""
+import json
+import sys
+
+
+def send(obj):
+    print(json.dumps(obj), flush=True)
+
+
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg.get("event") == "hello":
+        send({"event": "ready", "params": {"api": ["1.0"]}})
+        send({"id": 1, "method": "panel.set", "params": {"description": {
+            "type": "column", "children": [
+                {"type": "label", "text": "Hello from my extension", "style": "title"},
+                {"type": "button", "text": "Say hi", "command": "hi"}]}}})
+    elif msg.get("event") == "command" and msg["params"].get("command") == "hi":
+        send({"id": 2, "method": "notify", "params": {"text": "Hi!"}})
+    elif msg.get("event") == "shutdown":
+        break
+'''
+
+
+def scaffold(depot_dir, name):
+    """Create <depot>/<slug>/ with a working extension.json and main.py and
+    return (folder | None, message). Never overwrites an existing folder."""
+    name = (name or "").strip()
+    slug = folder_name(name)
+    if not name or not re.search(r"[a-z0-9]", name.lower()):
+        return None, "Give the extension a name (letters or digits)."
+    folder = os.path.join(depot_dir, slug)
+    if os.path.exists(folder):
+        return None, f"There is already a folder called {slug} in the depot."
+    manifest = {
+        "format": X.FORMAT, "version": 1, "id": f"local/{slug}", "name": name,
+        "description": "My extension.", "author": "", "extension_version": "0.1.0",
+        "requires": {"api": "1.0"}, "run": {"command": ["python3", "main.py"]},
+        "permissions": ["ui.panel", "ui.notify"], "panel": {"title": name, "dock": "right", "width": 260},
+    }
+    os.makedirs(folder)
+    with open(os.path.join(folder, "extension.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+        f.write("\n")
+    with open(os.path.join(folder, "main.py"), "w", encoding="utf-8") as f:
+        f.write(STARTER_MAIN)
+    return folder, f"Created {folder}"

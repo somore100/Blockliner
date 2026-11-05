@@ -7,11 +7,18 @@ import node_ports
 import ui_node
 import wire_kinds
 import branch_labels
+import language_switch
 from nodes_model import default_active_node_id, find_node_by_id, function_nodes_in_tree_order, normalize_orders
-from ui_common import BLOCK_BG, DARK_BG, DARK_BORDER, DARK_FG
+from ui_common import BLOCK_BG, DARK_BG, DARK_BORDER, DARK_FG, LANGUAGE_EXTENSIONS
 
 
 class NodeOpsMixin:
+
+    @staticmethod
+    def _language_with_ending(language):
+        """'python (.py)': the language and the ending its files get."""
+        ending = language_switch.extension_for(language, LANGUAGE_EXTENSIONS)
+        return f"{language} ({ending})" if ending else language
 
     def render_files_code_view(self):
         """Files layer 'View Code' toggle: every open tab, each as a
@@ -37,7 +44,7 @@ class NodeOpsMixin:
                 font=("Segoe UI", 10, "bold"), anchor="w"
             ).pack(side=tk.LEFT)
             tk.Label(
-                header, text=tab["language"], bg=DARK_BG, fg="#888888",
+                header, text=self._language_with_ending(tab["language"]), bg=DARK_BG, fg="#888888",
                 font=("Segoe UI", 9)
             ).pack(side=tk.RIGHT)
 

@@ -5,12 +5,13 @@ import os
 import shutil
 from block_templates import make_raw_code_block_source
 import palette_search
+import language_switch
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
 import clean_undo
 from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
                          ZOOM_SPEED_CHOICES, lod_mode)
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
-from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
+from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, LANGUAGE_EXTENSIONS, ORDER_CONFLICT_CHOICES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
 from ui_widgets import PaletteBlockItem
 
 
@@ -376,6 +377,39 @@ class PaletteMixin:
         if self.settings.get("live_search", False) or not self.search_var.get():
             self.refresh_palette()
     
+    def on_language_pick(self, event=None):
+        """The user chose a language in the dropdown. A file has one language,
+        so a switch that would leave a UI design behind is refused, and one that
+        clears blocks asks first (Cancel puts the dropdown back)."""
+        if not getattr(self, "tabs", None):
+            return self.on_language_change()
+        tab = self.tabs[self.active_tab_index]
+        new, old = self.lang_var.get(), tab["language"]
+        info = language_switch.assess(tab, new)
+        what = language_switch.verdict(info)
+        ending = language_switch.extension_for(old, LANGUAGE_EXTENSIONS)
+        this_file = f"'{tab['title']}' is a {old} file" + (f" ({ending})" if ending else "")
+        if what == "refuse":
+            self.lang_var.set(old)
+            messagebox.showinfo(
+                "Language",
+                f"{this_file} with UI design(s): {', '.join(info['ui_nodes'])}.\n\n"
+                f"A UI design belongs to one language and UI library, so this file stays {old}.\n"
+                f"Make a new file in {new} for that language, or remove the UI node first.")
+            return
+        if what == "ask":
+            names = info["with_blocks"]
+            shown = ", ".join(names[:5]) + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+            if not messagebox.askyesno(
+                    "Switch language?",
+                    f"{this_file}. Blocks can't be converted between languages.\n\n"
+                    f"Switching to {new} empties the blocks of: {shown}.\n\n"
+                    f"Cancel keeps the file as it is. Continue?"):
+                self.lang_var.set(old)
+                return
+            language_switch.clear_blocks(tab)
+        self.on_language_change()
+
     def on_language_change(self, event=None):
         """Handle language change"""
         self.current_language = self.lang_var.get()

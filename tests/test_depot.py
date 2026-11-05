@@ -115,4 +115,13 @@ with tempfile.TemporaryDirectory() as tmp:
 
     check("folder_name is safe", D.folder_name("Acme/Tool X") == "acme-tool-x" and D.folder_name("../..") == "extension")
 
+    # a new extension starts from a template that the depot itself accepts
+    fresh = os.path.join(tempfile.mkdtemp(), "depot")
+    made, msg = D.scaffold(fresh, "My Tool")
+    check("scaffold makes a folder", made and os.path.isfile(os.path.join(made, "extension.json")) and os.path.isfile(os.path.join(made, "main.py")))
+    found = D.scan(fresh)
+    check("the scaffolded package is valid", len(found) == 1 and found[0]["manifest"] and found[0]["manifest"]["id"] == "local/my-tool")
+    check("scaffold never overwrites", D.scaffold(fresh, "My Tool")[0] is None)
+    check("scaffold needs a name", D.scaffold(fresh, "  ")[0] is None and D.scaffold(fresh, "../..")[0] is None)
+
 print("ALL OK" if not fails else f"FAILURES: {fails}")

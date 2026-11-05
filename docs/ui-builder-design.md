@@ -240,3 +240,13 @@ Parsing arbitrary UI code back into a tree; pack-style layout (`pack`); styling/
 ## 19. As built: reading code back (ui_parse.py)
 - "Back to designer" first tries to read the code into the tree. Each line of the build function is matched against the pack's templates run backwards (any pack, not just tkinter), then the tree is generated again and must equal the code exactly. If it does, edits to values, names, layout numbers and event links come through; if not, the designer says which line it can't represent and offers to replace the code instead.
 - Not handled: extra code in or around the build function, other widget libraries' hand-written styles, renamed build function. Those are refused, never half-read.
+
+## UI libraries and widget descriptions (added 2026-11-05)
+
+A UI library is a pack folder: `ui_packs/<language>/<name>/pack.json` plus `widgets/*.json`. Nothing about a library lives in the program; to add one (kivy, a web framework, ...) add a folder. Shipped for Python: `tkinter` (default, nothing to install) and `customtkinter` (needs `pip install customtkinter`).
+
+- `pack.json` has `label`, `description` (one sentence, shown in the chooser and under the palette) and `priority` (lower first; the first pack is the default).
+- Each widget has a `description` in plain words. The designer shows it when you hover a palette row and under the title of the selected widget's settings.
+- A UI node remembers its library (`node["ui"]["pack"]`) and always generates and edits with that one. A new UI node uses the library the file's other UI nodes already use; the first one in a file asks (`ui_pack.pick_pack`), unless only one library exists for the language.
+- How a pack builds a component: each widget's `code` is a template (`{name} = ctk.CTkButton({parent}{opts})`), its props say which arguments exist (`arg` renames a prop to the library's own name, `omit_when` leaves out defaults), its events say how a handler is attached. Same widget `type` names across libraries (button, label, ...) keep the door open for converting between them later.
+- Not built: converting a window from one library to another, a library chooser in settings, kivy (its structure, a class plus layout tree, needs `function`/`run` templates the format doesn't have yet).

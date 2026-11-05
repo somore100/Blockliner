@@ -1,0 +1,34 @@
+{
+  "type": "window",
+  "label": "Window",
+  "description": "The main window of your program. Everything else goes inside it.",
+  "category": "Window",
+  "icon": "🗔",
+  "container": true,
+  "default_size": [
+    400,
+    300
+  ],
+  "props": [
+    {
+      "key": "title",
+      "label": "Title",
+      "kind": "string",
+      "default": "My app",
+      "inline": true
+    },
+    {
+      "key": "geometry",
+      "label": "Size",
+      "kind": "string",
+      "default": "400x300",
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = ctk.CTk()",
+    "{name}.title({title!r})",
+    "{name}.geometry({geometry!r})"
+  ]
+}

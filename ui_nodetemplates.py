@@ -26,12 +26,10 @@ class NodeTemplatesMixin:
         return entries
 
     def ui_templates(self):
-        """UI window templates for the current language's UI pack."""
-        pack = self.ui_pack_for(self.current_language)
-        if pack is None:
-            return []
+        """UI window templates for the current language's UI libraries."""
+        ids = {p.id for p in self.ui_packs_for(self.current_language)}
         return [e for e in self.available_node_templates()
-                if node_templates.ui_pack_id(e["template"]) == pack.id]
+                if node_templates.ui_pack_id(e["template"]) in ids]
 
     def add_ui_window_cascade(self, menu, pos):
         """'Add UI window' as a submenu: an empty window, then the templates."""
@@ -76,8 +74,8 @@ class NodeTemplatesMixin:
         t = entry["template"]
         pack_id = node_templates.ui_pack_id(t)
         if pack_id:
-            pack = self.ui_pack_for(self.current_language)
-            if pack is None or pack.id != pack_id:
+            pack = next((p for p in self.ui_packs_for(self.current_language) if p.id == pack_id), None)
+            if pack is None:
                 messagebox.showinfo("UI template", f"This window is made for {pack_id}, which this file doesn't use.")
                 return None
             wire_from = None                          # a UI window is not called through a wire

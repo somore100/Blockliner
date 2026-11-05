@@ -247,6 +247,9 @@ class UIDesignerEditor:
         frame.grid(row=0, column=0, sticky="ns", padx=(0, 6))
         frame.grid_propagate(False)
         self._dz_side_header(frame, "Widgets  (click to add)", "hide_pal")
+        hint = tk.Label(frame, text=pack.description or "", bg=DARK_PANEL, fg="#9a9a9a", font=("Segoe UI", 9),
+                        wraplength=PALETTE_WIDTH - 20, justify=tk.LEFT, anchor="nw", height=5)
+        hint.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(0, 6))
         pal = ttk.Treeview(frame, show="tree", selectmode="none", style="Designer.Treeview")
         pal.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         for category, widgets in pack.palette():
@@ -254,7 +257,15 @@ class UIDesignerEditor:
             for w in widgets:
                 pal.insert(cat, "end", iid=f"w:{w['type']}", text=f"{w['icon']} {w['label']}".strip())
         pal.bind("<ButtonRelease-1>", self._dz_palette_click)
-        self._dz_pal = pal
+
+        def describe(event):
+            row = pal.identify_row(event.y)
+            w = pack.widget(row[2:]) if row.startswith("w:") else None
+            hint.configure(text=(f"{w['label']}: {w['description']}" if w and w["description"] else
+                                 (pack.description or "")))
+        pal.bind("<Motion>", describe)
+        pal.bind("<Leave>", lambda e: hint.configure(text=pack.description or ""))
+        self._dz_pal, self._dz_pal_hint = pal, hint
 
     def _dz_palette_click(self, event):
         row = self._dz_pal.identify_row(event.y)
@@ -490,6 +501,9 @@ class UIDesignerEditor:
             return
         wid = widget["id"]
         self._dz_section(frame, f"{wdef['label']}")
+        if wdef.get("description"):
+            tk.Label(frame, text=wdef["description"], bg=DARK_PANEL, fg="#8a8a8a", font=("Segoe UI", 9),
+                     wraplength=250, justify=tk.LEFT, anchor="w").pack(fill=tk.X, padx=10, pady=(0, 6))
         if wid != tree.root["id"]:
             acts = tk.Frame(frame, bg=DARK_PANEL)
             acts.pack(fill=tk.X, padx=10, pady=(0, 4))

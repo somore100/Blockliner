@@ -33,8 +33,10 @@ class CodeBuilderFacade:
         return self._app.get_active_node(self._tab())
 
     def ui_pack(self):
-        """The UI pack for the open file's language, or None."""
-        return self._app.ui_pack_for(self.language())
+        """The UI pack of the open node (its own UI library), or the file's default, or None."""
+        node = self.active_node()
+        pid = (node.get("ui") or {}).get("pack") if isinstance(node, dict) and isinstance(node.get("ui"), dict) else None
+        return self._app.ui_pack_for(self.language(), pid)
 
     def context(self):
         """(node, pack) of the open node."""

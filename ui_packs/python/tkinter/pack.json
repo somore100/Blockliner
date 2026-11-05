@@ -4,6 +4,8 @@
   "id": "python/tkinter",
   "language": "python",
   "label": "tkinter",
+  "description": "Python's built-in UI library. Nothing to install; plain, classic desktop windows.",
+  "priority": 0,
   "imports": [
     "import tkinter as tk",
     "from tkinter import ttk",

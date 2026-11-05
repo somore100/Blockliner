@@ -1,6 +1,7 @@
 {
   "type": "popup",
   "label": "Popup window",
+  "description": "A second window that opens on demand, such as a settings or message window. It does not start the program.",
   "category": "Window",
   "icon": "🗗",
   "container": true,

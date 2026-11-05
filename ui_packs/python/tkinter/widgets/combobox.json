@@ -1,6 +1,7 @@
 {
   "type": "combobox",
   "label": "Dropdown",
+  "description": "A dropdown list: the user picks one of your choices.",
   "category": "Input",
   "icon": "▾",
   "container": false,

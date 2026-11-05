@@ -80,6 +80,13 @@ def event_targets(node):
     return out
 
 
+def pack_id_of(node):
+    """The id of the UI library a UI node was made for ('python/tkinter'), or None."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    pid = doc.get("pack") if isinstance(doc, dict) else None
+    return pid if isinstance(pid, str) and pid else None
+
+
 def function_name(node):
     """build_<node name> as a valid identifier."""
     slug = re.sub(r"\W+", "_", str(node.get("name") or "ui")).strip("_") or "ui"

@@ -1,6 +1,7 @@
 {
   "type": "listbox",
   "label": "List",
+  "description": "A list of items the user can select.",
   "category": "Input",
   "icon": "☰",
   "container": false,

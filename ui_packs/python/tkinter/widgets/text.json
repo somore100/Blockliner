@@ -1,6 +1,7 @@
 {
   "type": "text",
   "label": "Text area",
+  "description": "A box for several lines of text.",
   "category": "Input",
   "icon": "¶",
   "container": false,

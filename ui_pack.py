@@ -14,6 +14,9 @@ pack.json (format 1):
 
     {"format": "blockliner-ui-pack", "version": 1,
      "id": "python/tkinter", "language": "python", "label": "tkinter",
+     "label": "tkinter",                      shown when choosing a UI library
+     "description": "one sentence about the library",
+     "priority": 100,                         lower comes first in lists; the first pack is the default
      "imports": ["import tkinter as tk"],     emitted once, before the UI code
      "header": [],                            extra lines after the imports
      "root_types": ["window"],                widget types that may be the root
@@ -26,6 +29,7 @@ pack.json (format 1):
 A widget:
 
     {"type": "button", "label": "Button", "category": "Basic", "icon": "...",
+     "description": "what it is, in plain words (shown in the designer)",
      "container": false, "default_size": [100, 32],
      "props": [{"key": "text", "label": "Text", "kind": "string", "default": "Button"}, ...],
      "events": [{"key": "command", "label": "On click", "args": [],
@@ -219,6 +223,7 @@ def clean_widget(raw, where, notes):
         size = [100, 30]
     return {"type": wtype,
             "label": raw["label"] if isinstance(raw.get("label"), str) else wtype,
+            "description": raw["description"].strip() if isinstance(raw.get("description"), str) else "",
             "category": raw["category"] if isinstance(raw.get("category"), str) else "Other",
             "icon": raw["icon"] if isinstance(raw.get("icon"), str) else "",
             "container": bool(raw.get("container")),
@@ -236,6 +241,8 @@ class Pack:
         self.id = data["id"]
         self.language = data["language"]
         self.label = data["label"]
+        self.description = data["description"]
+        self.priority = data["priority"]
         self.imports = data["imports"]
         self.header = data["header"]
         self.root_types = data["root_types"]
@@ -365,6 +372,8 @@ def load_pack(folder, scope="prebuilt"):
         return None, notes + [f"{name}: 'quote' must be one of {', '.join(QUOTES)}"]
     clean = {"id": pid, "language": lang, "quote": data.get("quote", "python"), "function": dict(fn),
              "label": data["label"] if isinstance(data.get("label"), str) else pid,
+             "description": data["description"].strip() if isinstance(data.get("description"), str) else "",
+             "priority": data["priority"] if isinstance(data.get("priority"), int) and not isinstance(data.get("priority"), bool) else 100,
              "imports": data.get("imports", []), "header": data.get("header", []),
              "root_types": data["root_types"],
              "run": data["run"] if isinstance(data.get("run"), str) else "",
@@ -429,4 +438,21 @@ def find_packs(roots, language):
                     continue
                 seen_ids.add(pack.id)
                 packs.append(pack)
+    packs.sort(key=lambda p: p.priority)             # stable: ties keep folder order
     return packs, notes
+
+
+def pick_pack(packs, wanted_id=None, used_ids=()):
+    """(pack | None, ask). Which UI library a new UI node uses: the one asked
+    for; else the one this file's other UI nodes already use (one library per
+    file keeps its imports consistent); else the only one. `ask` is True when
+    there is a real choice for the user to make (several packs, none used yet)."""
+    by_id = {p.id: p for p in packs}
+    if wanted_id is not None:
+        return by_id.get(wanted_id), False
+    for pid in used_ids:
+        if pid in by_id:
+            return by_id[pid], False
+    if len(packs) == 1:
+        return packs[0], False
+    return None, len(packs) > 1

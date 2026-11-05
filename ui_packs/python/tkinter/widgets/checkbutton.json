@@ -1,6 +1,7 @@
 {
   "type": "checkbutton",
   "label": "Checkbox",
+  "description": "A box the user ticks on or off.",
   "category": "Basic",
   "icon": "☑",
   "container": false,

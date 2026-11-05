@@ -1,6 +1,7 @@
 {
   "type": "window",
   "label": "Window",
+  "description": "The main window of your program. Everything else goes inside it.",
   "category": "Window",
   "icon": "🗔",
   "container": true,

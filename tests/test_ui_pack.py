@@ -125,7 +125,7 @@ def main():
     check("other language sees only its own", [p.id for p in ui_pack.find_packs([root], "rust")[0]] == ["rust/rs"])
     check("unsafe language loads nothing", ui_pack.find_packs([root], "../x") == ([], []) and ui_pack.find_packs([root], None) == ([], []))
     check("missing root is fine", ui_pack.find_packs([os.path.join(root, "nope")], "python") == ([], []))
-    check("the real ui_packs folder finds tkinter", [p.id for p in ui_pack.find_packs([ROOT], "python")[0]] == ["python/tkinter"])
+    check("the real ui_packs folder finds tkinter first", [p.id for p in ui_pack.find_packs([ROOT], "python")[0]][:1] == ["python/tkinter"])
 
     print(f"\n{len(FAILURES)} failure(s)")
     sys.exit(1 if FAILURES else 0)

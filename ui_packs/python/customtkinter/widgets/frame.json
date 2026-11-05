@@ -1,0 +1,29 @@
+{
+  "type": "frame",
+  "label": "Frame",
+  "description": "An invisible box that groups other widgets so you can place and arrange them together. Add widgets while it is selected to put them inside.",
+  "category": "Containers",
+  "icon": "▢",
+  "container": true,
+  "default_size": [
+    200,
+    120
+  ],
+  "props": [
+    {
+      "key": "corner_radius",
+      "label": "Corner radius",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true,
+      "arg": "fg_color"
+    }
+  ],
+  "events": [],
+  "code": "{name} = ctk.CTkFrame({parent}{opts})"
+}

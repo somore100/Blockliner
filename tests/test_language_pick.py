@@ -35,6 +35,7 @@ def main():
     messagebox.showerror = lambda *a, **k: None
 
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
+    app.ask_ui_pack = lambda packs: packs[0]            # several UI libraries: never block on the chooser
     try:
         settle(app)
         tab = app.tabs[app.active_tab_index]

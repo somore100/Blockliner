@@ -1,6 +1,7 @@
 {
   "type": "frame",
   "label": "Frame",
+  "description": "An invisible box that groups other widgets so you can place and arrange them together. Add widgets while it is selected to put them inside.",
   "category": "Containers",
   "icon": "▢",
   "container": true,

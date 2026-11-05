@@ -1,0 +1,35 @@
+{
+  "type": "popup",
+  "label": "Popup window",
+  "description": "A second window that opens on demand, such as a settings or message window. It does not start the program.",
+  "category": "Window",
+  "icon": "🗗",
+  "container": true,
+  "default_size": [
+    400,
+    300
+  ],
+  "props": [
+    {
+      "key": "title",
+      "label": "Title",
+      "kind": "string",
+      "default": "Popup",
+      "inline": true
+    },
+    {
+      "key": "geometry",
+      "label": "Size",
+      "kind": "string",
+      "default": "400x300",
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = ctk.CTkToplevel()",
+    "{name}.title({title!r})",
+    "{name}.geometry({geometry!r})"
+  ],
+  "no_run": true
+}

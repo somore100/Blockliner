@@ -1,6 +1,7 @@
 {
   "type": "button",
   "label": "Button",
+  "description": "A clickable button. Use 'On click' to choose the function it runs.",
   "category": "Basic",
   "icon": "▭",
   "container": false,

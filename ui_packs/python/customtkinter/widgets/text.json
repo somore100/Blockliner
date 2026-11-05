@@ -1,0 +1,52 @@
+{
+  "type": "text",
+  "label": "Text area",
+  "description": "A box for several lines of text.",
+  "category": "Input",
+  "icon": "¶",
+  "container": false,
+  "default_size": [
+    240,
+    120
+  ],
+  "props": [
+    {
+      "key": "width",
+      "label": "Width (px)",
+      "kind": "int",
+      "default": 240
+    },
+    {
+      "key": "height",
+      "label": "Height (px)",
+      "kind": "int",
+      "default": 120
+    },
+    {
+      "key": "wrap",
+      "label": "Wrap",
+      "kind": "enum",
+      "default": "word",
+      "options": [
+        "none",
+        "char",
+        "word"
+      ]
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true,
+      "arg": "text_color"
+    }
+  ],
+  "events": [],
+  "code": "{name} = ctk.CTkTextbox({parent}{opts})"
+}

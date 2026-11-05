@@ -1,0 +1,53 @@
+{
+  "type": "checkbutton",
+  "label": "Checkbox",
+  "description": "A box the user ticks on or off.",
+  "category": "Basic",
+  "icon": "☑",
+  "container": false,
+  "default_size": [
+    110,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Check me"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true,
+      "arg": "text_color"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkCheckBox({parent}{opts})"
+}

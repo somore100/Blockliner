@@ -1,6 +1,7 @@
 {
   "type": "label",
   "label": "Label",
+  "description": "Text the user reads but cannot edit.",
   "category": "Basic",
   "icon": "A",
   "container": false,

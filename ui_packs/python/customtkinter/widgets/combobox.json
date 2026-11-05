@@ -1,0 +1,64 @@
+{
+  "type": "combobox",
+  "label": "Dropdown",
+  "description": "A dropdown list: the user picks one of your choices.",
+  "category": "Input",
+  "icon": "▾",
+  "container": false,
+  "default_size": [
+    140,
+    28
+  ],
+  "props": [
+    {
+      "key": "values",
+      "label": "Choices",
+      "kind": "list",
+      "default": [
+        "one",
+        "two"
+      ]
+    },
+    {
+      "key": "width",
+      "label": "Width (px)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "readonly",
+      "options": [
+        "normal",
+        "readonly",
+        "disabled"
+      ]
+    },
+    {
+      "key": "font",
+      "label": "Font",
+      "kind": "font",
+      "optional": true
+    },
+    {
+      "key": "foreground",
+      "label": "Text colour",
+      "kind": "color",
+      "optional": true,
+      "arg": "text_color"
+    }
+  ],
+  "events": [
+    {
+      "key": "selected",
+      "label": "On select",
+      "args": [
+        "choice"
+      ],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkComboBox({parent}{opts})"
+}

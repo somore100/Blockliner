@@ -56,7 +56,7 @@ class FakeApp:
         self.dirty = 0
         self.regenerated = 0
     def get_active_node(self, tab): return tab["nodes"][0]
-    def ui_pack_for(self, lang): return f"pack:{lang}"
+    def ui_pack_for(self, lang, pack_id=None): return f"pack:{lang}"
     def iter_tab_nodes(self, tab):
         def walk(ns, path):
             for n in ns:

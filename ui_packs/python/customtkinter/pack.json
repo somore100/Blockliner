@@ -1,0 +1,117 @@
+{
+  "format": "blockliner-ui-pack",
+  "version": 1,
+  "id": "python/customtkinter",
+  "language": "python",
+  "label": "customtkinter",
+  "description": "Modern-looking rounded widgets built on tkinter. Needs one install: pip install customtkinter.",
+  "priority": 10,
+  "imports": [
+    "import customtkinter as ctk",
+    "import types"
+  ],
+  "header": [],
+  "root_types": [
+    "window",
+    "popup"
+  ],
+  "run": "{ui}.{root}.mainloop()",
+  "preview": "boxes",
+  "order": [
+    "window",
+    "popup",
+    "frame",
+    "label",
+    "button",
+    "checkbutton",
+    "entry",
+    "text",
+    "combobox"
+  ],
+  "quote": "python",
+  "function": {
+    "def": "def {fname}():",
+    "indent": "    ",
+    "ret": "return types.SimpleNamespace({pairs})",
+    "pair": "{name}={name}",
+    "call": "{ui} = {fname}()"
+  },
+  "layouts": {
+    "grid": {
+      "props": [
+        {
+          "key": "row",
+          "label": "Row",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "column",
+          "label": "Column",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "rowspan",
+          "label": "Row span",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "columnspan",
+          "label": "Column span",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "sticky",
+          "label": "Sticky",
+          "kind": "string",
+          "optional": true
+        },
+        {
+          "key": "padx",
+          "label": "Pad X",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "pady",
+          "label": "Pad Y",
+          "kind": "int",
+          "optional": true
+        }
+      ],
+      "code": "{name}.grid({args})"
+    },
+    "place": {
+      "props": [
+        {
+          "key": "x",
+          "label": "X",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "y",
+          "label": "Y",
+          "kind": "int",
+          "default": 0
+        },
+        {
+          "key": "width",
+          "label": "Width",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "height",
+          "label": "Height",
+          "kind": "int",
+          "optional": true
+        }
+      ],
+      "code": "{name}.place({args})"
+    }
+  }
+}

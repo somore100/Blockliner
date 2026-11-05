@@ -1,6 +1,7 @@
 {
   "type": "entry",
   "label": "Input box",
+  "description": "A one-line box where the user types text.",
   "category": "Input",
   "icon": "▁",
   "container": false,

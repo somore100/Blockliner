@@ -24,6 +24,7 @@
   <a href="#download">Download</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#architecture">Architecture</a> ·
   <a href="#supported-languages">Languages</a> ·
   <a href="#status">Status</a> ·
   <a href="#roadmap">Roadmap</a> ·
@@ -128,6 +129,20 @@ Blockliner has four layers, switched from the bar at the top right. Each one is 
 **Organising.** Nodes have a visible run order. You can *Ignore* a node (leave it out of the output) or *Skip* it (bypass it: its code and every call to it appear as `##` comments). **Categories** open like folders; **groups** are labelled coloured regions on the canvas. **Node templates** let you save a node and reuse it.
 
 **Code in, code out.** Export real source files. Edit the generated code and the blocks follow. Import an existing file: Blockliner recognises what it can and keeps the rest as editable raw code. In Python, typing an expression into a block's slot converts recognised patterns (such as a function call) into structured sub-blocks, and leaves anything else as plain text.
+
+## Architecture
+
+[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/somore100/blockliner?utm_source=readme&utm_medium=badge)
+
+*The diagram is generated automatically by [GitDiagram](https://gitdiagram.com/somore100/blockliner) from this repository. Source: GitDiagram; added 2026-11-05. Being machine-made, it can lag behind the code; the notes below and `docs/design-extensions.md` are the reference.*
+
+In short:
+
+- **Pure core.** Language packs, the block engine, project files, libraries, line checks and the UI-designer model have no Tk in them and are tested without a window.
+- **Shell and editors.** The window (`ui*.py` mixins) asks an editor registry (`editors.py`) which editor owns the centre panel. Code Builder's canvas and blocks are the default; the UI designer is a separate component that reaches Code Builder only through `codebuilder_api.py` and `designer_port.py`.
+- **Commands.** Menus and the command palette (Ctrl+Shift+P) are built from one command registry (`commands.py`).
+- **Extensions.** Extensions run as separate processes and talk to Blockliner over JSON lines with permissions; an AI tool can be connected through a local MCP bridge. Packages can be installed from a local depot folder. See `docs/design-extensions.md`.
+- **Your data** lives in the OS user-data folder (`~/.local/share/blockliner`, `%APPDATA%\Blockliner`), copied once from the old location; set `BLOCKLINER_DATA_DIR` to choose another.
 
 ## Supported languages
 

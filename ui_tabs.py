@@ -54,6 +54,11 @@ class TabsMixin:
     def workspace_dirty(self, ws):
         return any(f.get("dirty") for f in ws["files"])
 
+    def unsaved_workspace_titles(self):
+        """Titles of the open projects that have changes worth saving (an untouched blank one doesn't count)."""
+        return [ws["title"] for ws in self.workspaces
+                if self.workspace_dirty(ws) and not all(self._file_is_blank(f) for f in ws["files"])]
+
     def switch_workspace(self, index):
         if not (0 <= index < len(self.workspaces)) or index == self.active_ws_index:
             return

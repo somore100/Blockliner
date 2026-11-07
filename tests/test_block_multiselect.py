@@ -1,5 +1,5 @@
 """Scripted UI test (run under Xvfb): Ctrl/Shift+click picks several blocks and
-"Make node..." moves them into a new node that runs right after the original."""
+"Group into node..." moves them into a new node that runs right after the original."""
 import os
 import sys
 from tkinter import messagebox, simpledialog

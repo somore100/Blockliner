@@ -81,7 +81,7 @@ Collected from testing; none of this is started.
 
 ## Blocks-layer ideas (user, 2026-11-07)
 - Built (untested in a window): select several blocks (Ctrl+click toggles, Shift+click takes a range, top level only), a small bar
-  "N blocks selected - Make node... - Clear" appears, and Make node moves them into a new node that runs right after the original.
+  "N blocks selected - Group into node... - Clear" appears (also in the right-click menu on empty space), and it moves them into a new node that runs right after the original.
   Blocks that followed the last picked one go into a second node ("<name> (rest)") so run order is unchanged; unpicked blocks
   between picked ones stay in the original. Pure logic in block_split.py (tests/test_block_split.py), UI in ui_menus.py /
   ui_blockedit.py (tests/test_block_multiselect.py, Tk, not run). Not offered for UI-designer nodes or in Open together.
@@ -94,5 +94,5 @@ Collected from testing; none of this is started.
   layer show its blocks when zoomed in, so the two layers feel like one.
 - Idea (user): zoom in the Blocks layer. Plan: Ctrl+wheel zooms (re-render the block widgets with scaled fonts and padding,
   roughly 70%-150%), plain wheel scrolls; a setting swaps the two. Not a canvas zoom, so it needs a `block_scale` read by BlockWidget.
-- Found: there is no autosave and closing the window with the X button does not warn about unsaved projects (only closing a
+- Built (untested in a window): closing the window with unsaved changes asks first (`_ext_close`, `unsaved_workspace_titles`; tests/test_quit_prompt.py). Still no autosave. Found earlier: closing the window with the X did not warn, only closing a project tab did.
   project tab does). Saves go to <data folder>/blockliner_saves or a place the user picks.

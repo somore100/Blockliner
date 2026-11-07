@@ -49,6 +49,12 @@ class ExtensionsMixin:
         self.after(PUMP_MS, self._ext_pump)
 
     def _ext_close(self):
+        unsaved = self.unsaved_workspace_titles()
+        if unsaved and not messagebox.askyesno(
+                "Unsaved changes",
+                "These projects have changes that are not saved:\n\n  " + "\n  ".join(unsaved[:8])
+                + ("\n  \u2026" if len(unsaved) > 8 else "") + "\n\nClose Blockliner anyway?"):
+            return
         try:
             if hasattr(self, "stop_control"):
                 self.stop_control()

@@ -52,6 +52,10 @@ class MenusMixin:
         if not in_code_view:
             if self.view_mode == "node":
                 self._add_block_cascade(menu)
+                picked = len(self.block_multi_selection())
+                if picked > 1:
+                    menu.add_command(label=f"\U0001F4E6 Group the {picked} selected blocks into a node\u2026",
+                                     command=self.make_node_from_selection)
                 added = True
             elif self.view_mode == "file":
                 menu.add_command(label="\u2795 Add node",
@@ -317,7 +321,7 @@ class MenusMixin:
             bar = tk.Frame(parent, bg=DARK_PANEL, highlightthickness=1, highlightbackground="#00e5ff")
             self._multi_label = tk.Label(bar, bg=DARK_PANEL, fg=DARK_FG, font=("Segoe UI", 9, "bold"))
             self._multi_label.pack(side=tk.LEFT, padx=(10, 8), pady=6)
-            for text, cmd in (("Make node\u2026", self.make_node_from_selection),
+            for text, cmd in (("Group into node\u2026", self.make_node_from_selection),
                               ("Clear", self.clear_block_multi_selection)):
                 tk.Button(bar, text=text, command=cmd, bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
                           font=("Segoe UI", 9), padx=10).pack(side=tk.LEFT, padx=(0, 6), pady=5)

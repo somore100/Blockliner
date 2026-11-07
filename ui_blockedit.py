@@ -22,15 +22,15 @@ class BlockEditMixin:
         if node is None or node.get("blocks") is not self.project_blocks or not picked:
             return
         if self.multi_active():
-            messagebox.showinfo("Make node", "Open the nodes one at a time to split blocks out of one.")
+            messagebox.showinfo("Group into node", "Open the nodes one at a time to split blocks out of one.")
             return
         if node.get("ui") and not ui_node.is_detached(node):
-            messagebox.showinfo("Make node", "This node's blocks come from the UI designer, so they can't be split out.")
+            messagebox.showinfo("Group into node", "This node's blocks come from the UI designer, so they can't be split out.")
             return
         kept, taken, tail = block_split.split_blocks(self.project_blocks, picked)
         if not taken:
             return
-        name = simpledialog.askstring("Make node", f"Name for the new node ({len(taken)} blocks):",
+        name = simpledialog.askstring("Group into node", f"Name for the new node ({len(taken)} blocks):",
                                       initialvalue=f"{node['name']} part", parent=self)
         if name is None:
             return
@@ -42,7 +42,7 @@ class BlockEditMixin:
         self.mark_active_tab_dirty()
         self.refresh_workspace()
         if tail:
-            messagebox.showinfo("Make node", f"The blocks that came after them went into \u2018{new[1]['name']}\u2019, "
+            messagebox.showinfo("Group into node", f"The blocks that came after them went into \u2018{new[1]['name']}\u2019, "
                                 "so everything still runs in the same order.")
 
     def add_block_to_workspace(self, block_module, container_list=None, insert_at=None):

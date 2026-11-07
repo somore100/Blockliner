@@ -250,3 +250,7 @@ A UI library is a pack folder: `ui_packs/<language>/<name>/pack.json` plus `widg
 - A UI node remembers its library (`node["ui"]["pack"]`) and always generates and edits with that one. A new UI node uses the library the file's other UI nodes already use; the first one in a file asks (`ui_pack.pick_pack`), unless only one library exists for the language.
 - How a pack builds a component: each widget's `code` is a template (`{name} = ctk.CTkButton({parent}{opts})`), its props say which arguments exist (`arg` renames a prop to the library's own name, `omit_when` leaves out defaults), its events say how a handler is attached. Same widget `type` names across libraries (button, label, ...) keep the door open for converting between them later.
 - Not built: converting a window from one library to another, a library chooser in settings, kivy (its structure, a class plus layout tree, needs `function`/`run` templates the format doesn't have yet).
+
+## The designer camera (added 2026-11-07)
+
+The paper can be zoomed (20%-400%) and moved, so small details can be edited up close. Wheel = zoom around the pointer (speed from the app's zoom-speed setting); drag empty space, middle button, or Space + left-drag = pan; the strip in the paper's corner has - / 100% / + / Fit. Dragging a widget still moves it and the handles still resize it, at any zoom. The maths is pure (`paper_view.py`); the view lives in the designer's state (`state["view"]`, None = fit) and is reset when the device changes.

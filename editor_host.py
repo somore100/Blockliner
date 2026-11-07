@@ -27,6 +27,10 @@ class AppEditorHost:
     def view_width(self):
         return self._app.editor_frame.winfo_width()
 
+    def setting(self, key, default=None):
+        """One of the user's app settings (read only), e.g. 'zoom_speed'."""
+        return getattr(self._app, "settings", {}).get(key, default)
+
     def refresh(self):
         """Ask the shell to redraw the centre panel."""
         self._app.refresh_workspace()

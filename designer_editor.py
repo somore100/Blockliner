@@ -14,6 +14,8 @@ import threading
 import tkinter as tk
 from tkinter import colorchooser, messagebox, ttk
 
+import canvas_view
+import paper_view
 import ui_designer_model as dm
 import ui_paper
 from ui_common import BLOCK_BG, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL
@@ -235,6 +237,7 @@ class UIDesignerEditor:
 
     def _dz_set_device(self, key):
         root_id = self._dz_tree_now().root["id"]
+        self._dz()["view"] = None                       # a different paper: fit it again
         self._dz_apply(lambda t: t.set_design(root_id, device=key))
 
     def _dz_tree_now(self):
@@ -283,14 +286,51 @@ class UIDesignerEditor:
         canvas.bind("<B1-Motion>", self._dz_paper_drag)
         canvas.bind("<ButtonRelease-1>", self._dz_paper_release)
         canvas.bind("<Motion>", self._dz_paper_hover)
+        # camera: wheel zooms, middle button (or Space + left) drags the view
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            canvas.bind(seq, self._dz_paper_wheel)
+        canvas.bind("<ButtonPress-2>", self._dz_pan_press)
+        canvas.bind("<B2-Motion>", self._dz_pan_motion)
+        canvas.bind("<ButtonRelease-2>", self._dz_pan_release)
+        canvas.bind("<Enter>", self._dz_paper_enter)
+        canvas.bind("<KeyPress-space>", lambda e: self._dz_set_space(True))
+        canvas.bind("<KeyRelease-space>", lambda e: self._dz_set_space(False))
         self._dz_drag = None
+        self._dz_pan = None
+        self._dz_space = False
+        self._dz_zoom_controls(canvas)
+
+    def _dz_zoom_controls(self, canvas):
+        """A small - 100% + Fit strip in the paper's bottom-right corner."""
+        bar = tk.Frame(canvas, bg=DARK_PANEL, highlightthickness=1, highlightbackground=DARK_BORDER)
+        bar.place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-10)
+
+        def btn(text, cmd, width=None):
+            b = tk.Label(bar, text=text, bg=DARK_PANEL, fg=DARK_FG, cursor="hand2", padx=7, pady=2,
+                         font=("Segoe UI", 9), width=width)
+            b.pack(side=tk.LEFT)
+            b.bind("<Button-1>", lambda e: (cmd(), "break")[1])
+            return b
+        btn("\u2212", lambda: self._dz_zoom_step(1, paper_view.BUTTON_STEP, centre=True))
+        self._dz_zoom_label = btn("100%", self._dz_zoom_reset, width=5)
+        btn("+", lambda: self._dz_zoom_step(-1, paper_view.BUTTON_STEP, centre=True))
+        btn("Fit", self._dz_fit)
+        self._dz_zoom_bar = bar
 
     def _dz_draw_paper(self, tree, pack):
         canvas = self._dz_canvas
         cw, ch = canvas.winfo_width(), canvas.winfo_height()
         pw, ph = ui_paper.device_size(self._dz_device(tree))
-        s = max(0.2, min(1.0, (cw - 2 * PAPER_MARGIN - 3) / pw, (ch - 2 * PAPER_MARGIN - 3) / ph))
-        ox, oy = max(PAPER_MARGIN, (cw - pw * s) / 2), PAPER_MARGIN
+        view = self._dz().get("view")
+        if view is None:
+            s, ox, oy = paper_view.fit((cw, ch), (pw, ph), PAPER_MARGIN)
+        else:
+            s = paper_view.clamp_scale(view["s"])
+            ox, oy = paper_view.clamp_origin((view["ox"], view["oy"]), s, (pw, ph), (cw, ch))
+        self._dz_paper_size = (pw, ph)
+        label = getattr(self, "_dz_zoom_label", None)
+        if label is not None and label.winfo_exists():
+            label.configure(text=paper_view.percent(s))
         self._dz_paper_obj = ui_paper.Paper(tree, pack)
         layout = self._dz_paper_obj.boxes(pw, ph)
         self._dz_boxes, self._dz_origin, self._dz_scale = layout, (ox, oy), s
@@ -382,11 +422,18 @@ class UIDesignerEditor:
         px, py = self._dz_paper_point(event)
         st = self._dz()
         self._dz_drag = None
+        if self._dz_space:                                  # Space held: the camera, not the widgets
+            self._dz_pan_press(event)
+            return
         handle = self._dz_handle_under(tree, pack, px, py)
         if handle:
             self._dz_drag = {"id": st["sel"], "mode": handle, "start": (px, py), "box": self._dz_box(st["sel"]), "rect": None}
             return
         hit = ui_paper.hit_test(self._dz_boxes, px, py)
+        if hit is None:                                     # empty space: drag moves the view, a plain click deselects
+            self._dz_pan_press(event)
+            self._dz_pan["deselect"] = True
+            return
         if hit != st.get("sel"):
             st["sel"] = hit
             self._dz_update(code=False)
@@ -395,6 +442,9 @@ class UIDesignerEditor:
 
     def _dz_paper_drag(self, event):
         """Outline where the widget would go; the tree changes on release."""
+        if self._dz_pan is not None:
+            self._dz_pan_motion(event)
+            return
         d = self._dz_drag
         if d is None or d["box"] is None:
             return
@@ -415,7 +465,10 @@ class UIDesignerEditor:
         canvas.create_rectangle(ox + x * s, oy + y * s, ox + (x + w) * s, oy + (y + h) * s,
                                 outline=DARK_ACCENT, width=2, dash=(4, 2), tags="ghost")
 
-    def _dz_paper_release(self, _event):
+    def _dz_paper_release(self, event):
+        if self._dz_pan is not None:
+            self._dz_pan_release(event)
+            return
         d, self._dz_drag = self._dz_drag, None
         if d is None or d["rect"] is None:
             return
@@ -430,13 +483,15 @@ class UIDesignerEditor:
 
     def _dz_paper_hover(self, event):
         """Resize cursor over a handle, move cursor over the selected widget."""
-        if self._dz_drag is not None:
+        if self._dz_drag is not None or self._dz_pan is not None:
             return
         tree, pack = self._dz_tree_now(), self.port.pack()
         px, py = self._dz_paper_point(event)
         handle = self._dz_handle_under(tree, pack, px, py)
         sel = self._dz().get("sel")
-        if handle:
+        if self._dz_space:
+            cursor = "hand2"
+        elif handle:
             cursor = HANDLE_CURSORS.get(handle, "fleur")
         elif sel and ui_paper.hit_test(self._dz_boxes, px, py) == sel and dm.can_move(tree, sel):
             cursor = "fleur"
@@ -444,6 +499,95 @@ class UIDesignerEditor:
             cursor = ""
         if str(self._dz_canvas.cget("cursor")) != cursor:
             self._dz_canvas.configure(cursor=cursor)
+
+    # ---- the camera: zoom and pan --------------------------------------------
+    def _dz_set_view(self, scale, origin):
+        """Take the camera off 'fit' and put it here; redraw."""
+        self._dz()["view"] = {"s": paper_view.clamp_scale(scale), "ox": origin[0], "oy": origin[1]}
+        self._dz_draw_paper(self._dz_tree_now(), self.port.pack())
+
+    def _dz_paper_enter(self, _event):
+        """Take the keyboard so Space works, but never from a field being typed in."""
+        try:
+            current = self._dz_canvas.focus_get()
+        except (KeyError, tk.TclError):
+            current = None
+        if current is None or current.winfo_class() not in ("Entry", "TEntry", "Text", "TCombobox", "Spinbox", "TSpinbox"):
+            self._dz_canvas.focus_set()
+
+    def _dz_zoom_reset(self):
+        """Back to 100%, around the middle of the view."""
+        canvas = self._dz_canvas
+        centre = (canvas.winfo_width() / 2, canvas.winfo_height() / 2)
+        self._dz_set_view(1.0, paper_view.zoom_about(self._dz_scale, self._dz_origin, centre, 1.0))
+
+    def _dz_fit(self):
+        self._dz()["view"] = None
+        self._dz_draw_paper(self._dz_tree_now(), self.port.pack())
+
+    def _dz_zoom_step(self, step, factor, anchor=None, centre=False):
+        """step < 0 zooms in, step > 0 out. The anchor (canvas px) stays still."""
+        canvas = self._dz_canvas
+        if centre or anchor is None:
+            anchor = (canvas.winfo_width() / 2, canvas.winfo_height() / 2)
+        old = self._dz_scale
+        new = canvas_view.zoom_after_wheel(old, step, factor)
+        new = max(paper_view.ZOOM_MIN, min(paper_view.ZOOM_MAX, new))
+        if abs(new - old) < 1e-9:
+            return
+        self._dz_set_view(new, paper_view.zoom_about(old, self._dz_origin, anchor, new))
+
+    def _dz_zoom_speed(self):
+        read = getattr(self.host, "setting", None)
+        return canvas_view.zoom_factor({"zoom_speed": read("zoom_speed", None)} if read else {})
+
+    def _dz_paper_wheel(self, event):
+        """The wheel zooms around the pointer (the same speed setting as the Nodes canvas)."""
+        if event.num == 4:
+            step = -1
+        elif event.num == 5:
+            step = 1
+        elif getattr(event, "delta", 0):
+            step = -1 if event.delta > 0 else 1
+        else:
+            return "break"
+        self._dz_zoom_step(step, self._dz_zoom_speed(), anchor=(event.x, event.y))
+        return "break"
+
+    def _dz_set_space(self, on):
+        self._dz_space = on
+        if self._dz_pan is None:
+            self._dz_canvas.configure(cursor="hand2" if on else "")
+
+    def _dz_pan_press(self, event):
+        self._dz_pan = {"start": (event.x, event.y), "origin": self._dz_origin, "scale": self._dz_scale,
+                        "moved": False, "deselect": False}
+        self._dz_canvas.configure(cursor="fleur")
+
+    def _dz_pan_motion(self, event):
+        p = self._dz_pan
+        if p is None:
+            return
+        dx, dy = event.x - p["start"][0], event.y - p["start"][1]
+        if not p["moved"] and abs(dx) < DRAG_START and abs(dy) < DRAG_START:
+            return
+        p["moved"] = True
+        canvas = self._dz_canvas
+        origin = paper_view.clamp_origin((p["origin"][0] + dx, p["origin"][1] + dy), p["scale"],
+                                         self._dz_paper_size, (canvas.winfo_width(), canvas.winfo_height()))
+        mx, my = origin[0] - self._dz_origin[0], origin[1] - self._dz_origin[1]
+        canvas.move("all", mx, my)                      # cheap: no redraw while dragging
+        self._dz_origin = origin
+        self._dz()["view"] = {"s": p["scale"], "ox": origin[0], "oy": origin[1]}
+
+    def _dz_pan_release(self, _event):
+        p, self._dz_pan = self._dz_pan, None
+        if p is None:
+            return
+        self._dz_canvas.configure(cursor="hand2" if self._dz_space else "")
+        if p["deselect"] and not p["moved"] and self._dz().get("sel"):
+            self._dz()["sel"] = None
+            self._dz_update(code=False)
 
     # ---- structure list (collapsible) --------------------------------------
     def _dz_outline(self, parent, tree, pack):

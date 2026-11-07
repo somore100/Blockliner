@@ -293,11 +293,16 @@ class UIDesignerEditor:
         canvas.bind("<B2-Motion>", self._dz_pan_motion)
         canvas.bind("<ButtonRelease-2>", self._dz_pan_release)
         canvas.bind("<Enter>", self._dz_paper_enter)
+        # typing straight onto the paper: double-click, or Enter / F2 on the selected widget
+        canvas.bind("<Double-Button-1>", self._dz_paper_double)
+        canvas.bind("<Return>", lambda e: self._dz_edit_selected())
+        canvas.bind("<F2>", lambda e: self._dz_edit_selected())
         canvas.bind("<KeyPress-space>", lambda e: self._dz_set_space(True))
         canvas.bind("<KeyRelease-space>", lambda e: self._dz_set_space(False))
         self._dz_drag = None
         self._dz_pan = None
         self._dz_space = False
+        self._dz_inline = None
         self._dz_zoom_controls(canvas)
 
     def _dz_zoom_controls(self, canvas):
@@ -339,6 +344,7 @@ class UIDesignerEditor:
         canvas.create_rectangle(ox + 3, oy + 3, ox + pw * s + 3, oy + ph * s + 3, fill="#1a1a1c", outline="")
         for b in layout:
             self._dz_draw_box(canvas, tree, pack, b, ox, oy, s, selected=(b["id"] == sel))
+        self._dz_place_inline()
 
     def _dz_draw_box(self, canvas, tree, pack, b, ox, oy, s, selected):
         node = tree.find(b["id"])
@@ -418,6 +424,7 @@ class UIDesignerEditor:
     def _dz_paper_press(self, event):
         """Press on a handle of the selected widget: resize it. Press on a
         widget: select it, and dragging it moves it (grid: to another cell)."""
+        self._dz_close_inline(commit=True)                  # clicking away keeps what was typed
         tree, pack = self._dz_tree_now(), self.port.pack()
         px, py = self._dz_paper_point(event)
         st = self._dz()
@@ -499,6 +506,85 @@ class UIDesignerEditor:
             cursor = ""
         if str(self._dz_canvas.cget("cursor")) != cursor:
             self._dz_canvas.configure(cursor=cursor)
+
+    # ---- typing straight onto the paper ----------------------------------------
+    def _dz_paper_double(self, event):
+        """Double-click a widget to type its text in place, like a text box in a
+        slide. On the window itself only the title strip does it."""
+        px, py = self._dz_paper_point(event)
+        hit = ui_paper.hit_test(self._dz_boxes, px, py)
+        box = self._dz_box(hit)
+        if box is None or (box["depth"] == 0 and py - box["y"] > 24):
+            return
+        st = self._dz()
+        if st.get("sel") != hit:
+            st["sel"] = hit
+            self._dz_update(code=False)
+        self._dz_edit_text(hit)
+
+    def _dz_edit_selected(self):
+        sel = self._dz().get("sel")
+        if sel:
+            self._dz_edit_text(sel)
+        return "break"
+
+    def _dz_edit_text(self, wid):
+        """A text box over the widget; Enter or clicking away keeps the text,
+        Esc drops it. False when the widget has no text of its own."""
+        tree, pack = self._dz_tree_now(), self.port.pack()
+        node = tree.find(wid)
+        key = dm.inline_prop(pack, node["type"]) if node else None
+        if key is None or self._dz_box(wid) is None:
+            return False
+        self._dz_close_inline(commit=True)
+        family, size, styles = ui_paper.parse_font(node["props"].get("font"))
+        font = (family, max(7, round(size * self._dz_scale)), *[st for st in styles if st in ("bold", "italic")])
+        entry = tk.Entry(self._dz_canvas, font=font, relief=tk.SOLID, bd=1, bg="#ffffff", fg="#111111",
+                         insertbackground="#111111", highlightthickness=2, highlightcolor=DARK_ACCENT,
+                         highlightbackground=DARK_ACCENT)
+        entry.insert(0, str(node["props"].get(key) or ""))
+        entry.select_range(0, tk.END)
+        entry.bind("<Return>", lambda e: (self._dz_close_inline(True), "break")[1])
+        entry.bind("<Escape>", lambda e: (self._dz_close_inline(False), "break")[1])
+        entry.bind("<FocusOut>", lambda e: self._dz_close_inline(True))
+        self._dz_inline = {"id": wid, "key": key, "entry": entry}
+        self._dz_place_inline()
+        entry.focus_set()
+        return True
+
+    def _dz_place_inline(self):
+        """(Re)put the text box over its widget; called after every redraw so
+        zooming and panning carry it along."""
+        ed = getattr(self, "_dz_inline", None)
+        if not ed:
+            return
+        box = self._dz_box(ed["id"])
+        if box is None:
+            self._dz_close_inline(commit=False)
+            return
+        s, (ox, oy) = self._dz_scale, self._dz_origin
+        x, y = ox + box["x"] * s, oy + box["y"] * s
+        w, h = max(box["w"] * s, 110), max(box["h"] * s, 24)
+        if box["depth"] == 0:                                # the window's title sits in its top strip
+            x, y, w, h = x + 6, y + 2, 220, 24
+        self._dz_canvas.delete("inline")
+        self._dz_canvas.create_window(x, y, window=ed["entry"], anchor="nw", width=w, height=h, tags="inline")
+
+    def _dz_close_inline(self, commit):
+        ed, self._dz_inline = getattr(self, "_dz_inline", None), None      # cleared first: destroying fires FocusOut
+        if not ed:
+            return
+        text = ed["entry"].get()
+        try:
+            ed["entry"].destroy()
+            self._dz_canvas.delete("inline")
+            self._dz_canvas.focus_set()
+        except tk.TclError:
+            pass
+        if commit:
+            node = self._dz_tree_now().find(ed["id"])
+            if node is not None and text != str(node["props"].get(ed["key"]) or ""):
+                self._dz_apply(lambda t: t.set_prop(ed["id"], ed["key"], text))
 
     # ---- the camera: zoom and pan --------------------------------------------
     def _dz_set_view(self, scale, origin):
@@ -833,7 +919,12 @@ class UIDesignerEditor:
                 self._dz_apply(lambda t: t.set_event(wid, key, new_id))
                 return
             self._dz_apply(lambda t: t.set_event(wid, key, None if label == NONE_LABEL else ids.get(label)))
-        self._dz_combo(parent, ev["label"], choices, current, pick)
+        box = self._dz_combo(parent, ev["label"], choices, current, pick)
+        if target in by_id:                                  # jump to the function that runs
+            go = tk.Label(box.master, text="Open", bg=DARK_BG, fg=DARK_FG, cursor="hand2", padx=8, pady=2,
+                          font=("Segoe UI", 9), highlightthickness=1, highlightbackground=DARK_BORDER)
+            go.pack(side=tk.LEFT, padx=(6, 0))
+            go.bind("<Button-1>", lambda e, t=target: (self.port.open_node(t), "break")[1])
 
     # ---- edits ----------------------------------------------------------
     def _dz_apply(self, change):
@@ -878,6 +969,8 @@ class UIDesignerEditor:
         self._dz_apply(change)
         if added:
             st["sel"] = added[0]
+            wid = added[0]
+            self.host.after_idle(lambda: self._dz_edit_text(wid))     # type the text right away, Esc keeps the default
 
     def _dz_remove(self):
         sel = self._dz().get("sel")

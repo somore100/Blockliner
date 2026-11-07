@@ -9,6 +9,20 @@ HANDLE = 6              # px (on screen) around an edge that grabs it for resizi
 MIN_SIZE = 10
 
 
+INLINE_KEYS = ("text", "title")
+
+
+def inline_prop(pack, wtype):
+    """The setting a widget lets you type straight onto the paper (its text, or
+    a window's title), or None when it has no such text."""
+    wdef = pack.widget(wtype) or {}
+    for key in INLINE_KEYS:
+        for p in wdef.get("props", []):
+            if p["key"] == key and p.get("kind") == "string":
+                return key
+    return None
+
+
 def add_target(tree, pack, selected_id):
     """Parent id a new widget goes under: the selected widget if it can hold
     children, else the selected widget's parent, else the root."""

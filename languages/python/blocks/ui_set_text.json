@@ -1,0 +1,19 @@
+{
+  "display_name": "Set Widget Text",
+  "category": "GUI",
+  "description": "Changes the text a label, button or checkbox shows. Pick the widget from the list.",
+  "template": "ui.[[widget]].configure(text=[[text]])\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "\"Hello\""
+    }
+  ]
+}

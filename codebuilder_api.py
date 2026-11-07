@@ -62,6 +62,10 @@ class CodeBuilderFacade:
         tab["nodes"].append(node)
         return node["id"]
 
+    def open_node(self, node_id):
+        """Show another node of the open file in the editor."""
+        self._app.open_node(node_id)
+
     # ---- code -----------------------------------------------------------------
     def handler_resolver(self):
         """id -> the function name an event handler id stands for (or None)."""

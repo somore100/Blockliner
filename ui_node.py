@@ -80,6 +80,26 @@ def event_targets(node):
     return out
 
 
+def widget_names(node):
+    """Variable names of every widget in the node's UI (the window first), in
+    tree order. [] for a node without a UI. These are what blocks refer to as
+    `ui.<name>`."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    out = []
+
+    def walk(w):
+        if not isinstance(w, dict):
+            return
+        name = w.get("name")
+        if isinstance(name, str) and name and name not in out:
+            out.append(name)
+        for child in w.get("children") or []:
+            walk(child)
+    if isinstance(doc, dict):
+        walk(doc.get("root"))
+    return out
+
+
 def pack_id_of(node):
     """The id of the UI library a UI node was made for ('python/tkinter'), or None."""
     doc = node.get(UI_KEY) if isinstance(node, dict) else None

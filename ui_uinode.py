@@ -32,6 +32,19 @@ class UINodeMixin:
                 return p
         return packs[0] if packs else None
 
+    def ui_widget_names(self):
+        """Names of the widgets of every UI window in the open file: what the
+        widget blocks offer in their dropdown."""
+        if not getattr(self, "tabs", None):
+            return []
+        tab = self.tabs[self.active_tab_index]
+        out = []
+        for node, _path in self.iter_tab_nodes(tab):
+            for name in ui_node.widget_names(node):
+                if name not in out:
+                    out.append(name)
+        return out
+
     def choose_ui_pack(self, tab):
         """The UI library for a new UI node in `tab`: the one the file already
         uses, the only one there is, or the user's choice. None if cancelled."""

@@ -233,7 +233,16 @@ class BlockEditMixin:
             # Python only - every other type/language keeps the plain
             # Entry exactly as before. Both expose the same .get()
             # contract, so on_save below needs no changes either way.
-            if param_type == "expression" and self.current_language == "python":
+            choices = param.get("choices")
+            if choices:
+                # a dropdown (still typeable): "@ui_widgets" lists the widgets of the file's UI windows
+                values = self.ui_widget_names() if choices == "@ui_widgets" else list(choices)
+                if not initial_value and values:
+                    initial_value = values[0]
+                entry = ttk.Combobox(row_frame, values=values)
+                entry.set(initial_value)
+                entry.pack(fill=tk.X, pady=(3, 0), ipady=3)
+            elif param_type == "expression" and self.current_language == "python":
                 entry = ExpressionSlot(row_frame, initial_value, header_color, **entry_kwargs)
                 entry.pack(fill=tk.X)
             else:

@@ -36,6 +36,9 @@ class UIDocumentPort:
         """A new empty handler function; returns its id."""
         raise NotImplementedError
 
+    def open_node(self, node_id):
+        """Show another function (an event's handler) in the editor."""
+
     def detach(self):
         """Hand the generated code over to the user (the designer stops owning it)."""
         raise NotImplementedError
@@ -81,6 +84,9 @@ class CodeBuilderUIPort(UIDocumentPort):
 
     def create_handler(self, widget_name, event_key):
         return self._cb.add_function_node(f"on_{widget_name}_{event_key}")
+
+    def open_node(self, node_id):
+        self._cb.open_node(node_id)
 
     def detach(self):
         ui_node.detach(self._cb.active_node())

@@ -64,18 +64,9 @@ def main():
         settle(app)
         check("Behaviour replaces the designer", app.behaviour_active() and app.current_editor() is None)
         check("no rows yet", not widgets_of(app.workspace_frame, EventRowWidget))
-        asked = []
-        app.edit_block_params = lambda *a, **k: asked.append(a)       # the add dialog itself is not under test
         app.add_block_to_workspace(app.blocks["print_output"])
-        new_node = app.get_active_node(app.tabs[app.active_tab_index])
-        check("adding with no function opens a new node outside the window", new_node["id"] != node["id"]
-              and new_node["kind"] == "function" and not app.behaviour_active())
-        check("the add dialog then targets that node", len(asked) == 1)
+        check("adding with no function explains instead of editing the window", len(shown) == 1)
         check("the window's own code was not touched", not ui_node.is_detached(node))
-        app.open_node(node["id"])
-        settle(app)
-        ed.port.show_behaviour()
-        settle(app)
 
         # link a function, come back
         app.hide_ui_behaviour()

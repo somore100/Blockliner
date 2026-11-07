@@ -269,17 +269,66 @@ class MenusMixin:
                 except tk.TclError:
                     pass
 
+    def block_multi_selection(self):
+        """Indices of the top-level blocks picked with Ctrl/Shift+click."""
+        return self.__dict__.setdefault("_selected_block_set", set())
+
     def is_block_selected(self, index, container_list):
+        if (container_list is getattr(self, "project_blocks", None)
+                and index in self.block_multi_selection()):
+            return True
         return (container_list is getattr(self, "_selected_block_list", None)
                 and index == getattr(self, "_selected_block_index", None))
 
-    def select_block(self, index, container_list):
+    def select_block(self, index, container_list, state=0):
+        """A click on a block. On the top-level list, Ctrl toggles it and Shift
+        extends from the last clicked block; a plain click selects just it."""
+        import block_split
+        if container_list is getattr(self, "project_blocks", None):
+            anchor = getattr(self, "_selected_block_index", None) if container_list is getattr(self, "_selected_block_list", None) else None
+            chosen, anchor = block_split.pick(self.block_multi_selection(), index, anchor,
+                                              bool(state & 0x4), bool(state & 0x1))
+            self._selected_block_set = chosen if len(chosen) > 1 else set()
+            index = next(iter(chosen)) if len(chosen) == 1 else (anchor if chosen else None)
         self._selected_block_list = container_list
         self._selected_block_index = index
         self._repaint_block_selection()
 
+    def clear_block_multi_selection(self):
+        self._selected_block_set = set()
+        self._selected_block_list = None
+        self._selected_block_index = None
+        self._update_multi_bar()
+
+    def _update_multi_bar(self):
+        """The little bar offering "Make node" while two or more blocks are picked."""
+        bar = self.__dict__.get("_multi_bar")
+        count = len(self.block_multi_selection()) if self.view_mode == "node" else 0
+        if count < 2:
+            if bar is not None:
+                try:
+                    bar.destroy()
+                except tk.TclError:
+                    pass
+            self._multi_bar = None
+            return
+        if bar is None or not bar.winfo_exists():
+            parent = self.workspace_canvas.master
+            bar = tk.Frame(parent, bg=DARK_PANEL, highlightthickness=1, highlightbackground="#00e5ff")
+            self._multi_label = tk.Label(bar, bg=DARK_PANEL, fg=DARK_FG, font=("Segoe UI", 9, "bold"))
+            self._multi_label.pack(side=tk.LEFT, padx=(10, 8), pady=6)
+            for text, cmd in (("Make node\u2026", self.make_node_from_selection),
+                              ("Clear", self.clear_block_multi_selection)):
+                tk.Button(bar, text=text, command=cmd, bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+                          font=("Segoe UI", 9), padx=10).pack(side=tk.LEFT, padx=(0, 6), pady=5)
+            bar.place(relx=0.5, rely=1.0, anchor="s", y=-14)
+            self._multi_bar = bar
+        self._multi_label.config(text=f"{count} blocks selected")
+        bar.lift()
+
     def _repaint_block_selection(self):
         from ui_widgets import BlockWidget
+        self._update_multi_bar()
 
         def walk(w):
             for child in w.winfo_children():

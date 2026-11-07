@@ -1,12 +1,49 @@
 """Blocks-layer editing: add/edit/move/delete blocks and block list rendering."""
+import uuid
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, simpledialog, ttk
+import block_split
+import ui_node
+from nodes_model import make_node
 from ui_common import CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
 from ui_widgets import ExpressionSlot
 
 
 class BlockEditMixin:
         # No same-language neighbor in that direction - already at the edge, no-op.
+
+    def make_node_from_selection(self):
+        """Turn the blocks picked with Ctrl/Shift+click into their own node. It runs right
+        after the node they came from; blocks that followed them go into a second new node
+        so everything still runs in the same order."""
+        tab = self.tabs[self.active_tab_index]
+        node = self.get_active_node(tab)
+        picked = sorted(self.block_multi_selection())
+        if node is None or node.get("blocks") is not self.project_blocks or not picked:
+            return
+        if self.multi_active():
+            messagebox.showinfo("Make node", "Open the nodes one at a time to split blocks out of one.")
+            return
+        if node.get("ui") and not ui_node.is_detached(node):
+            messagebox.showinfo("Make node", "This node's blocks come from the UI designer, so they can't be split out.")
+            return
+        kept, taken, tail = block_split.split_blocks(self.project_blocks, picked)
+        if not taken:
+            return
+        name = simpledialog.askstring("Make node", f"Name for the new node ({len(taken)} blocks):",
+                                      initialvalue=f"{node['name']} part", parent=self)
+        if name is None:
+            return
+        new = [make_node(name.strip() or f"{node['name']} part", node_id=str(uuid.uuid4())[:8], blocks=taken)]
+        if tail:
+            new.append(make_node(f"{node['name']} (rest)", node_id=str(uuid.uuid4())[:8], blocks=tail))
+        block_split.place_after(tab["nodes"], node, new)
+        self.project_blocks[:] = kept                  # the open list keeps its identity
+        self.mark_active_tab_dirty()
+        self.refresh_workspace()
+        if tail:
+            messagebox.showinfo("Make node", f"The blocks that came after them went into \u2018{new[1]['name']}\u2019, "
+                                "so everything still runs in the same order.")
 
     def add_block_to_workspace(self, block_module, container_list=None, insert_at=None):
         """Add a block to the workspace, or into a container block's
@@ -16,9 +53,9 @@ class BlockEditMixin:
             # the window's own list is generated; new blocks go into the chosen event's function
             container_list, insert_at = self.behaviour_target_list(), None
             if container_list is None:
-                # no event runs anything yet: the blocks go into a new node outside the window
-                # (the user can wire it to an event from the designer later)
-                self.open_code_node_beside_window()
+                messagebox.showinfo("Behaviour", "There is no function to add blocks to yet. In the designer, "
+                                    "pick a widget's event (for example On click) and choose + New function\u2026.")
+                return
         # Check for special action blocks (like custom block creator)
         special_action = get_block_attr(block_module, "block_ui_description", {}).get("special_action")
 

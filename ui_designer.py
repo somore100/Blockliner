@@ -95,13 +95,6 @@ class DesignerMixin:
             return chosen
         return lists[0] if lists else None
 
-    def open_code_node_beside_window(self):
-        """A new empty function node next to the open UI window, opened so blocks
-        can be added to it. Used when the window has no event function yet."""
-        window = self.cb.active_node()
-        base = f"{window['name']}_code" if window else "ui_code"
-        self.open_node(self.cb.add_function_node(base))
-
     def set_behaviour_target(self, blocks):
         self._behaviour_list = blocks
         self._repaint_block_selection()

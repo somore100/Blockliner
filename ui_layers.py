@@ -750,6 +750,8 @@ class LayersMixin:
         self.update_right_panel_visibility()
 
         self._more_footer = None   # before destroying: scroll events must not touch dead widgets
+        self._selected_block_set = set()               # block numbers shift on every redraw
+        self._update_multi_bar()
         for widget in self.workspace_frame.winfo_children():
             widget.destroy()
         for widget in self.editor_frame.winfo_children():

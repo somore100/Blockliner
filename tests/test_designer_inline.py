@@ -36,7 +36,7 @@ def open_buttons(ed):
 
     def walk(w):
         for c in w.winfo_children():
-            if c.winfo_class() == "Label" and c.cget("text") == "Open":
+            if c.winfo_class() == "Button" and c.cget("text") == "Open":
                 found.append(c)
             walk(c)
     walk(ed._dz_root)
@@ -125,8 +125,7 @@ def main():
         labels = open_buttons(ed)
         check("an Open button shows once the event has a function", len(labels) == 1)
         if labels:
-            lx, ly = labels[0].winfo_rootx() + 3, labels[0].winfo_rooty() + 3    # mouse events are routed by screen position
-            labels[0].event_generate("<ButtonPress-1>", x=3, y=3, rootx=lx, rooty=ly)
+            labels[0].invoke()
             settle(app)
             check("Open shows that function", opened == [new_id])
 

@@ -78,3 +78,21 @@ Collected from testing; none of this is started.
 - Built (untested in a window): language dropdown order and kinds (language_groups.py). A language's manifest.json may say `"kind": "code"` (default) / `"text"` / `"workflow"` (anything else -> Other). The dropdown is ordered python, cpp, c, ... then the user's own alphabetically (it used to be plain alphabetical, so python was mid-list), and gets section headings only when more than one kind exists; a heading can't be picked. No 'recent first' on purpose (items would move under the mouse). Tests: tests/test_language_groups.py (pure), tests/test_language_dropdown.py (Tk). Not built: any text/workflow language (no such language ships; kinds only organise the list), display names ("C#") instead of folder names ("csharp"), a 'General' entry.
 - Built (untested in a window): designer camera (paper_view.py, designer_editor `_dz_zoom_*` / `_dz_pan_*`). Wheel zooms around the pointer (same zoom-speed setting as the Nodes canvas, 20%-400%); dragging empty space, the middle button, or Space + left-drag pans; a small - 100% + Fit strip sits in the paper's corner; at least 80 px of paper always stays in view; the camera resets when the device changes. Tests: tests/test_paper_view.py (pure), tests/test_designer_camera.py (Tk). Not built: zoom keys (Ctrl+0), remembering the camera after a restart, panning with the arrow keys.
 - Open decisions (user's questions, not built): whether the ending (.py) is shown on the tab/breadcrumb too.
+
+## Blocks-layer ideas (user, 2026-11-07)
+- Built (untested in a window): select several blocks (Ctrl+click toggles, Shift+click takes a range, top level only), a small bar
+  "N blocks selected - Make node... - Clear" appears, and Make node moves them into a new node that runs right after the original.
+  Blocks that followed the last picked one go into a second node ("<name> (rest)") so run order is unchanged; unpicked blocks
+  between picked ones stay in the original. Pure logic in block_split.py (tests/test_block_split.py), UI in ui_menus.py /
+  ui_blockedit.py (tests/test_block_multiselect.py, Tk, not run). Not offered for UI-designer nodes or in Open together.
+  Variables the moved blocks used from earlier blocks are still shared (nodes run as one script), so nothing else changes.
+- Idea: a divider/section block (a coloured line with a title) to separate parts of a long block list. Plan: one per language,
+  generates a comment line, so it round-trips through code; optional collapse of everything under it.
+- Idea (user): Scratch-style several stacks on one free canvas with run order. Recommendation: do not add a second free canvas to
+  the Blocks layer. The Nodes layer already is that canvas (free boxes, run-order numbers, wires), "Open together" shows several
+  nodes in one list, and the UI window's Behaviour view is the "when <thing> happens" stacks. Better: let a node box on the Nodes
+  layer show its blocks when zoomed in, so the two layers feel like one.
+- Idea (user): zoom in the Blocks layer. Plan: Ctrl+wheel zooms (re-render the block widgets with scaled fonts and padding,
+  roughly 70%-150%), plain wheel scrolls; a setting swaps the two. Not a canvas zoom, so it needs a `block_scale` read by BlockWidget.
+- Found: there is no autosave and closing the window with the X button does not warn about unsaved projects (only closing a
+  project tab does). Saves go to <data folder>/blockliner_saves or a place the user picks.

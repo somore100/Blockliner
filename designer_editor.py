@@ -922,10 +922,11 @@ class UIDesignerEditor:
             self._dz_apply(lambda t: t.set_event(wid, key, None if label == NONE_LABEL else ids.get(label)))
         box = self._dz_combo(parent, ev["label"], choices, current, pick)
         if target in by_id:                                  # jump to the function that runs
-            go = tk.Label(box.master, text="Open", bg=DARK_BG, fg=DARK_FG, cursor="hand2", padx=8, pady=2,
-                          font=("Segoe UI", 9), highlightthickness=1, highlightbackground=DARK_BORDER)
+            go = tk.Button(box.master, text="Open", bg=DARK_BG, fg=DARK_FG, activebackground=DARK_BORDER,
+                           activeforeground=DARK_FG, relief=tk.FLAT, cursor="hand2", padx=8, pady=0,
+                           font=("Segoe UI", 9), highlightthickness=1, highlightbackground=DARK_BORDER,
+                           command=lambda t=target: self.port.open_node(t))
             go.pack(side=tk.LEFT, padx=(6, 0))
-            go.bind("<Button-1>", lambda e, t=target: (self.port.open_node(t), "break")[1])
 
     # ---- edits ----------------------------------------------------------
     def _dz_apply(self, change):

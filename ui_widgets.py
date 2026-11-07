@@ -234,7 +234,7 @@ class BlockWidget(tk.Frame):
         self._dragging = False
         self._drag_press_xy = None
         if not was_drag:
-            self.app.select_block(self.index, self.container_list)
+            self.app.select_block(self.index, self.container_list, state=getattr(e, "state", 0))
             return
         self.app.block_drag_feedback(self.index, None, None)
         self.on_leave(None)

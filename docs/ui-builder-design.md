@@ -302,9 +302,8 @@ One finding changed the plan: an *attached* UI window never shows the Blocks lay
 - Still to do: the *When Widget Event* palette block with its dialog (step 4), a namespace per window (5), "Edit what it does" in the designer (6).
 
 ### Follow-ups after first real use (2026-11-07)
-- Adding a palette block while Behaviour has no event function used to show a message. It now creates an
-  ordinary function node next to the window (`<window>_code`), opens it and runs the normal add dialog there.
-  The node is not wired to any event; pick it in the designer's event dropdown to connect it.
+- (Tried and reverted) creating a `<window>_code` node when Behaviour has no event function: it was a misreading of
+  the request. The user meant "select several blocks and turn them into a node" (see the blocks-layer ideas in the backlog).
 - The app opens on the Files layer (`start_ui` in `ui.py`). Tests build `BlocklinerUI` directly and still start on Blocks.
 - `tests/test_designer_inline.py`: key events need `focus_force()` and mouse events need `rootx/rooty` under Xvfb
   (no window manager); the two failures on the first run were test issues, not app bugs.

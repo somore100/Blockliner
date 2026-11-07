@@ -670,4 +670,5 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
 def start_ui(blocks=None, initial_lang="python", languages_path="languages"):
     """Start the Blockliner UI"""
     app = BlocklinerUI(initial_lang=initial_lang, languages_path=languages_path)
+    app.goto_layer("files")          # open on the Files layer; tests build BlocklinerUI directly and keep the Blocks start
     app.mainloop()

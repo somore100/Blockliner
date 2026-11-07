@@ -72,6 +72,8 @@ def main():
         check("editing again works", ed._dz_edit_text(wid))
         ed._dz_inline["entry"].delete(0, "end")
         ed._dz_inline["entry"].insert(0, "never kept")
+        ed._dz_inline["entry"].focus_force()            # key events go to the focused widget; Xvfb has no window manager to hand it over
+        app.update()
         ed._dz_inline["entry"].event_generate("<Escape>")
         settle(app)
         check("Esc drops the typed text", text_of(ed, wid) == "Hello there" and ed._dz_inline is None)
@@ -123,7 +125,8 @@ def main():
         labels = open_buttons(ed)
         check("an Open button shows once the event has a function", len(labels) == 1)
         if labels:
-            labels[0].event_generate("<Button-1>")
+            lx, ly = labels[0].winfo_rootx() + 3, labels[0].winfo_rooty() + 3    # mouse events are routed by screen position
+            labels[0].event_generate("<ButtonPress-1>", x=3, y=3, rootx=lx, rooty=ly)
             settle(app)
             check("Open shows that function", opened == [new_id])
 

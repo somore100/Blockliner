@@ -16,9 +16,9 @@ class BlockEditMixin:
             # the window's own list is generated; new blocks go into the chosen event's function
             container_list, insert_at = self.behaviour_target_list(), None
             if container_list is None:
-                messagebox.showinfo("Behaviour", "There is no function to add blocks to yet. In the designer, "
-                                    "pick a widget's event (for example On click) and choose + New function\u2026.")
-                return
+                # no event runs anything yet: the blocks go into a new node outside the window
+                # (the user can wire it to an event from the designer later)
+                self.open_code_node_beside_window()
         # Check for special action blocks (like custom block creator)
         special_action = get_block_attr(block_module, "block_ui_description", {}).get("special_action")
 

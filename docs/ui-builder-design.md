@@ -263,3 +263,29 @@ Two things from the user's second look at the designer: "type straight onto the 
 - **What a button does.** The mechanism was already there (select the button, *On click*, *+ New function...*), but nothing tied the widgets to blocks. Now: the event row has an **Open** button that jumps to the linked function, and the Python block palette has a **GUI** group: *Set Widget Text*, *Set Widget Option*, *Read Widget Text*. Their `widget` field is a dropdown of every widget name in the file's UI windows (`ui_node.widget_names`, `BlocklinerUI.ui_widget_names`). The generated code is `ui.<name>.configure(...)` / `ui.<name>.get()`, reading the same `ui` namespace the window code already creates.
 - **Block parameters can now be dropdowns.** A param in a block's JSON may carry `"choices": [...]` (a fixed list) or `"choices": "@ui_widgets"`; the block dialog shows an editable dropdown. Nothing else about blocks changed.
 - **Not built:** blocks that live inside the window itself ("When [button] is clicked: ..." as a block); the window's own Blocks view still shows one generated Custom Code block. Widget blocks are written for Python's tkinter-style libraries (`configure`, `get`); other libraries/languages need their own versions, ideally shipped by the UI library pack. A file with two UI windows shares the one name `ui`.
+
+## Design: "When [widget] is clicked" blocks inside the window (proposed 2026-11-07, not built)
+
+**Problem.** A button's behaviour lives in a separate function node. Beginners open the window's Blocks view and see one generated Custom Code block, so the link between "this button" and "these blocks" is invisible. The designer knows the widgets, the blocks don't.
+
+**Options weighed.**
+- *A. Link list only.* The window's Blocks view shows a read-only row per event ("button -> on_button_command, Open"). Cheap, but the behaviour is still elsewhere.
+- *B. Store handler blocks inside the UI node* (`node["blocks"]` = derived window block, the user's event blocks, a derived `mainloop` block). Needs a three-part node, changes detach detection (today any difference from the generated block detaches the designer), changes `ui_parse` read-back, ordering/wires/export/portable markers all learn about it. Largest change, two places for a handler to live.
+- *C. Show the linked handler nodes in place (recommended).* Handlers stay ordinary function nodes (the Nodes layer, export, ordering, rename and the event wire work exactly as today). The window's Blocks view draws, under the generated window block, one **"When [button] is clicked"** container per linked event. Its body is *the handler node's own block list*, shown and edited in place (the same list object, so there is one copy). Nothing new is saved.
+
+**How C works.**
+1. A pure function `ui_node.event_rows(node, handler_lookup)` returns `[(widget_name, event_label, handler_node_id)]` from the tree's `events` (already stored). Tested without Tk.
+2. The block workspace gets "virtual" containers: after the real blocks it renders one container widget per row whose `_children` is the handler node's `blocks` list. The existing nested-body editing (`container_list` arguments in `ui_blockedit.py`) already edits any list, so add/edit/move/delete inside need no new code. Virtual rows are never written to the node and never reach code generation.
+3. Header of a row: widget name and event as dropdowns (change event target = relink), an Open button (jump to the function node), and Remove = unlink (the function node is kept; asking before deleting an empty one is a later nicety).
+4. Adding: a palette entry **When Widget Event** in the GUI group opens a small dialog (widget dropdown, event dropdown from the pack's `events`), then does what "+ New function..." does in the designer (creates `on_<widget>_<event>`, links it) and shows the new row. The designer's event row and this block therefore stay two views of the same link.
+5. Designer side: select a widget, and its settings show "On click: [function] [Open]" (built). Add a one-click **Edit what it does** that creates the handler if missing and jumps to the window's Blocks view with that row in view.
+6. Pack-driven: event labels and attach code come from the widget's `events` in the pack, so another library's "on tap" works without editor changes. The existing widget blocks (Set Widget Text, ...) go inside the bodies as today.
+
+**Decisions I'd make by default (change on request).**
+- Handlers stay separate function nodes (C), not stored in the window.
+- Double-click on the paper stays "type the text". Behaviour is reached by the settings row or a small lightning badge on widgets that have a handler, not by double-click.
+- Several UI windows in one file: give each window its own namespace name (`ui_main`, `ui_settings`, from the node name) and let the widget dropdown show `Main.button`. Needed before this is useful in bigger projects; small change in `ui_gen` (`ui_name`) plus the blocks' template.
+
+**Risks.** The workspace is index-based (lazy window, selection, undo snapshots), so virtual rows must be rendered outside the indexed list and be skipped by drag-reorder. The handler node's list is edited through a second view, so the existing "blocks edited by hand detach the designer" check must look only at the UI node's own list (it already does). Both need Tk tests under Xvfb, which cannot run in the assistant's sandbox.
+
+**Build order.** 1) `event_rows` + tests. 2) Read-only virtual rows (header, Open, body shown). 3) Editing the body in place. 4) *When Widget Event* palette block + dialog. 5) Per-window namespaces. 6) "Edit what it does" in the designer. Each step is usable alone.

@@ -428,6 +428,63 @@ class BlockWidget(tk.Frame):
         else:
             self.configure(highlightbackground=DARK_BORDER, highlightthickness=2)
 
+class EventRowWidget(BlockWidget):
+    """One line of a UI window's Behaviour view: "When <widget> <event>", the
+    function it runs, and that function's own blocks as an editable body. The
+    body IS the function node's block list (not a copy), so everything the
+    nested-body editing already does works on it. Never saved, never part of
+    any code: it only draws what the tree and the linked node already say."""
+
+    def __init__(self, parent, row, app):
+        self.row = row
+        handler = row["handler"]
+        blocks = handler["blocks"] if handler and not row["is_window"] and isinstance(handler.get("blocks"), list) else None
+        self.body_list = blocks
+        module = {"display_name": f"When {row['widget']}", "category": "GUI", "is_container": blocks is not None,
+                  "params": [], "block_ui_description": {}}
+        super().__init__(parent, "_event_row", module, {"_children": blocks if blocks is not None else []},
+                         -1, blocks if blocks is not None else [], app)
+
+    def create_widgets(self):
+        row, app = self.row, self.app
+        header = tk.Frame(self, bg=self.category_color, height=32)
+        header.pack(fill=tk.X, padx=2, pady=2)
+        header.pack_propagate(False)
+        what = f"When {row['widget']}  \u00b7  {row['label']}"
+        tk.Label(header, text=what, bg=self.category_color, fg="#000000", font=("Segoe UI", 10, "bold"),
+                 anchor="w").pack(side=tk.LEFT, padx=(8, 12))
+        handler = row["handler"]
+        if handler is None:
+            note = "\u26a0 the function is missing"
+        elif row["is_window"]:
+            note = f"opens the window {handler['name']}"
+        else:
+            note = f"runs {handler['name']}"
+        tk.Label(header, text=note, bg=self.category_color, fg="#222222", font=("Segoe UI", 9),
+                 anchor="w").pack(side=tk.LEFT)
+        if handler is not None:
+            tk.Button(header, text="Open", relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), bg="#3a3a3a",
+                      fg=DARK_FG, command=lambda: app.open_node(row["handler_id"])).pack(side=tk.RIGHT, padx=4, pady=3)
+        if self.body_list is not None:
+            for w in (self, header):
+                w.bind("<Button-1>", lambda e: app.set_behaviour_target(self.body_list), add="+")
+            self._build_body()
+
+    def refresh_selection_border(self):
+        """Cyan while new blocks from the palette would go into this body."""
+        target = getattr(self.app, "behaviour_target_list", lambda: None)()
+        if self.body_list is not None and target is self.body_list:
+            self.configure(highlightbackground="#00e5ff", highlightthickness=3)
+        else:
+            self.configure(highlightbackground=DARK_BORDER, highlightthickness=2)
+
+    def on_hover(self, event):
+        pass
+
+    def on_leave(self, event):
+        pass
+
+
 class ExpressionSlot(tk.Frame):
     """
     Phase F: the widget used for an "expression"-typed param field,

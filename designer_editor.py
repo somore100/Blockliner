@@ -214,6 +214,7 @@ class UIDesignerEditor:
                       bg=DARK_ACCENT if on else "#3a3a3a", fg="#ffffff" if on else DARK_FG,
                       font=("Segoe UI", 9), padx=8).pack(side=tk.LEFT, padx=1)
         self._dz_button(bar, "</> Code…", self._dz_detach).pack(side=tk.RIGHT, padx=2)
+        self._dz_button(bar, "\u26a1 Behaviour", self.port.show_behaviour).pack(side=tk.RIGHT, padx=2)
         self._dz_button(bar, "▶ Preview", self._dz_preview).pack(side=tk.RIGHT, padx=2)
 
     def _dz_toggle_side(self, key):

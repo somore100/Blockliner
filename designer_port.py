@@ -39,6 +39,9 @@ class UIDocumentPort:
     def open_node(self, node_id):
         """Show another function (an event's handler) in the editor."""
 
+    def show_behaviour(self):
+        """Switch to the view of what the widgets do (events and their blocks)."""
+
     def detach(self):
         """Hand the generated code over to the user (the designer stops owning it)."""
         raise NotImplementedError
@@ -87,6 +90,9 @@ class CodeBuilderUIPort(UIDocumentPort):
 
     def open_node(self, node_id):
         self._cb.open_node(node_id)
+
+    def show_behaviour(self):
+        self._cb.show_behaviour()
 
     def detach(self):
         ui_node.detach(self._cb.active_node())

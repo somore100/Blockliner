@@ -80,6 +80,38 @@ def event_targets(node):
     return out
 
 
+def event_rows(node, pack, lookup):
+    """What each widget does, one dict per linked event, in tree order:
+    {widget, type, event, label, handler_id, handler, is_window}.
+    `lookup(id)` finds the node an event points at (None if it is gone: the row
+    is still listed so the user sees the broken link). `label` is the pack's
+    wording ("On click"); `is_window` marks an event that opens another UI
+    window rather than running a function."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    rows = []
+
+    def walk(w):
+        if not isinstance(w, dict):
+            return
+        wdef = (pack.widget(w.get("type")) if pack is not None else None) or {}
+        order = [e["key"] for e in wdef.get("events", [])]
+        labels = {e["key"]: e.get("label") or e["key"] for e in wdef.get("events", [])}
+        events = w.get("events") if isinstance(w.get("events"), dict) else {}
+        for key in order + [k for k in events if k not in order]:
+            target = events.get(key)
+            if not (isinstance(target, str) and target):
+                continue
+            handler = lookup(target)
+            rows.append({"widget": w.get("name"), "type": w.get("type"), "event": key,
+                         "label": labels.get(key, key), "handler_id": target, "handler": handler,
+                         "is_window": bool(handler) and is_ui_node(handler)})
+        for child in w.get("children") or []:
+            walk(child)
+    if isinstance(doc, dict):
+        walk(doc.get("root"))
+    return rows
+
+
 def widget_names(node):
     """Variable names of every widget in the node's UI (the window first), in
     tree order. [] for a node without a UI. These are what blocks refer to as

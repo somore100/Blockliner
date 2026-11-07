@@ -408,6 +408,7 @@ class LayersMixin:
         node = find_node_by_id(tab["nodes"], node_id)
         if node is None:
             return
+        self._behaviour_id = None                 # a UI window opens in the designer, not in Behaviour
         self.selected_nodes().clear()
         if node.get("kind") in ("class", "category"):
             tab.setdefault("file_view_path", []).append(node_id)
@@ -820,6 +821,9 @@ class LayersMixin:
         if editor is not None:
             editor.create(self).render()
             self.block_count_label.config(text=editor.title)
+            return
+        if self.behaviour_active():
+            self.render_behaviour_view()
             return
         if not self.project_blocks:
             self.show_empty_state()

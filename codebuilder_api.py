@@ -66,6 +66,10 @@ class CodeBuilderFacade:
         """Show another node of the open file in the editor."""
         self._app.open_node(node_id)
 
+    def show_behaviour(self):
+        """Show what the open UI window's widgets do (events and their blocks)."""
+        self._app.show_ui_behaviour()
+
     # ---- code -----------------------------------------------------------------
     def handler_resolver(self):
         """id -> the function name an event handler id stands for (or None)."""

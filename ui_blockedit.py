@@ -12,6 +12,13 @@ class BlockEditMixin:
         """Add a block to the workspace, or into a container block's
         body if container_list is given. insert_at: absolute index to insert
         at instead of appending (palette drop)."""
+        if container_list is None and self.behaviour_active():
+            # the window's own list is generated; new blocks go into the chosen event's function
+            container_list, insert_at = self.behaviour_target_list(), None
+            if container_list is None:
+                messagebox.showinfo("Behaviour", "There is no function to add blocks to yet. In the designer, "
+                                    "pick a widget's event (for example On click) and choose + New function\u2026.")
+                return
         # Check for special action blocks (like custom block creator)
         special_action = get_block_attr(block_module, "block_ui_description", {}).get("special_action")
 

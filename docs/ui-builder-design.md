@@ -289,3 +289,14 @@ Two things from the user's second look at the designer: "type straight onto the 
 **Risks.** The workspace is index-based (lazy window, selection, undo snapshots), so virtual rows must be rendered outside the indexed list and be skipped by drag-reorder. The handler node's list is edited through a second view, so the existing "blocks edited by hand detach the designer" check must look only at the UI node's own list (it already does). Both need Tk tests under Xvfb, which cannot run in the assistant's sandbox.
 
 **Build order.** 1) `event_rows` + tests. 2) Read-only virtual rows (header, Open, body shown). 3) Editing the body in place. 4) *When Widget Event* palette block + dialog. 5) Per-window namespaces. 6) "Edit what it does" in the designer. Each step is usable alone.
+
+### As built: steps 1-3 of the event-blocks design (2026-11-07)
+
+One finding changed the plan: an *attached* UI window never shows the Blocks layer (the designer replaces it; the generated block is only visible once detached). So the rows live in a **Behaviour** view of the window, reached from the designer toolbar (**Behaviour**) and left with **Back to design**.
+
+- `ui_node.event_rows(node, pack, lookup)` (pure, `tests/test_event_rows.py`): one dict per linked event in tree order, with the pack's wording ("On click"), the function node (or None when the link is broken) and whether it opens a window.
+- Behaviour view (`ui_designer.py`, `EventRowWidget` in `ui_widgets.py`): a row per event, header "When <widget> · On click", "runs <function>" and an **Open** button. The body is the function node's own block list (the same list object), so the nested-body editing that If-blocks use edits it in place. A link to a deleted function shows a warning; an event that opens a popup window shows no body.
+- Palette blocks added while Behaviour is shown go into the event whose row was last clicked (cyan outline; the first one by default), never into the window's generated code. With no function yet, a message says how to make one (`add_block_to_workspace`).
+- Opening any node (including Open on a row) leaves Behaviour; opening the window again starts in the designer.
+- Needs an Xvfb run: `tests/test_behaviour_view.py` (also `test_designer_inline.py` from earlier).
+- Still to do: the *When Widget Event* palette block with its dialog (step 4), a namespace per window (5), "Edit what it does" in the designer (6).

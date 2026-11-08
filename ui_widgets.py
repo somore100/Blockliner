@@ -1,7 +1,7 @@
 """Reusable widgets: palette item, block widget, expression slot."""
 import tkinter as tk
 from tkinter import ttk
-from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DARK_BG, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
+from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DIVIDER_COLORS, DARK_BG, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
 class PaletteBlockItem(tk.Frame):
@@ -244,7 +244,26 @@ class BlockWidget(tk.Frame):
         self.params["_collapsed"] = not self.is_collapsed
         self.app.refresh_workspace()
         
+    def _create_divider(self):
+        """A divider is one slim coloured line with its title on it and the usual buttons."""
+        color = DIVIDER_COLORS.get(str(self.params.get("color", "yellow")), DIVIDER_COLORS["yellow"])
+        self.category_color = color                       # hover outline and buttons follow the line
+        line = tk.Frame(self, bg=color, height=26)
+        line.pack(fill=tk.X, padx=2, pady=2)
+        line.pack_propagate(False)
+        title = str(self.params.get("title", "")).strip() or "Divider"
+        tk.Label(line, text=f"\u2500\u2500 {title}", bg=color, fg="#000000", anchor="w",
+                 font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=(10, 4), fill=tk.X, expand=True)
+        cfg = {"bg": color, "fg": "#000000", "relief": tk.FLAT, "width": 2, "cursor": "hand2"}
+        tk.Button(line, text="\u25b2", font=("Segoe UI", 8), command=self._move_up, **cfg).pack(side=tk.RIGHT, padx=1)
+        tk.Button(line, text="\u25bc", font=("Segoe UI", 8), command=self._move_down, **cfg).pack(side=tk.RIGHT, padx=1)
+        tk.Button(line, text="\u270e", font=("Segoe UI", 10), command=self._edit, **cfg).pack(side=tk.RIGHT, padx=2)
+        tk.Button(line, text="\u2715", font=("Segoe UI", 10, "bold"), command=self._delete, **cfg).pack(side=tk.RIGHT, padx=2)
+
     def create_widgets(self):
+        if get_block_attr(self.block_module, "style", None) == "divider":
+            self._create_divider()
+            return
         # Header with block name and buttons
         header = tk.Frame(self, bg=self.category_color, height=32)
         header.pack(fill=tk.X, padx=2, pady=2)

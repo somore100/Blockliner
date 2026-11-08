@@ -1,0 +1,27 @@
+{
+  "display_name": "Divider",
+  "category": "Basic",
+  "description": "A coloured line with a title that separates parts of a long block list. Writes a comment line.",
+  "style": "divider",
+  "template": "<!-- ==== [[title]] ==== -->\n",
+  "params": [
+    {
+      "name": "title",
+      "type": "string",
+      "default": "Section"
+    },
+    {
+      "name": "color",
+      "type": "string",
+      "default": "yellow",
+      "choices": [
+        "yellow",
+        "blue",
+        "green",
+        "pink",
+        "orange",
+        "grey"
+      ]
+    }
+  ]
+}

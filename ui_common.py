@@ -104,6 +104,8 @@ CATEGORY_COLORS = {
     "Custom Blocks": "#ff6b9d"
 }
 
+from divider import DIVIDER_COLORS  # noqa: E402,F401  (the Divider block's colours; pure module)
+
 _PERSISTENT_DATA_PATH = app_paths.data_root()
 CUSTOM_BLOCKS_PATH = os.path.join(_PERSISTENT_DATA_PATH, "user_data", "custom_blocks.json")
 BLOCKLINER_SAVES_PATH = os.path.join(_PERSISTENT_DATA_PATH, "blockliner_saves")

@@ -86,8 +86,11 @@ Collected from testing; none of this is started.
   between picked ones stay in the original. Pure logic in block_split.py (tests/test_block_split.py), UI in ui_menus.py /
   ui_blockedit.py (tests/test_block_multiselect.py, Tk, not run). Not offered for UI-designer nodes or in Open together.
   Variables the moved blocks used from earlier blocks are still shared (nodes run as one script), so nothing else changes.
-- Idea: a divider/section block (a coloured line with a title) to separate parts of a long block list. Plan: one per language,
-  generates a comment line, so it round-trips through code; optional collapse of everything under it.
+- Built (untested in a window): Divider block in every language (`languages/<lang>/blocks/divider.json`, `"style": "divider"`).
+  Params: title and colour (yellow, blue, green, pink, orange, grey; `divider.py`). In the Blocks layer it is one slim coloured line with
+  the title on it (BlockWidget `_create_divider`); in code it is a comment line (`# ---- Title ----`, `// ---- Title ----`, `<!-- ==== Title ==== -->`).
+  It can be picked and grouped into a node like any block. Reading the code back gives a plain Comment block (the colour is not in the code).
+  Tests: tests/test_divider.py (pure), tests/test_divider_widget.py (Tk). Not built: collapsing everything under a divider.
 - Idea (user): Scratch-style several stacks on one free canvas with run order. Recommendation: do not add a second free canvas to
   the Blocks layer. The Nodes layer already is that canvas (free boxes, run-order numbers, wires), "Open together" shows several
   nodes in one list, and the UI window's Behaviour view is the "when <thing> happens" stacks. Better: let a node box on the Nodes

@@ -3,6 +3,7 @@ import uuid
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 import block_split
+import block_zoom
 import ui_node
 from nodes_model import make_node
 from ui_common import CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
@@ -11,6 +12,43 @@ from ui_widgets import ExpressionSlot
 
 class BlockEditMixin:
         # No same-language neighbor in that direction - already at the edge, no-op.
+
+    def zoom_blocks(self, direction):
+        """Bigger (direction > 0) or smaller blocks in the Blocks layer. Redraws them with scaled
+        fonts and heights, keeping the scroll position; several fast wheel steps redraw once."""
+        scale = block_zoom.next_scale(getattr(self, "block_scale", 1.0), direction)
+        if scale == getattr(self, "block_scale", 1.0):
+            self._show_block_zoom(scale)
+            return
+        self.block_scale = scale
+        self._show_block_zoom(scale)
+        job = self.__dict__.get("_block_zoom_job")
+        if job is None:
+            self._block_zoom_keep = self.workspace_canvas.yview()[0]
+        else:
+            self.after_cancel(job)
+        self._block_zoom_job = self.after(60, self._apply_block_zoom)
+
+    def _apply_block_zoom(self):
+        self._block_zoom_job = None
+        keep = getattr(self, "_block_zoom_keep", 0.0)
+        self.refresh_workspace()
+        self.after_idle(lambda: self.workspace_canvas.yview_moveto(keep))
+
+    def _show_block_zoom(self, scale):
+        """The percentage, in a corner for a moment."""
+        label = self.__dict__.get("_block_zoom_label")
+        if label is None or not label.winfo_exists():
+            label = tk.Label(self.workspace_canvas.master, bg=DARK_PANEL, fg=DARK_FG, font=("Segoe UI", 10, "bold"),
+                             padx=10, pady=4, highlightthickness=1, highlightbackground=DARK_BORDER)
+            self._block_zoom_label = label
+        label.config(text=f"{round(scale * 100)}%")
+        label.place(relx=1.0, rely=0.0, anchor="ne", x=-24, y=8)
+        label.lift()
+        old = self.__dict__.get("_block_zoom_hide")
+        if old is not None:
+            self.after_cancel(old)
+        self._block_zoom_hide = self.after(1000, label.place_forget)
 
     def make_node_from_selection(self):
         """Turn the blocks picked with Ctrl/Shift+click into their own node. It runs right

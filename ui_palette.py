@@ -9,6 +9,7 @@ import language_groups
 import language_switch
 import json
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
+import block_zoom
 from block_split import SELECT_MODE_CHOICES, normalize_select_mode
 import clean_undo
 from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
@@ -800,6 +801,16 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("Smooth scrolls continuously; Rigid snaps to the next block/node with each wheel step.")
 
+        # --- Zooming the blocks ---
+        row = add_row("Zoom the blocks:")
+        wheel_labels = dict(block_zoom.WHEEL_CHOICES)
+        wheel_var = tk.StringVar(value=wheel_labels[block_zoom.normalize_wheel(self.settings.get("block_zoom_wheel"))])
+        ttk.Combobox(
+            row, textvariable=wheel_var, values=[v for _k, v in block_zoom.WHEEL_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("Which mouse-wheel turn zooms the blocks in the Blocks layer (60% to 200%).")
+
         # --- Picking several blocks ---
         row = add_row("Picking blocks:")
         select_labels = dict(SELECT_MODE_CHOICES)
@@ -962,6 +973,8 @@ class PaletteMixin:
                 (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
             self.settings["scroll_mode"] = next(
                 (k for k, v in SCROLL_MODE_CHOICES if v == scroll_var.get()), "smooth")
+            self.settings["block_zoom_wheel"] = next(
+                (k for k, v in block_zoom.WHEEL_CHOICES if v == wheel_var.get()), "ctrl")
             self.settings["block_select_mode"] = next(
                 (k for k, v in SELECT_MODE_CHOICES if v == select_var.get()), "shift")
             self.settings["save_format"] = next(

@@ -86,6 +86,10 @@ Collected from testing; none of this is started.
   between picked ones stay in the original. Pure logic in block_split.py (tests/test_block_split.py), UI in ui_menus.py /
   ui_blockedit.py (tests/test_block_multiselect.py, Tk, not run). Not offered for UI-designer nodes or in Open together.
   Variables the moved blocks used from earlier blocks are still shared (nodes run as one script), so nothing else changes.
+- Built (untested in a window): zoom in the Blocks layer. Ctrl+wheel zooms (60%-200% in steps: block_zoom.py), the plain wheel scrolls;
+  Settings > General > "Zoom the blocks" swaps them. Blocks are drawn again with scaled fonts and header heights (BlockWidget `_f` / `_px`),
+  scroll position kept, a percentage flashes in the corner. Not remembered after a restart; dialogs and the code panel do not zoom.
+  Tests: tests/test_block_zoom.py (pure), tests/test_block_zoom_widget.py (Tk).
 - Built (untested in a window): how blocks are picked is a setting (Settings > General > "Picking blocks", `block_select_mode`):
   "shift" (default): Shift+click the first block, Shift+click the last, everything between is picked; do it again elsewhere for a second
   section; Shift+click on a picked block drops it; Ctrl+click toggles one. "single": every click toggles one block. "range": click the

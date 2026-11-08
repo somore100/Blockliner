@@ -1,6 +1,7 @@
 """Reusable widgets: palette item, block widget, expression slot."""
 import tkinter as tk
 from tkinter import ttk
+import block_zoom
 from ui_common import BLOCK_BG, BLOCK_HOVER, CATEGORY_COLORS, DIVIDER_COLORS, DARK_BG, DARK_ACCENT, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
@@ -196,6 +197,13 @@ class BlockWidget(tk.Frame):
         if self.container_list is getattr(app, "project_blocks", None):
             self._bind_drag_tree(self)
 
+    def _f(self, family, size, *style):
+        """A font tuple at the Blocks layer's current zoom."""
+        return (family, block_zoom.scaled_font_size(size, getattr(self.app, "block_scale", 1.0)), *style)
+
+    def _px(self, px):
+        return block_zoom.scaled_px(px, getattr(self.app, "block_scale", 1.0))
+
     def display_number(self):
         """The number in the header. Normally index + 1; in the Open-together
         view the separator rows are not blocks, so top-level numbers skip them."""
@@ -248,24 +256,24 @@ class BlockWidget(tk.Frame):
         """A divider is one slim coloured line with its title on it and the usual buttons."""
         color = DIVIDER_COLORS.get(str(self.params.get("color", "yellow")), DIVIDER_COLORS["yellow"])
         self.category_color = color                       # hover outline and buttons follow the line
-        line = tk.Frame(self, bg=color, height=26)
+        line = tk.Frame(self, bg=color, height=self._px(26))
         line.pack(fill=tk.X, padx=2, pady=2)
         line.pack_propagate(False)
         title = str(self.params.get("title", "")).strip() or "Divider"
         tk.Label(line, text=f"\u2500\u2500 {title}", bg=color, fg="#000000", anchor="w",
-                 font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=(10, 4), fill=tk.X, expand=True)
+                 font=self._f("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=(10, 4), fill=tk.X, expand=True)
         cfg = {"bg": color, "fg": "#000000", "relief": tk.FLAT, "width": 2, "cursor": "hand2"}
-        tk.Button(line, text="\u25b2", font=("Segoe UI", 8), command=self._move_up, **cfg).pack(side=tk.RIGHT, padx=1)
-        tk.Button(line, text="\u25bc", font=("Segoe UI", 8), command=self._move_down, **cfg).pack(side=tk.RIGHT, padx=1)
-        tk.Button(line, text="\u270e", font=("Segoe UI", 10), command=self._edit, **cfg).pack(side=tk.RIGHT, padx=2)
-        tk.Button(line, text="\u2715", font=("Segoe UI", 10, "bold"), command=self._delete, **cfg).pack(side=tk.RIGHT, padx=2)
+        tk.Button(line, text="\u25b2", font=self._f("Segoe UI", 8), command=self._move_up, **cfg).pack(side=tk.RIGHT, padx=1)
+        tk.Button(line, text="\u25bc", font=self._f("Segoe UI", 8), command=self._move_down, **cfg).pack(side=tk.RIGHT, padx=1)
+        tk.Button(line, text="\u270e", font=self._f("Segoe UI", 10), command=self._edit, **cfg).pack(side=tk.RIGHT, padx=2)
+        tk.Button(line, text="\u2715", font=self._f("Segoe UI", 10, "bold"), command=self._delete, **cfg).pack(side=tk.RIGHT, padx=2)
 
     def create_widgets(self):
         if get_block_attr(self.block_module, "style", None) == "divider":
             self._create_divider()
             return
         # Header with block name and buttons
-        header = tk.Frame(self, bg=self.category_color, height=32)
+        header = tk.Frame(self, bg=self.category_color, height=self._px(32))
         header.pack(fill=tk.X, padx=2, pady=2)
         header.pack_propagate(False)
         
@@ -275,7 +283,7 @@ class BlockWidget(tk.Frame):
             text=f"{self.display_number()}",
             bg=self.category_color,
             fg="#000000",
-            font=("Segoe UI", 9, "bold"),
+            font=self._f("Segoe UI", 9, "bold"),
             width=3
         ).pack(side=tk.LEFT, padx=(8, 4))
 
@@ -284,7 +292,7 @@ class BlockWidget(tk.Frame):
         # definition) shrink down to just its header row.
         collapse_btn = tk.Button(
             header, text=("\u25B6" if self.is_collapsed else "\u25BC"),
-            font=("Segoe UI", 8), bg=self.category_color, fg="#000000",
+            font=self._f("Segoe UI", 8), bg=self.category_color, fg="#000000",
             relief=tk.FLAT, width=2, cursor="hand2",
             command=self.toggle_collapsed
         )
@@ -310,16 +318,16 @@ class BlockWidget(tk.Frame):
         name_label.pack(side=tk.LEFT, padx=4, fill=tk.X, expand=True)
 
         if nickname:
-            name_label.config(text=f'{prefix}{nickname}', font=("Segoe UI", 10, "bold"))
+            name_label.config(text=f'{prefix}{nickname}', font=self._f("Segoe UI", 10, "bold"))
             # Small secondary tag showing the underlying block type, so
             # the type is still visible on a glance/hover - just not
             # competing with the nickname for attention.
             tk.Label(
                 header, text=f"({base_name})", bg=self.category_color,
-                fg="#3a3a3a", font=("Segoe UI", 8)
+                fg="#3a3a3a", font=self._f("Segoe UI", 8)
             ).pack(side=tk.LEFT, padx=(0, 4))
         else:
-            name_label.config(text=f'{prefix}{base_name}', font=("Segoe UI", 10, "bold"))
+            name_label.config(text=f'{prefix}{base_name}', font=self._f("Segoe UI", 10, "bold"))
         
         # Control buttons
         btn_config = {
@@ -330,10 +338,10 @@ class BlockWidget(tk.Frame):
             "cursor": "hand2"
         }
         
-        tk.Button(header, text="▲", font=("Segoe UI", 8), command=self._move_up, **btn_config).pack(side=tk.RIGHT, padx=1)
-        tk.Button(header, text="▼", font=("Segoe UI", 8), command=self._move_down, **btn_config).pack(side=tk.RIGHT, padx=1)
-        tk.Button(header, text="✎", font=("Segoe UI", 10), command=self._edit, **btn_config).pack(side=tk.RIGHT, padx=2)
-        tk.Button(header, text="✕", font=("Segoe UI", 10, "bold"), command=self._delete, **btn_config).pack(side=tk.RIGHT, padx=2)
+        tk.Button(header, text="▲", font=self._f("Segoe UI", 8), command=self._move_up, **btn_config).pack(side=tk.RIGHT, padx=1)
+        tk.Button(header, text="▼", font=self._f("Segoe UI", 8), command=self._move_down, **btn_config).pack(side=tk.RIGHT, padx=1)
+        tk.Button(header, text="✎", font=self._f("Segoe UI", 10), command=self._edit, **btn_config).pack(side=tk.RIGHT, padx=2)
+        tk.Button(header, text="✕", font=self._f("Segoe UI", 10, "bold"), command=self._delete, **btn_config).pack(side=tk.RIGHT, padx=2)
 
         if self.is_collapsed:
             return
@@ -353,7 +361,7 @@ class BlockWidget(tk.Frame):
                     text=f"{name}:",
                     bg=BLOCK_BG,
                     fg="#888888",
-                    font=("Consolas", 9),
+                    font=self._f("Consolas", 9),
                     anchor="w",
                     width=15
                 ).pack(side=tk.LEFT)
@@ -368,7 +376,7 @@ class BlockWidget(tk.Frame):
                     text=display_value,
                     bg=BLOCK_BG,
                     fg=DARK_FG,
-                    font=("Consolas", 9, "bold"),
+                    font=self._f("Consolas", 9, "bold"),
                     anchor="w"
                 ).pack(side=tk.LEFT, padx=4)
 
@@ -387,7 +395,7 @@ class BlockWidget(tk.Frame):
 
         tk.Label(
             body_outer, text="Body:", bg=BLOCK_BG, fg="#888888",
-            font=("Segoe UI", 8, "bold")
+            font=self._f("Segoe UI", 8, "bold")
         ).pack(anchor="w")
 
         body_frame = tk.Frame(body_outer, bg=DARK_BG, highlightthickness=1, highlightbackground=DARK_BORDER)
@@ -399,7 +407,7 @@ class BlockWidget(tk.Frame):
                 if not child_module:
                     tk.Label(
                         body_frame, text=f"\u26A0 Block '{child_id}' not found",
-                        bg=DARK_BG, fg="#ff5555", font=("Consolas", 9)
+                        bg=DARK_BG, fg="#ff5555", font=self._f("Consolas", 9)
                     ).pack(anchor="w", padx=6, pady=3)
                     continue
                 child_widget = BlockWidget(
@@ -411,12 +419,12 @@ class BlockWidget(tk.Frame):
         else:
             tk.Label(
                 body_frame, text="(empty - click below to add a block)",
-                bg=DARK_BG, fg="#555555", font=("Segoe UI", 9, "italic")
+                bg=DARK_BG, fg="#555555", font=self._f("Segoe UI", 9, "italic")
             ).pack(anchor="w", padx=6, pady=8)
 
         tk.Button(
             body_outer, text="+ Add Block", bg="#3a3a3a", fg=DARK_FG,
-            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            relief=tk.FLAT, cursor="hand2", font=self._f("Segoe UI", 9),
             command=lambda: self.app.open_block_chooser_dialog(children_list)
         ).pack(anchor="w", pady=(2, 0))
 
@@ -466,11 +474,11 @@ class EventRowWidget(BlockWidget):
 
     def create_widgets(self):
         row, app = self.row, self.app
-        header = tk.Frame(self, bg=self.category_color, height=32)
+        header = tk.Frame(self, bg=self.category_color, height=self._px(32))
         header.pack(fill=tk.X, padx=2, pady=2)
         header.pack_propagate(False)
         what = f"When {row['widget']}  \u00b7  {row['label']}"
-        tk.Label(header, text=what, bg=self.category_color, fg="#000000", font=("Segoe UI", 10, "bold"),
+        tk.Label(header, text=what, bg=self.category_color, fg="#000000", font=self._f("Segoe UI", 10, "bold"),
                  anchor="w").pack(side=tk.LEFT, padx=(8, 12))
         handler = row["handler"]
         if handler is None:
@@ -479,10 +487,10 @@ class EventRowWidget(BlockWidget):
             note = f"opens the window {handler['name']}"
         else:
             note = f"runs {handler['name']}"
-        tk.Label(header, text=note, bg=self.category_color, fg="#222222", font=("Segoe UI", 9),
+        tk.Label(header, text=note, bg=self.category_color, fg="#222222", font=self._f("Segoe UI", 9),
                  anchor="w").pack(side=tk.LEFT)
         if handler is not None:
-            tk.Button(header, text="Open", relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), bg="#3a3a3a",
+            tk.Button(header, text="Open", relief=tk.FLAT, cursor="hand2", font=self._f("Segoe UI", 9), bg="#3a3a3a",
                       fg=DARK_FG, command=lambda: app.open_node(row["handler_id"])).pack(side=tk.RIGHT, padx=4, pady=3)
         if self.body_list is not None:
             for w in (self, header):

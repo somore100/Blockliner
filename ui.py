@@ -7,6 +7,7 @@ import time
 from PIL import Image
 from PIL import ImageTk
 from panels import PanelManager
+import block_zoom
 from scroll_modes import SNAP_THROTTLE_S, next_snap, normalize_mode, snap_points
 from panels import PanelSpec
 from block_templates import make_raw_code_block_source
@@ -221,6 +222,10 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             return
         if canvas is self.workspace_canvas and self.canvas_wheel_zoom(step):
             return   # Files/Nodes layers: the wheel zooms instead of scrolling
+        if canvas is self.workspace_canvas and self.view_mode == "node" \
+                and block_zoom.wheel_action(self.settings.get("block_zoom_wheel"), bool(event.state & 0x4)) == "zoom":
+            self.zoom_blocks(-step)       # Blocks layer: wheel up = bigger
+            return
         if normalize_mode(self.settings.get("scroll_mode", "smooth")) == "rigid":
             self._rigid_scroll(canvas, step)
         else:

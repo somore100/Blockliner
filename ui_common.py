@@ -138,6 +138,8 @@ DEFAULT_SETTINGS = {
     # "shift" = Shift+click first and last (several sections), "single" = click each,
     # "range" = click first then last.
     "block_select_mode": "shift",
+    # Blocks layer zoom: "ctrl" = wheel scrolls and Ctrl+wheel zooms; "wheel" = the other way round.
+    "block_zoom_wheel": "ctrl",
     # Files/Nodes canvas: print x/y numbers along the coordinate grid.
     "show_coords": False,
     # Files/Nodes canvas: when zoomed far out, draw boxes as just their

@@ -59,7 +59,7 @@ def main():
         header = line.winfo_children()[0]
         check("it takes the chosen colour", str(header.cget("bg")) == DIVIDER_COLORS["pink"])
         app.update_generated_code()
-        check("the code gets a comment line for it", "# ---- Setup ----" in app.code_text)
+        check("the code gets a comment line for it", "# ---- Setup ----" in app.code_text.get("1.0", "end"))
 
         app.select_block(0, app.project_blocks)
         app.select_block(1, app.project_blocks, state=0x4)

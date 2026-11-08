@@ -80,14 +80,40 @@ except ValueError:
     raised = True
 check("a node that is not in the file raises", raised)
 
-# clicks
-check("plain click selects only that block", bs.pick({1, 2}, 4, 1, False, False) == ({4}, 4))
-check("ctrl click adds", bs.pick({1}, 3, 1, True, False) == ({1, 3}, 3))
-check("ctrl click again removes", bs.pick({1, 3}, 3, 3, True, False) == ({1}, 3))
-check("ctrl click counts the earlier plain click", bs.pick(set(), 3, 1, True, False) == ({1, 3}, 3))
-check("shift click takes the range", bs.pick({1}, 4, 1, False, True) == ({1, 2, 3, 4}, 1))
-check("shift click works upward too", bs.pick({4}, 2, 4, False, True) == ({2, 3, 4}, 4))
-check("shift without an anchor acts like a plain click", bs.pick(set(), 2, None, False, True) == ({2}, 2))
+# clicks: the default mode, Shift+click first and last
+c = bs.click
+check("plain click picks only that block", c({1, 2}, 4, 1, False, False) == ({4}, 4))
+sel, pend = c({1}, 3, 1, False, True)                      # plain click on 1, then shift+click 3
+check("shift+click after a plain click picks the range", sel == {1, 2, 3} and pend is None)
+sel, pend = c(set(), 2, None, False, True)
+check("a first shift+click picks that block and waits for the end", sel == {2} and pend == 2)
+sel, pend = c(sel, 5, pend, False, True)
+check("the second shift+click picks everything between", sel == {2, 3, 4, 5} and pend is None)
+sel, pend = c(sel, 8, pend, False, True)
+sel, pend = c(sel, 10, pend, False, True)
+check("a second section adds to the first", sel == {2, 3, 4, 5, 8, 9, 10})
+sel, pend = c(sel, 4, pend, False, True)
+check("shift+click on a picked block drops it", sel == {2, 3, 5, 8, 9, 10} and pend is None)
+sel, pend = c({4}, 2, 4, False, True)
+check("a range works upward too", sel == {2, 3, 4} | {4})
+check("ctrl+click adds one block", c({1}, 3, 1, True, False) == ({1, 3}, None))
+check("ctrl+click again removes it", c({1, 3}, 3, None, True, False) == ({1}, None))
+
+# single-click mode: every click toggles
+check("single mode: a click picks", c(set(), 3, None, False, False, "single") == ({3}, None))
+check("single mode: clicks add up", c({3}, 6, None, False, False, "single") == ({3, 6}, None))
+check("single mode: a click on a picked block drops it", c({3, 6}, 3, None, False, False, "single") == ({6}, None))
+
+# first-and-last mode: no modifier keys
+sel, pend = c(set(), 1, None, False, False, "range")
+check("range mode: the first click picks one block", sel == {1} and pend == 1)
+sel, pend = c(sel, 6, pend, False, False, "range")
+check("range mode: the second click picks everything between", sel == {1, 2, 3, 4, 5, 6} and pend is None)
+sel, pend = c(sel, 9, pend, False, False, "range")
+check("range mode: a third click starts over", sel == {9} and pend == 9)
+check("range mode: clicking the first block again lets go", c({4}, 4, 4, False, False, "range") == (set(), None))
+check("range mode: ctrl+click still toggles one", c({1, 2}, 5, None, True, False, "range") == ({1, 2, 5}, None))
+check("unknown mode names fall back to shift", bs.normalize_select_mode("zzz") == "shift" and bs.normalize_select_mode("range") == "range")
 
 print("ALL OK" if not FAILURES else f"FAILURES: {FAILURES}")
 sys.exit(1 if FAILURES else 0)

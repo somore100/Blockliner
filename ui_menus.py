@@ -278,27 +278,35 @@ class MenusMixin:
         return self.__dict__.setdefault("_selected_block_set", set())
 
     def is_block_selected(self, index, container_list):
-        if (container_list is getattr(self, "project_blocks", None)
-                and index in self.block_multi_selection()):
-            return True
+        if container_list is getattr(self, "project_blocks", None):
+            picked = self.block_multi_selection()
+            if picked:
+                return index in picked
         return (container_list is getattr(self, "_selected_block_list", None)
                 and index == getattr(self, "_selected_block_index", None))
 
     def select_block(self, index, container_list, state=0):
-        """A click on a block. On the top-level list, Ctrl toggles it and Shift
-        extends from the last clicked block; a plain click selects just it."""
+        """A click on a block. On the top-level list how it picks depends on the
+        "Picking several blocks" setting (see block_split.click); anywhere else it
+        just marks that block."""
         import block_split
         if container_list is getattr(self, "project_blocks", None):
-            anchor = getattr(self, "_selected_block_index", None) if container_list is getattr(self, "_selected_block_list", None) else None
-            chosen, anchor = block_split.pick(self.block_multi_selection(), index, anchor,
-                                              bool(state & 0x4), bool(state & 0x1))
+            current = set(self.block_multi_selection())
+            if not current and container_list is getattr(self, "_selected_block_list", None) \
+                    and getattr(self, "_selected_block_index", None) is not None:
+                current = {self._selected_block_index}
+            mode = block_split.normalize_select_mode(self.settings.get("block_select_mode"))
+            chosen, self._block_pending = block_split.click(
+                current, index, getattr(self, "_block_pending", None),
+                bool(state & 0x4), bool(state & 0x1), mode)
             self._selected_block_set = chosen if len(chosen) > 1 else set()
-            index = next(iter(chosen)) if len(chosen) == 1 else (anchor if chosen else None)
+            index = next(iter(chosen)) if len(chosen) == 1 else (index if chosen else None)
         self._selected_block_list = container_list
         self._selected_block_index = index
         self._repaint_block_selection()
 
     def clear_block_multi_selection(self):
+        self._block_pending = None
         self._selected_block_set = set()
         self._selected_block_list = None
         self._selected_block_index = None

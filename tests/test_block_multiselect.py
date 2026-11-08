@@ -53,8 +53,34 @@ def main():
         check("the bar appears with two or more", app._multi_bar is not None and "2 blocks" in app._multi_label.cget("text"))
         app.select_block(2, lst, state=CTRL)
         check("ctrl+click again removes it and the bar goes", not app.is_block_selected(2, lst) and app._multi_bar is None)
+        app.select_block(1, lst)
         app.select_block(3, lst, state=SHIFT)
-        check("shift+click takes the range", all(app.is_block_selected(i, lst) for i in (1, 2, 3)))
+        check("shift+click after a plain click takes the range", all(app.is_block_selected(i, lst) for i in (1, 2, 3)))
+        app.select_block(2, lst, state=SHIFT)
+        check("shift+click on a picked block drops it", not app.is_block_selected(2, lst) and app.is_block_selected(3, lst))
+        app.select_block(2, lst, state=SHIFT)
+        check("shift+click on a dropped block starts a new section", app.is_block_selected(2, lst) and app._block_pending == 2)
+        app.select_block(4, lst, state=SHIFT)
+        check("the next shift+click picks up to it", all(app.is_block_selected(i, lst) for i in (1, 2, 3, 4)))
+
+        app.settings["block_select_mode"] = "single"
+        app.clear_block_multi_selection()
+        app.select_block(0, lst)
+        app.select_block(3, lst)
+        check("single mode: plain clicks add up", app.is_block_selected(0, lst) and app.is_block_selected(3, lst)
+              and not app.is_block_selected(1, lst))
+        app.select_block(0, lst)
+        check("single mode: a click on a picked block drops it", not app.is_block_selected(0, lst))
+
+        app.settings["block_select_mode"] = "range"
+        app.clear_block_multi_selection()
+        app.select_block(1, lst)
+        app.select_block(3, lst)
+        check("range mode: first then last picks everything between", all(app.is_block_selected(i, lst) for i in (1, 2, 3)))
+        app.settings["block_select_mode"] = "shift"
+        app.clear_block_multi_selection()
+        app.select_block(1, lst)
+        app.select_block(3, lst, state=SHIFT)
 
         node_count = len(tab["nodes"])
         app.make_node_from_selection()

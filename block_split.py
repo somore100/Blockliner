@@ -58,22 +58,55 @@ def place_after(all_nodes, original, new_nodes):
             n["canvas_x"], n["canvas_y"] = original["canvas_x"] + 40 * step, original["canvas_y"] + 60 * step
 
 
+SELECT_MODE_CHOICES = [
+    ("shift", "Shift+click the first and last block (can pick several sections)"),
+    ("single", "Click each block you want"),
+    ("range", "Click the first block, then the last"),
+]
+
+
+def normalize_select_mode(value):
+    return value if value in ("shift", "single", "range") else "shift"
+
+
 def range_between(anchor, index):
-    """Shift+click: every index from the anchor to the clicked one, both included."""
+    """Every index from one block to another, both included."""
     lo, hi = sorted((anchor, index))
     return set(range(lo, hi + 1))
 
 
-def pick(current, index, anchor, ctrl, shift):
-    """The selection after a click on block `index` (top-level list).
-    Ctrl toggles it, Shift extends from the anchor, a plain click selects only it.
-    Returns (selection set, new anchor)."""
-    if shift and anchor is not None:
-        return range_between(anchor, index), anchor
+def click(selection, index, pending, ctrl, shift, mode="shift"):
+    """The selection after a click on block `index` of the top-level list.
+
+    selection: set of picked indices (a lone selected block counts). pending: the block a
+    range is waiting to start from, or None. Returns (selection, pending).
+
+    shift  (default) - a plain click picks only that block. Shift+click on a block that is not
+                       picked starts a section there; the next Shift+click on an unpicked block
+                       picks everything from the start to it, and adds it to what was already
+                       picked, so several sections can be built. Shift+click on a picked block
+                       drops it. Ctrl+click toggles one block.
+    single           - every click toggles that one block.
+    range            - the first click picks the block, the second picks everything between the
+                       two; a third starts over. Ctrl+click still toggles one block.
+    """
+    chosen = set(selection)
+    if mode == "single":
+        return chosen ^ {index}, None
     if ctrl:
-        chosen = set(current)
-        if anchor is not None and not chosen:
-            chosen.add(anchor)                     # the block selected by an earlier plain click counts
-        chosen ^= {index}
-        return chosen, index
-    return {index}, index
+        return chosen ^ {index}, None
+    if mode == "range":
+        if pending is not None and pending != index:
+            return range_between(pending, index), None
+        if pending == index:
+            return set(), None
+        return {index}, index
+    if not shift:
+        return {index}, index
+    if index in chosen:
+        chosen.discard(index)
+        return chosen, None
+    if pending is not None:
+        return chosen | range_between(pending, index), None
+    chosen.add(index)
+    return chosen, index

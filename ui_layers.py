@@ -751,6 +751,7 @@ class LayersMixin:
 
         self._more_footer = None   # before destroying: scroll events must not touch dead widgets
         self._selected_block_set = set()               # block numbers shift on every redraw
+        self._block_pending = None
         self._update_multi_bar()
         for widget in self.workspace_frame.winfo_children():
             widget.destroy()

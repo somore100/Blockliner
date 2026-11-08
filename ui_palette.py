@@ -9,6 +9,7 @@ import language_groups
 import language_switch
 import json
 from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
+from block_split import SELECT_MODE_CHOICES, normalize_select_mode
 import clean_undo
 from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
                          ZOOM_SPEED_CHOICES, lod_mode)
@@ -799,6 +800,16 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("Smooth scrolls continuously; Rigid snaps to the next block/node with each wheel step.")
 
+        # --- Picking several blocks ---
+        row = add_row("Picking blocks:")
+        select_labels = dict(SELECT_MODE_CHOICES)
+        select_var = tk.StringVar(value=select_labels[normalize_select_mode(self.settings.get("block_select_mode"))])
+        ttk.Combobox(
+            row, textvariable=select_var, values=[v for _k, v in SELECT_MODE_CHOICES],
+            state="readonly", width=38
+        ).pack(side=tk.LEFT)
+        add_help("How you pick several blocks to group into a node. Ctrl+click always toggles one block.")
+
         section("Files")
         # --- Where node data is saved ---
         row = add_row("Node data saved in:")
@@ -951,6 +962,8 @@ class PaletteMixin:
                 (k for k, v in ORDER_CONFLICT_CHOICES if v == conflict_var.get()), "take")
             self.settings["scroll_mode"] = next(
                 (k for k, v in SCROLL_MODE_CHOICES if v == scroll_var.get()), "smooth")
+            self.settings["block_select_mode"] = next(
+                (k for k, v in SELECT_MODE_CHOICES if v == select_var.get()), "shift")
             self.settings["save_format"] = next(
                 (k for k, v in SAVE_FORMAT_CHOICES if v == save_var.get()), "sidecar")
             self.settings["code_sync_mode"] = next(

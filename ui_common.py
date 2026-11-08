@@ -134,6 +134,10 @@ DEFAULT_SETTINGS = {
     # "smooth" = continuous wheel scrolling; "rigid" = one wheel step snaps
     # block to block (workspace layers and the palette).
     "scroll_mode": "smooth",
+    # How several blocks are picked in the Blocks layer (block_split.SELECT_MODE_CHOICES):
+    # "shift" = Shift+click first and last (several sections), "single" = click each,
+    # "range" = click first then last.
+    "block_select_mode": "shift",
     # Files/Nodes canvas: print x/y numbers along the coordinate grid.
     "show_coords": False,
     # Files/Nodes canvas: when zoomed far out, draw boxes as just their

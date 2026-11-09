@@ -112,3 +112,8 @@ Collected from testing; none of this is started.
 - Fixed (untested on the user's desktop): the Tools/File/Run/Help and burger dropdowns stayed on screen after minimizing the window. They are
   Tk Menubutton menus and had no guard; `_guard_topbar_menu` (ui_topbar.py) now gives them the same close-on-minimize/focus-loss watch as
   right-click menus (`_popup_watch`), and `_dismiss_popup` also calls `tk::MenuUnpost`. Test: tests/test_topbar_menu_guard.py (Tk).
+- Built (untested in a window): first-run tour. Offered once ~1 s after startup ("Show me around" / "No thanks"; seen = `tour_done` in app settings),
+  replay from Help > Take the tour (also in the command palette). Nine steps (welcome, layers, palette, workspace, code panel, Run, tabs and saving,
+  UI windows, command palette) with a cyan outline and a card drawn inside the main window, so nothing can float after minimizing. Back / Next / Skip,
+  Esc ends it, it follows window resizes. Steps and card placement: tour.py (tests/test_tour.py); drawing: ui_tour.py (tests/test_tour_widget.py).
+  Not built: steps that switch layers for you, a tour of the UI designer itself, translations.

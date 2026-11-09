@@ -137,6 +137,8 @@ DEFAULT_SETTINGS = {
     # How several blocks are picked in the Blocks layer (block_split.SELECT_MODE_CHOICES):
     # "shift" = Shift+click first and last (several sections), "single" = click each,
     # "range" = click first then last.
+    # The first-run tour has been seen (finished or skipped); Help > Take the tour replays it.
+    "tour_done": False,
     "block_select_mode": "shift",
     # Blocks layer zoom: "ctrl" = wheel scrolls and Ctrl+wheel zooms; "wheel" = the other way round.
     "block_zoom_wheel": "ctrl",

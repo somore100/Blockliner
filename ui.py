@@ -40,6 +40,7 @@ from ui_openproject import OpenProjectMixin
 from ui_multiopen import MultiOpenMixin
 from ui_uinode import UINodeMixin
 from ui_designer import DESIGNER_SPEC, DesignerMixin
+from ui_tour import TourMixin
 from editors import EditorRegistry
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
@@ -48,7 +49,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, TourMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -302,6 +303,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         
         run_btn = ttk.Button(run_frame, text="▶ Run", command=self.run_code, **btn_style)
         run_btn.pack(side=tk.LEFT)
+        self.run_button = run_btn
         
         # Dropdown for run options
         run_menu_btn = tk.Label(
@@ -676,4 +678,5 @@ def start_ui(blocks=None, initial_lang="python", languages_path="languages"):
     """Start the Blockliner UI"""
     app = BlocklinerUI(initial_lang=initial_lang, languages_path=languages_path)
     app.goto_layer("files")          # open on the Files layer; tests build BlocklinerUI directly and keep the Blocks start
+    app.after(900, app.maybe_start_tour)     # offered once, to someone who hasn't seen it
     app.mainloop()

@@ -38,6 +38,7 @@ class TopBarMixin:
         spec = self.topbar_menu_spec()
         bar = tk.Frame(toolbar, bg=DARK_PANEL)
         bar.pack(side=tk.LEFT, padx=(4, 0))
+        self._topbar_bar = bar
         self.topbar_menus = {}
 
         def flat(parent, text, font):

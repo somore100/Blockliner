@@ -1,6 +1,6 @@
 name: Build Blockliner
 
-# Builds a Windows .exe, a macOS binary and a Linux .AppImage with build.py.
+# Builds a Windows .exe, a macOS app (Blockliner-macOS.zip) and a Linux .AppImage with build.py.
 # Runs when you push a version tag (v2.4.1 etc.) or manually from the
 # Actions tab. A tag push also publishes a GitHub Release with all three.
 #
@@ -70,14 +70,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build macOS binary
+      # Blockliner.app zipped with ditto (Apple Silicon: the runner is arm64)
+      - name: Build macOS app
         working-directory: ${{ env.APP_DIR }}
-        run: python build.py --target binary-only
+        run: python build.py --target macapp
 
       - uses: actions/upload-artifact@v4
         with:
           name: Blockliner-macOS
-          path: ${{ env.APP_DIR }}/dist/Blockliner
+          path: ${{ env.APP_DIR }}/dist/Blockliner-macOS.zip
           if-no-files-found: error
 
   build-linux:
@@ -147,6 +148,11 @@ jobs:
         with:
           files: |
             dist-windows/Blockliner.exe
-            dist-macos/Blockliner
+            dist-macos/Blockliner-macOS.zip
             dist-linux/Blockliner-x86_64.AppImage
           generate_release_notes: true
+          body: |
+            **Windows:** run `Blockliner.exe`.
+            **Linux:** `chmod +x Blockliner-x86_64.AppImage`, then run it.
+            **macOS (Apple Silicon):** unzip `Blockliner-macOS.zip`, drag `Blockliner.app` to Applications, then
+            right-click it and choose **Open** the first time (the app is not signed with an Apple developer account).

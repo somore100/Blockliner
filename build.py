@@ -6,13 +6,15 @@ Builds a distributable binary for whichever OS it's run on:
   - Windows -> Blockliner.exe                (PyInstaller --onefile --windowed)
   - Linux   -> dist/Blockliner (ELF binary)   (PyInstaller --onefile)
               + Blockliner-x86_64.AppImage    (wraps the binary)
-  - macOS   -> dist/Blockliner (onefile binary; .app bundling is a separate step)
+  - macOS   -> dist/Blockliner.app + dist/Blockliner-macOS.zip  (a real app bundle, zipped for download;
+               unsigned, so the first launch is right-click > Open)
 
 Usage:
     python build.py                  # auto: best default for this OS
     python build.py --target exe     # force PyInstaller onefile build only
     python build.py --target appimage  # Linux only: binary + AppImage
     python build.py --target binary-only  # skip AppImage step on Linux
+    python build.py --target macapp   # macOS only: Blockliner.app + Blockliner-macOS.zip
 
 Run this from inside your activated venv (see setup_venv.sh / setup_venv.bat).
 """
@@ -137,7 +139,27 @@ def make_windows_icon():
         return None
 
 
-def run_pyinstaller(windowed: bool, icon_path: Path | None):
+def make_mac_icon():
+    """Convert the logo -> logo.icns for the macOS app bundle. Returns path or None."""
+    logo_path = find_logo()
+    icon_path = ROOT / "logo.icns"
+    if not logo_path:
+        print("⚠ No logo file found - building the app without an icon")
+        return None
+    if icon_path.exists():
+        return icon_path
+    try:
+        from PIL import Image
+        img = Image.open(logo_path).convert("RGBA")
+        img.save(icon_path, format="ICNS")
+        print(f"✓ Created {icon_path.name}")
+        return icon_path
+    except Exception as e:
+        print(f"⚠ Could not create .icns: {e}")
+        return None
+
+
+def run_pyinstaller(windowed: bool, icon_path: Path | None, mac_app: bool = False):
     """Run PyInstaller --onefile and return the path to the built binary."""
     ensure_pyinstaller()
 
@@ -145,13 +167,16 @@ def run_pyinstaller(windowed: bool, icon_path: Path | None):
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
+        # a macOS .app is built as a folder bundle (starts faster than a one-file app)
+        "--onedir" if mac_app else "--onefile",
         f"--name={APP_NAME}",
         "--clean",
         "--noconfirm",
     ]
     if windowed:
         cmd.append("--windowed")
+    if mac_app:
+        cmd.append("--osx-bundle-identifier=com.somore100.blockliner")
 
     if icon_path and icon_path.exists():
         cmd.append(f"--icon={icon_path}")
@@ -186,14 +211,51 @@ def run_pyinstaller(windowed: bool, icon_path: Path | None):
     print("Command:", " ".join(cmd))
     subprocess.check_call(cmd, cwd=ROOT)
 
-    binary_name = f"{APP_NAME}.exe" if platform.system() == "Windows" else APP_NAME
+    if mac_app:
+        binary_name = f"{APP_NAME}.app"
+    else:
+        binary_name = f"{APP_NAME}.exe" if platform.system() == "Windows" else APP_NAME
     binary_path = DIST_DIR / binary_name
     if not binary_path.exists():
         raise RuntimeError(f"Expected build output at {binary_path} but it's missing")
 
-    size_mb = binary_path.stat().st_size / (1024 * 1024)
-    print(f"✓ Built {binary_path}  ({size_mb:.1f} MB)")
+    if binary_path.is_dir():
+        print(f"✓ Built {binary_path}")
+    else:
+        size_mb = binary_path.stat().st_size / (1024 * 1024)
+        print(f"✓ Built {binary_path}  ({size_mb:.1f} MB)")
     return binary_path
+
+
+def package_mac_app(app_path: Path):
+    """Put the version into the bundle, sign it ad hoc (Apple Silicon refuses unsigned code;
+    this is not a developer signature, so Gatekeeper still asks once) and zip it with `ditto`,
+    which keeps the permissions and links a plain zip would lose. Returns the zip path."""
+    import plistlib
+    try:
+        from about_info import APP_VERSION
+        plist_path = app_path / "Contents" / "Info.plist"
+        with open(plist_path, "rb") as f:
+            info = plistlib.load(f)
+        info["CFBundleShortVersionString"] = APP_VERSION
+        info["CFBundleVersion"] = APP_VERSION
+        info["NSHumanReadableCopyright"] = "Blockliner - somore100"
+        with open(plist_path, "wb") as f:
+            plistlib.dump(info, f)
+        print(f"✓ App version set to {APP_VERSION}")
+    except Exception as e:
+        print(f"⚠ Could not write the version into Info.plist: {e}")
+    try:
+        subprocess.check_call(["codesign", "--force", "--deep", "--sign", "-", str(app_path)])
+        print("✓ Signed ad hoc")
+    except Exception as e:
+        print(f"⚠ Ad-hoc signing failed (the app may not open on Apple Silicon): {e}")
+    zip_path = DIST_DIR / f"{APP_NAME}-macOS.zip"
+    if zip_path.exists():
+        zip_path.unlink()
+    subprocess.check_call(["ditto", "-c", "-k", "--keepParent", str(app_path), str(zip_path)])
+    print(f"✓ Zipped {zip_path}  ({zip_path.stat().st_size / (1024 * 1024):.1f} MB)")
+    return zip_path
 
 
 def has_libfuse2():
@@ -320,11 +382,12 @@ def main():
     parser = argparse.ArgumentParser(description="Build Blockliner for this platform.")
     parser.add_argument(
         "--target",
-        choices=["auto", "exe", "appimage", "binary-only"],
+        choices=["auto", "exe", "appimage", "binary-only", "macapp"],
         default="auto",
         help="auto: best default for this OS. exe: Windows onefile exe. "
              "appimage: Linux onefile binary + .AppImage. "
-             "binary-only: just the raw PyInstaller onefile binary.",
+             "binary-only: just the raw PyInstaller onefile binary. "
+             "macapp: macOS only, a Blockliner.app bundle zipped as Blockliner-macOS.zip.",
     )
     args = parser.parse_args()
 
@@ -333,7 +396,7 @@ def main():
 
     if args.target == "auto":
         target = "exe" if system == "Windows" else (
-            "appimage" if system == "Linux" else "binary-only"
+            "appimage" if system == "Linux" else "macapp"
         )
         print(f"--target auto -> using '{target}' for {system}")
     else:
@@ -343,10 +406,22 @@ def main():
         print("✗ --target appimage is only supported on Linux")
         sys.exit(1)
 
-    windowed = True  # GUI app, no console window
-    icon_path = make_windows_icon() if system == "Windows" else None
+    if target == "macapp" and system != "Darwin":
+        print("✗ --target macapp is only supported on macOS")
+        sys.exit(1)
 
-    binary_path = run_pyinstaller(windowed=windowed, icon_path=icon_path)
+    windowed = True  # GUI app, no console window
+    if system == "Windows":
+        icon_path = make_windows_icon()
+    elif target == "macapp":
+        icon_path = make_mac_icon()
+    else:
+        icon_path = None
+
+    binary_path = run_pyinstaller(windowed=windowed, icon_path=icon_path, mac_app=(target == "macapp"))
+
+    if target == "macapp":
+        package_mac_app(binary_path)
 
     if target == "appimage":
         build_appimage(binary_path)
@@ -354,7 +429,7 @@ def main():
     banner("✓ Build complete")
     print(f"Output directory: {DIST_DIR}")
     for f in sorted(DIST_DIR.iterdir()):
-        if f.is_file():
+        if f.is_file() or f.suffix == ".app":
             print(f"  - {f.name}")
 
 

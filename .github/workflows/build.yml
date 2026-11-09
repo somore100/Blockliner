@@ -1,6 +1,6 @@
 name: Build Blockliner
 
-# Builds a Windows .exe, a macOS app (Blockliner-macOS.zip) and a Linux .AppImage with build.py.
+# Builds a Windows .exe, two macOS apps (Apple Silicon and Intel zips) and a Linux .AppImage with build.py.
 # Runs when you push a version tag (v2.4.1 etc.) or manually from the
 # Actions tab. A tag push also publishes a GitHub Release with all three.
 #
@@ -50,7 +50,16 @@ jobs:
           if-no-files-found: error
 
   build-macos:
-    runs-on: macos-latest
+    # Two Macs: macos-latest is Apple Silicon (arm64); macos-15-intel is the Intel (x86_64) runner.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            kind: AppleSilicon
+          - runner: macos-15-intel
+            kind: Intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,15 +79,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Blockliner.app zipped with ditto (Apple Silicon: the runner is arm64)
+      # Blockliner.app zipped with ditto; the zip name says which kind of Mac it is for
       - name: Build macOS app
         working-directory: ${{ env.APP_DIR }}
         run: python build.py --target macapp
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Blockliner-macOS
-          path: ${{ env.APP_DIR }}/dist/Blockliner-macOS.zip
+          name: Blockliner-macOS-${{ matrix.kind }}
+          path: ${{ env.APP_DIR }}/dist/Blockliner-macOS-${{ matrix.kind }}.zip
           if-no-files-found: error
 
   build-linux:
@@ -135,7 +144,8 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Blockliner-macOS
+          pattern: Blockliner-macOS-*
+          merge-multiple: true
           path: dist-macos
 
       - uses: actions/download-artifact@v4
@@ -148,11 +158,13 @@ jobs:
         with:
           files: |
             dist-windows/Blockliner.exe
-            dist-macos/Blockliner-macOS.zip
+            dist-macos/Blockliner-macOS-AppleSilicon.zip
+            dist-macos/Blockliner-macOS-Intel.zip
             dist-linux/Blockliner-x86_64.AppImage
           generate_release_notes: true
           body: |
             **Windows:** run `Blockliner.exe`.
             **Linux:** `chmod +x Blockliner-x86_64.AppImage`, then run it.
-            **macOS (Apple Silicon):** unzip `Blockliner-macOS.zip`, drag `Blockliner.app` to Applications, then
-            right-click it and choose **Open** the first time (the app is not signed with an Apple developer account).
+            **macOS:** pick the zip for your Mac (`AppleSilicon` for M1 or newer, `Intel` for older ones; Apple menu > About This Mac
+            tells you). Unzip it, drag `Blockliner.app` to Applications, then right-click it and choose **Open** the first time
+            (the app is not signed with an Apple developer account).

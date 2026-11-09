@@ -6,7 +6,7 @@ Builds a distributable binary for whichever OS it's run on:
   - Windows -> Blockliner.exe                (PyInstaller --onefile --windowed)
   - Linux   -> dist/Blockliner (ELF binary)   (PyInstaller --onefile)
               + Blockliner-x86_64.AppImage    (wraps the binary)
-  - macOS   -> dist/Blockliner.app + dist/Blockliner-macOS.zip  (a real app bundle, zipped for download;
+  - macOS   -> dist/Blockliner.app + dist/Blockliner-macOS-<AppleSilicon|Intel>.zip  (a real app bundle, zipped for download;
                unsigned, so the first launch is right-click > Open)
 
 Usage:
@@ -14,7 +14,7 @@ Usage:
     python build.py --target exe     # force PyInstaller onefile build only
     python build.py --target appimage  # Linux only: binary + AppImage
     python build.py --target binary-only  # skip AppImage step on Linux
-    python build.py --target macapp   # macOS only: Blockliner.app + Blockliner-macOS.zip
+    python build.py --target macapp   # macOS only: Blockliner.app + Blockliner-macOS-<kind>.zip
 
 Run this from inside your activated venv (see setup_venv.sh / setup_venv.bat).
 """
@@ -250,7 +250,9 @@ def package_mac_app(app_path: Path):
         print("✓ Signed ad hoc")
     except Exception as e:
         print(f"⚠ Ad-hoc signing failed (the app may not open on Apple Silicon): {e}")
-    zip_path = DIST_DIR / f"{APP_NAME}-macOS.zip"
+    # one zip per kind of Mac: the build runs on each, so each zip only runs on its own kind
+    kind = "Intel" if platform.machine() in ("x86_64", "AMD64") else "AppleSilicon"
+    zip_path = DIST_DIR / f"{APP_NAME}-macOS-{kind}.zip"
     if zip_path.exists():
         zip_path.unlink()
     subprocess.check_call(["ditto", "-c", "-k", "--keepParent", str(app_path), str(zip_path)])
@@ -387,7 +389,7 @@ def main():
         help="auto: best default for this OS. exe: Windows onefile exe. "
              "appimage: Linux onefile binary + .AppImage. "
              "binary-only: just the raw PyInstaller onefile binary. "
-             "macapp: macOS only, a Blockliner.app bundle zipped as Blockliner-macOS.zip.",
+             "macapp: macOS only, a Blockliner.app bundle zipped as Blockliner-macOS-<kind>.zip.",
     )
     args = parser.parse_args()
 

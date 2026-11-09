@@ -107,3 +107,8 @@ Collected from testing; none of this is started.
   roughly 70%-150%), plain wheel scrolls; a setting swaps the two. Not a canvas zoom, so it needs a `block_scale` read by BlockWidget.
 - Built (untested in a window): closing the window with unsaved changes asks first (`_ext_close`, `unsaved_workspace_titles`; tests/test_quit_prompt.py). Still no autosave. Found earlier: closing the window with the X did not warn, only closing a project tab did.
   project tab does). Saves go to <data folder>/blockliner_saves or a place the user picks.
+
+## Round 4 (2026-11-09)
+- Fixed (untested on the user's desktop): the Tools/File/Run/Help and burger dropdowns stayed on screen after minimizing the window. They are
+  Tk Menubutton menus and had no guard; `_guard_topbar_menu` (ui_topbar.py) now gives them the same close-on-minimize/focus-loss watch as
+  right-click menus (`_popup_watch`), and `_dismiss_popup` also calls `tk::MenuUnpost`. Test: tests/test_topbar_menu_guard.py (Tk).

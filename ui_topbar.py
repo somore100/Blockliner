@@ -18,6 +18,21 @@ class TopBarMixin:
             else:
                 menu.add_command(label=e[0], command=e[1])
 
+    def _guard_topbar_menu(self, menu):
+        """A dropdown from the top bar gets the same safety as a right-click menu: it closes
+        when the window is minimized or loses focus (on some Linux desktops it otherwise
+        stays on screen over other apps)."""
+        def shown(_e=None):
+            self._active_popup = menu
+            self._install_popup_guards()
+            self._popup_watch(menu, 0)
+
+        def hidden(_e=None):
+            if getattr(self, "_active_popup", None) is menu:
+                self._active_popup = None
+        menu.bind("<Map>", shown, add="+")
+        menu.bind("<Unmap>", hidden, add="+")
+
     def build_topbar(self, toolbar):
         """Menus on the left of the toolbar, plugin-icon strip on the right."""
         spec = self.topbar_menu_spec()
@@ -44,6 +59,7 @@ class TopBarMixin:
         burger.configure(menu=hmenu)
         burger.pack(side=tk.LEFT)
         self.topbar_menus["☰"] = hmenu
+        self._guard_topbar_menu(hmenu)
 
         # Menu bar: one flat dropdown per section.
         for title, entries in spec:
@@ -53,6 +69,7 @@ class TopBarMixin:
             b.configure(menu=m)
             b.pack(side=tk.LEFT)
             self.topbar_menus[title] = m
+            self._guard_topbar_menu(m)
 
         # Reserved, empty on purpose: icons from future addons/plugins.
         self.plugin_bar = tk.Frame(toolbar, bg=DARK_PANEL)

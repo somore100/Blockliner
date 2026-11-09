@@ -233,6 +233,11 @@ class MenusMixin:
                 menu.unpost()
             except tk.TclError:
                 pass
+            if menu in getattr(self, "topbar_menus", {}).values():
+                try:
+                    self.tk.call("tk::MenuUnpost", str(menu))      # also lets go of the menu button's grab
+                except tk.TclError:
+                    pass
         self._dismiss_drop_menu()
 
     # ---- multi-selection (Shift+right-click) ---------------------------

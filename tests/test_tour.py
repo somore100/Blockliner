@@ -19,7 +19,11 @@ ids = [s["id"] for s in T.STEPS]
 check("step ids are unique", len(ids) == len(set(ids)))
 check("every step has a title and text", all(s["title"] and s["text"] for s in T.STEPS))
 check("the first step is a centred welcome", T.STEPS[0]["target"] is None)
-check("targets are known names", {s["target"] for s in T.STEPS} <= {None, "layers", "palette", "workspace", "code", "run", "tabs", "menus"})
+check("targets are known names", {s["target"] for s in T.STEPS} <= T.TARGETS)
+check("layers are known", {s.get("layer") for s in T.STEPS} <= T.LAYERS)
+check("a step with something to try says how it is noticed", all(s["done"] in T.DONE and s["where"] in T.WHERE
+      for s in T.STEPS if "ask" in s) and all("done" not in s for s in T.STEPS if "ask" not in s))
+check("the tour covers the code markers", "markers" in ids and "$$$blockliner" in T.STEPS[ids.index("markers")]["text"])
 
 t = T.Tour()
 check("starts on the first step", t.first and not t.last and t.progress() == f"1 / {len(T.STEPS)}")

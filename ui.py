@@ -323,7 +323,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
             menu.add_command(label="📝 Open in VS Code", command=self.open_in_vscode)
             menu.add_separator()
             menu.add_command(label="💾 Export & Run...", command=self.export_and_run)
-            menu.post(event.x_root, event.y_root)
+            self.popup_menu(menu, event.x_root, event.y_root)     # closes on minimize / click away like the other menus
         
         run_menu_btn.bind("<Button-1>", show_run_menu)
         

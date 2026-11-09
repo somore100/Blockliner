@@ -139,6 +139,8 @@ DEFAULT_SETTINGS = {
     # "range" = click first then last.
     # The first-run tour has been seen (finished or skipped); Help > Take the tour replays it.
     "tour_done": False,
+    # In the tour, go on to the next step by itself once the thing it asked you to try is done.
+    "tour_auto_next": True,
     "block_select_mode": "shift",
     # Blocks layer zoom: "ctrl" = wheel scrolls and Ctrl+wheel zooms; "wheel" = the other way round.
     "block_zoom_wheel": "ctrl",

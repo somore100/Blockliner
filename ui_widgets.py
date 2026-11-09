@@ -68,6 +68,7 @@ class PaletteBlockItem(tk.Frame):
             cursor="hand2"
         )
         add_btn.pack(side=tk.RIGHT, padx=8)
+        self.add_button = add_btn          # the guided tour points at it
         
         # Bind events: a plain click still adds the block; pressing and
         # dragging past a small threshold drags it onto the workspace

@@ -742,6 +742,18 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
+        tour_var = tk.BooleanVar(value=not self.settings.get("tour_done", False))
+        tk.Checkbutton(
+            cur[0], text="Show the guided tour at next start",
+            variable=tour_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+        tk.Button(
+            cur[0], text="Start the tour now", command=lambda: (dialog.destroy(), self.after(150, self.start_tour)),
+            bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), padx=10
+        ).pack(anchor="w", pady=(4, 0))
+
         section("Canvas")
         coords_var = tk.BooleanVar(value=bool(self.settings.get("show_coords", False)))
         tk.Checkbutton(
@@ -965,6 +977,7 @@ class PaletteMixin:
             self.settings["show_notifications"] = notify_var.get()
             self.settings["animate_blocks"] = animate_var.get()
             self.settings["live_search"] = bool(live_search_var.get())
+            self.settings["tour_done"] = not tour_var.get()
             self.settings["show_coords"] = bool(coords_var.get())
             self.settings["lod_mode"] = next(
                 (k for k, v in LOD_MODE_CHOICES if v == lod_var.get()), "names")

@@ -1,7 +1,8 @@
 """Scripted UI test (run under Xvfb): the first-run tour draws a card and an outline inside the
-window, walks through the steps, and remembers that it was seen."""
+window, switches layers, notices when you did what it asked, and remembers that it was seen."""
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,10 +18,22 @@ def check(label, cond):
         FAILURES.append(label)
 
 
-def settle(app):
-    for _ in range(4):
+def settle(app, seconds=0.5):
+    end = time.time() + seconds
+    while time.time() < end:
         app.update_idletasks()
         app.update()
+        time.sleep(0.02)
+
+
+def on(app, step_id):
+    return app.tour_running() and app._tour.step["id"] == step_id
+
+
+def go_to(app, step_id):
+    while app.tour_running() and app._tour.step["id"] != step_id:
+        app._tour_next()
+        settle(app, 0.4)
 
 
 def main():
@@ -44,14 +57,35 @@ def main():
 
         app._tour_next()
         settle(app)
-        check("the layers step outlines the layer bar (4 bars + the card)", len(app._tour_widgets) == 5)
-        bar = app.tour_target_widget("layers")
-        check("the layer bar is found", bar is not None)
+        check("the layers step outlines the Blocks button (4 bars + the card)",
+              on(app, "layers") and len(app._tour_widgets) == 5)
+        check("the Blocks button is what gets outlined", app.tour_target_widget("layer_blocks") is not None)
 
-        seen = {app._tour.step["id"]}
+        # the tour notices that you clicked Blocks and goes on by itself
+        app.settings["tour_auto_next"] = True
+        app.goto_layer("blocks")
+        settle(app, 1.0)
+        check("doing what it asked moves on by itself", on(app, "palette"))
+        check("the palette step shows the palette (it is on the Blocks layer)", app.tour_target_widget("palette") is not None)
+        check("the + of a block is outlined", app.tour_target_widget("palette_add") is not None
+              and app.tour_target_widget("palette_add") is not app.tour_target_widget("palette"))
+
+        # with auto-advance off it only says so
+        app.settings["tour_auto_next"] = False
+        app._tour_draw(settled=True)
+        settle(app)
+        app.project_blocks.append(("comment", {"text": "x"}))
+        settle(app, 1.0)
+        check("with auto-advance off it stays and says done", on(app, "palette")
+              and "Done" in app._tour_ask_label.cget("text"))
+        app._tour_next()
+        settle(app, 0.4)
+        check("Next then goes on", on(app, "workspace"))
+
+        seen = {"welcome", "layers", "palette", "workspace"}
         while app.tour_running() and not app._tour.last:
             app._tour_next()
-            settle(app)
+            settle(app, 0.5)
             seen.add(app._tour.step["id"])
             cw = app._tour_widgets[-1]
             check(f"step {app._tour.step['id']}: the card fits the window",
@@ -64,15 +98,18 @@ def main():
         check("Back goes to the step before", app._tour.index == len(tour.STEPS) - 2)
         app._tour_next()
         app._tour_next()                                  # Done on the last step
-        settle(app)
+        settle(app, 0.4)
         check("finishing ends the tour", not app.tour_running() and not app._tour_widgets)
-        check("finishing is remembered", app.settings["tour_done"] is True and len(saved) == 1)
+        check("the layer you started on is back", app.view_mode == "files")
+        check("finishing is remembered", app.settings["tour_done"] is True)
 
+        count = len(saved)
         app.start_tour()
         settle(app)
         check("replaying starts at the first step", app.tour_running() and app._tour.first)
         app.end_tour()
-        check("closing a replay saves nothing more", len(saved) == 1)
+        check("closing a replay saves nothing more", len(saved) == count)
+        check("no grab is left behind", app.grab_current() is None)
 
         app.settings["tour_done"] = False
         app.maybe_start_tour()

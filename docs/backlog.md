@@ -116,4 +116,12 @@ Collected from testing; none of this is started.
   replay from Help > Take the tour (also in the command palette). Nine steps (welcome, layers, palette, workspace, code panel, Run, tabs and saving,
   UI windows, command palette) with a cyan outline and a card drawn inside the main window, so nothing can float after minimizing. Back / Next / Skip,
   Esc ends it, it follows window resizes. Steps and card placement: tour.py (tests/test_tour.py); drawing: ui_tour.py (tests/test_tour_widget.py).
-  Not built: steps that switch layers for you, a tour of the UI designer itself, translations.
+  Second round (from first use): steps switch layer for you (Blocks for palette/workspace/code, Nodes for the node boxes) and the layer you
+  started on is restored at the end; steps can ask you to try something ("click Blocks", "click the + of Print": outlined) and the tour notices
+  it (`done` conditions polled every 300 ms) and goes on by itself when "Go on by itself when I've done it" is ticked (`tour_auto_next`, in the card);
+  new step about the `$$$blockliner` node marker lines; Settings > General has "Show the guided tour at next start" and "Start the tour now".
+  Not built: a tour of the UI designer itself, translations.
+- Fixed (untested on the user's desktop): the Run "\u25bc" dropdown used a bare `menu.post(...)` with no guard, so it stayed on screen after minimizing
+  (that was the "menu left in the workspace" bug); it now goes through `popup_menu`.
+- Reported, not reproduced: after finishing the tour the top buttons (Run, File...) stopped responding. `end_tour` now releases any Tk grab and
+  returns the focus to the main window; if it still happens, note how the tour was started (first run or Help) and what the terminal shows.

@@ -1,43 +1,58 @@
 """The first-run tour (no Tk): the steps, how you move through them, and where the
 explanation card goes so it never covers the thing it talks about."""
 
-# target = which part of the window to outline (resolved in ui_tour.py); None = a centred card.
+# Each step: target = which part of the window to outline (resolved in ui_tour.py; None = a centred card);
+# layer = switch to this layer first (None = stay); ask = something to try, with done = how the tour notices
+# it was done (so it can go on by itself); where = the exact thing to outline for that (default: target).
 STEPS = [
-    {"id": "welcome", "target": None, "title": "Welcome to Blockliner",
+    {"id": "welcome", "target": None, "layer": "files", "title": "Welcome to Blockliner",
      "text": "Blockliner builds real code out of blocks: you put blocks together, and the code writes itself.\n\n"
-             "This tour takes about a minute and points at the parts of the window. You can skip it now and replay it "
-             "any time from Help › Take the tour."},
-    {"id": "layers", "target": "layers", "title": "Four layers",
+             "This tour takes a few minutes and points at the parts of the window. You can try things as you go. "
+             "Skip it any time; replay it from Help \u203a Take the tour."},
+    {"id": "layers", "target": "layers", "layer": "files", "title": "Four layers",
      "text": "These buttons are the layers of your project, from the big picture down to the details:\n\n"
              "\U0001F4C1 Files: your projects and files\n"
              "\U0001F5C2 Nodes: a file is split into nodes, chunks of code that run in order\n"
              "\U0001F9E9 Blocks: the blocks inside one node\n"
-             "\U0001F4C4 Code: the code that was generated, always live"},
-    {"id": "palette", "target": "palette", "title": "The block palette",
-     "text": "Every block you can use is here, grouped by kind. Click a block (or its +) to add it, or drag it into the "
-             "workspace. Use the search box to find one by name."},
-    {"id": "workspace", "target": "workspace", "title": "Your workspace",
-     "text": "Blocks pile up here, top to bottom, and run in that order. Use ✎ to edit one, ▲▼ to move it, "
-             "✕ to delete it.\n\n"
+             "\U0001F4C4 Code: the code that was generated, always live",
+     "ask": "Try it: click Blocks", "done": "layer_blocks", "where": "layer_blocks"},
+    {"id": "palette", "target": "palette", "layer": "blocks", "title": "The block palette",
+     "text": "Every block you can use is in this list on the left, grouped by kind. Click a block, or its \uff0b, to add it "
+             "to your workspace. You can also drag it there. The search box at the top finds a block by name.",
+     "ask": "Try it: click the \uff0b of the Print block", "done": "block_added", "where": "palette_add"},
+    {"id": "workspace", "target": "workspace", "layer": "blocks", "title": "Your workspace",
+     "text": "Blocks pile up here, top to bottom, and run in that order. On each block: \u270e edits it, \u25b2\u25bc move it, "
+             "\u2715 deletes it.\n\n"
              "Tip: Shift+click a first and last block to pick many, then group them into a node. "
              "Ctrl+mouse wheel zooms the blocks."},
-    {"id": "code", "target": "code", "title": "The generated code",
+    {"id": "code", "target": "code", "layer": "blocks", "title": "The generated code",
      "text": "This is the real code your blocks make, and it updates as you build. Pick the language in the Language box: "
              "the same blocks can become Python, C, C++, C#, Java, JavaScript, Rust, Go or HTML. "
              "You can also type code here and it turns into blocks."},
-    {"id": "run", "target": "run", "title": "Run it",
+    {"id": "markers", "target": "code", "layer": "blocks", "title": "Those \u201c$$$blockliner\u201d lines",
+     "text": "The lines like  # $$$blockliner:node:main$$$ start  and  ... end  mark where each node begins and ends "
+             "inside the code. They are how Blockliner knows which code belongs to which node, so keep them.\n\n"
+             "Nodes appear in the code in their run order, top to bottom. Each one has an id (here: main). "
+             "You can hide the markers in the code panel's Options menu."},
+    {"id": "nodes", "target": "workspace", "layer": "nodes", "title": "Nodes",
+     "text": "This is the Nodes layer. Every box is one node. Its number is its run order, and a wire means one node "
+             "calls another. Drag boxes around; right-click empty space to add a node, or a UI window you design with "
+             "buttons and labels (then use \u26a1 Behaviour to say what each button does)."},
+    {"id": "run", "target": "run", "layer": None, "title": "Run it",
      "text": "Run starts the generated code and shows what it prints. The little arrow next to it has more ways to run it, "
              "for example in a terminal."},
-    {"id": "tabs", "target": "tabs", "title": "Projects and saving",
-     "text": "Each open project is a tab. A ● dot on the tab means it has changes that are not saved yet. "
+    {"id": "tabs", "target": "tabs", "layer": None, "title": "Projects and saving",
+     "text": "Each open project is a tab. A \u25cf dot on the tab means it has changes that are not saved yet. "
              "Use the File menu to save: Blockliner does not save for you."},
-    {"id": "windows", "target": "layers", "title": "Want an app with buttons?",
-     "text": "On the Nodes layer, right-click empty space and choose a UI window. You design the window by dropping "
-             "buttons and labels on it, then use the ⚡ Behaviour button to say what each one does with blocks."},
-    {"id": "help", "target": "menus", "title": "You're all set",
+    {"id": "help", "target": "menus", "layer": None, "title": "You're all set",
      "text": "Everything in the menus can also be found with the command palette: press Ctrl+Shift+P and type what you "
              "want. Settings has options for scrolling, zooming and more. Have fun building!"},
 ]
+
+TARGETS = {None, "layers", "palette", "workspace", "code", "run", "tabs", "menus"}
+WHERE = {"layer_blocks", "palette_add"}
+DONE = {"layer_blocks", "block_added"}
+LAYERS = {None, "files", "nodes", "blocks"}
 
 
 class Tour:
@@ -71,6 +86,10 @@ class Tour:
             return False
         self.index -= 1
         return True
+
+    def layer_after(self):
+        """The layer the current step wants shown, or None to leave it."""
+        return self.step.get("layer")
 
     def progress(self):
         return f"{self.index + 1} / {len(self.steps)}"

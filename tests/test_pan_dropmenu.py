@@ -67,15 +67,15 @@ def run(label):
 n_before = len(app.get_current_node_list(tab)); wires_before = len(src["blocks"])
 run("Empty function")
 new = app.get_current_node_list(tab)[-1]
-check("Empty function: node at drop position, wired from source", new["kind"] == "function" and (new["canvas_x"], new["canvas_y"]) == (120, 80) and len(src["blocks"]) == wires_before + 1 and src["blocks"][-1][1]["name"] == new["name"])
+check("Empty function: node at drop position, runs after the source (an empty node is not a function, so no call)", new["kind"] == "function" and (new["canvas_x"], new["canvas_y"]) == (120, 80) and len(src["blocks"]) == wires_before and new["order"] == src["order"] + 1)
 run("Class"); cl = app.get_current_node_list(tab)[-1]
-check("Class: class node, no wire", cl["kind"] == "class" and len(src["blocks"]) == wires_before + 1)
+check("Class: class node, no wire", cl["kind"] == "class" and len(src["blocks"]) == wires_before)
 run("Category"); ca = app.get_current_node_list(tab)[-1]
 check("Category: category node", ca["kind"] == "category")
 run("Raw code"); rw = app.get_current_node_list(tab)[-1]
-check("Raw code: has one raw-code block, wired", rw["kind"] == "function" and len(rw["blocks"]) == 1 and len(src["blocks"]) == wires_before + 2)
+check("Raw code: has one raw-code block, runs after the source", rw["kind"] == "function" and len(rw["blocks"]) == 1 and len(src["blocks"]) == wires_before and rw["order"] == src["order"] + 1)
 run("\u2795 New node"); nn = app.get_current_node_list(tab)[-1]
-check("New node: asks the name, wired", nn["name"] == "Named" and len(src["blocks"]) == wires_before + 3)
+check("New node: asks the name, runs after the source", nn["name"] == "Named" and len(src["blocks"]) == wires_before and nn["order"] == src["order"] + 1)
 check("tab marked dirty", tab["dirty"])
 # release on empty canvas pops the menu; release on a box wires instead
 shown = []

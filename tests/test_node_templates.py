@@ -201,12 +201,12 @@ def ui():
     app.refresh_workspace()
     wires = len(src["blocks"])
     node = app.insert_node_template(shipped["Read JSON file"], (123, 45), wire_from=src["id"])
-    check("insert: at the drop position, wired from the source, marked dirty", (node["canvas_x"], node["canvas_y"]) == (123, 45) and len(src["blocks"]) == wires + 1 and src["blocks"][-1][1]["name"] == node["name"] and tab["dirty"])
+    check("insert: at the drop position, placed after the source in run order (an ordinary node is not called), marked dirty", (node["canvas_x"], node["canvas_y"]) == (123, 45) and len(src["blocks"]) == wires and node["order"] == src["order"] + 1 and tab["dirty"])
     check("insert: gets an execution order", isinstance(node.get("order"), int))
     node_b = app.insert_node_template(shipped["Read JSON file"], (10, 10))
     fn_names = [n["name"] for n in function_nodes_in_tree_order(tab["nodes"])]
     check("insert: copies get unique names (wires resolve by name), same base", len(set(fn_names)) == len(fn_names) and node_b["name"] != node["name"] and node_b["name"].startswith("Read JSON file") and node_b["id"] != node["id"])
-    check("insert: without wire_from nothing is wired", len(src["blocks"]) == wires + 1)
+    check("insert: without wire_from nothing is wired", len(src["blocks"]) == wires)
     unknown = {"template": N.parse_template({"name": "Odd", "blocks": [["no_such_block", {}], ["print_output", {"value": "1"}]]})[0], "folder_kind": "custom", "scope": "python", "path": ""}
     infos.clear()
     node_c = app.insert_node_template(unknown, (1, 1))
@@ -273,7 +273,7 @@ def ui():
     cm = sub(dm, "Custom nodes")
     for i in range(cm.index("end") + 1):
         if cm.entrycget(i, "label") == "Auth flow": cm.invoke(i); break
-    check("drop menu: picking a template adds it at the drop point, wired", len(app.get_current_node_list(tab)) == nn + 1 and len(src["blocks"]) == wires + 1 and app.get_current_node_list(tab)[-1]["canvas_x"] == 50)
+    check("drop menu: picking a template adds it at the drop point, run after the source", len(app.get_current_node_list(tab)) == nn + 1 and len(src["blocks"]) == wires and app.get_current_node_list(tab)[-1]["canvas_x"] == 50)
     wm = app.build_workspace_menu((70, 80))
     check("Nodes right-click menu has the template cascades", sub(wm, "Prebuilt nodes") is not None and sub(wm, "Custom nodes") is not None)
     wires = len(src["blocks"]); nn = len(app.get_current_node_list(tab))

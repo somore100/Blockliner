@@ -483,7 +483,7 @@ class LayersMixin:
         self.regenerate_ui_nodes()
         self.mark_active_tab_dirty()
         if wire_from is not None and node.get("kind", "function") == "function":
-            self.add_wire_by_drag(wire_from, node["id"])   # also refreshes
+            self.add_wire_by_drag(wire_from, node["id"], notify=False)   # also refreshes
         else:
             self.refresh_after_node_added(node, target_list)
         return node

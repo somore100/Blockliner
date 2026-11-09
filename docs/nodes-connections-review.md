@@ -51,3 +51,14 @@ Wire drag, by target:
 2. Node input / Node output blocks and ports derived from them.
 3. "Make this node a function" (wraps the blocks, moves them under a Define Function).
 4. Wire feedback: select the new block, label wires with what flows ("name -> text").
+
+## Status (2026-11-09): step 1 built, verified in a real Tk run
+- A wire dragged (or dropped from the "new node" menu) onto an ordinary node no longer writes a call. The target gets the run order
+  right after the source (`nodes_model.run_after`) and a message says so; if the source has no run order it says that instead.
+  A wire onto a FUNCTION node (it defines a function named like itself, `node_ports.has_function`) still writes the Call Function block.
+- Nodes that only define functions (`nodes_model.is_pure_function_node`: Define Function named like the node, plus comments, dividers,
+  imports) are written first in the generated code, in their own order, so a call never runs before its definition. The run-order number on
+  the box is unchanged; only where the definition sits in the file changes.
+- Tests: tests/test_wire_fixes.py (pure), tests/test_wire_drag_rules.py (Tk, runs the generated code); tests/test_c3_wiredrag.py and
+  tests/test_node_templates.py were updated because their "wired" nodes were ordinary nodes.
+- Not built yet: a warning on the box when a call has no function behind it (hand-written calls can still be wrong), and steps 2-4 above.

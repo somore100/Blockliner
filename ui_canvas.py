@@ -2,7 +2,9 @@
 import keyword
 import time
 import tkinter as tk
+from tkinter import messagebox
 import node_ports
+import nodes_model
 import wire_kinds
 import wire_rollup
 import ui_node
@@ -930,17 +932,30 @@ class CanvasMixin:
                 return node["id"]
         return None
 
-    def add_wire_by_drag(self, source_id, target_id):
-        """Insert a func_call block (targeting target_id's node name)
-        into source_id's top-level blocks. This is the one place a
-        wire gets created by drawing rather than by hand-adding a
-        func_call block through the palette - everything downstream
-        (references, the drawn wire itself) is still fully derived,
-        same as ever, so nothing else needs to know a drag caused it."""
+    def add_wire_by_drag(self, source_id, target_id, notify=True):
+        """A wire drawn from source to target.
+
+        Target is a FUNCTION node (it defines a function named like itself): insert a func_call
+        block (targeting that name) into source's top-level blocks, so the wire is a real call.
+        Target is an ordinary node (a chunk of code, nothing to call): a call would be a NameError,
+        so the wire only means "run after": target gets the run order right after source.
+        Everything drawn afterwards is still derived from the code, same as ever.
+        notify=False for a node that was just created for the wire (nothing surprising to explain)."""
         tab = self.tabs[self.active_tab_index]
         source = find_node_by_id(tab["nodes"], source_id)
         target = find_node_by_id(tab["nodes"], target_id)
-        if source is None or target is None:
+        if source is None or target is None or source is target:
+            return
+        if target.get("kind", "function") == "function" and not node_ports.has_function(target):
+            if nodes_model.run_after(tab["nodes"], target, source):
+                self.mark_active_tab_dirty()
+                self.refresh_workspace()
+                if notify:
+                    self.maybe_notify("Run order", f"\u2018{target['name']}\u2019 is not a function, so it can't be called. "
+                                      f"It now runs right after \u2018{source['name']}\u2019 instead (run order {target['order']}).")
+            else:
+                messagebox.showinfo("Run order", f"\u2018{source['name']}\u2019 is not set to run, so \u2018{target['name']}\u2019 "
+                                    "can't be placed after it. Give it a run order number first.")
             return
         source["blocks"].append(("func_call", {"name": target["name"], "args": ""}))
         self.mark_active_tab_dirty()

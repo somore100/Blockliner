@@ -102,25 +102,64 @@ def function_nodes_in_tree_order(nodes):
     return out
 
 
+# Blocks that may sit in a node which only DEFINES a function (it is still a "pure function node").
+_DEFINITION_ONLY = ("func_def", "comment", "divider", "import_module")
+
+
+def is_pure_function_node(node):
+    """A node that only defines functions (plus comments, dividers, imports) and one of them is
+    named like the node itself. Defining runs nothing, so such a node can safely be written before
+    the code that calls it, whatever its run order number says."""
+    name = (node.get("name") or "").strip()
+    named = False
+    for entry in node.get("blocks") or []:
+        try:
+            block_id, params = entry
+        except (TypeError, ValueError):
+            return False
+        if block_id not in _DEFINITION_ONLY:
+            return False
+        if block_id == "func_def" and isinstance(params, dict) and str(params.get("name") or "").strip() == name:
+            named = True
+    return named
+
+
 def sorted_function_nodes(nodes):
     """Function-kind nodes in EXECUTION order: by their order number,
     ties broken by tree position; a node with no order key at all is
     treated as sitting at its tree position (so untouched legacy data
     generates exactly as before); explicitly unassigned (None) nodes go
     last - still generated, so no code is ever silently dropped.
+    Nodes that only define a function (is_pure_function_node) are written
+    first, in their own order, so a call never runs before its definition.
     The one exception is a node the user marked `ignored` (right-click >
     Ignore): it stays in the project but is left out of generated code."""
     fn = [n for n in function_nodes_in_tree_order(nodes) if not n.get("ignored")]
 
     def key(pair):
         idx, n = pair
+        first = 0 if is_pure_function_node(n) else 1
         if "order" not in n:
-            return (0, idx + 1, idx)
+            return (first, 0, idx + 1, idx)
         if n["order"] is None:
-            return (1, 0, idx)
-        return (0, n["order"], idx)
+            return (first, 1, 0, idx)
+        return (first, 0, n["order"], idx)
 
     return [n for _i, n in sorted(enumerate(fn), key=key)]
+
+
+def run_after(nodes, node, anchor):
+    """Give `node` the run order right after `anchor`, pushing later nodes back by one.
+    False when the anchor has no run order (it is not set to run), nothing changed then."""
+    normalize_orders(nodes)
+    base = anchor.get("order")
+    if not isinstance(base, int) or node is anchor:
+        return False
+    for other in function_nodes_in_tree_order(nodes):
+        if other is not node and isinstance(other.get("order"), int) and other["order"] > base:
+            other["order"] += 1
+    node["order"] = base + 1
+    return True
 
 
 def normalize_orders(nodes):

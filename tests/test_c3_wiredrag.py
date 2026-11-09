@@ -52,7 +52,8 @@ def main():
     tab = app.tabs[app.active_tab_index]
     node_a = tab["nodes"][0]
     node_a["name"] = "main"
-    node_b = make_node("helper", node_id="helper1", blocks=[])
+    # a wire is a real call only when the target is a function (an ordinary node would just get a run order)
+    node_b = make_node("helper", node_id="helper1", blocks=[("func_def", {"name": "helper", "params": "", "_children": []})])
     tab["nodes"].append(node_b)
 
     app.switch_to_file_view()

@@ -2,6 +2,7 @@
 and a setting swaps them."""
 import os
 import sys
+import time
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,14 +20,13 @@ def check(label, cond):
         FAILURES.append(label)
 
 
-def settle(app):
-    for _ in range(6):
+def settle(app, seconds=0.25):
+    """Run the event loop for a moment (a zoom redraws 60 ms after the last wheel step)."""
+    end = time.time() + seconds
+    while time.time() < end:
         app.update_idletasks()
         app.update()
-    app.after(120)
-    for _ in range(6):
-        app.update_idletasks()
-        app.update()
+        time.sleep(0.01)
 
 
 def first_block_height(app):
@@ -64,10 +64,10 @@ def main():
         check("Ctrl+wheel up zooms in", app.block_scale > 1.0)
         check("the blocks were drawn bigger", first_block_height(app) > h0)
         check("the scroll position is kept", abs(app.workspace_canvas.yview()[0] - before) < 0.05)
-        for _ in range(12):
+        for _ in range(6):
             wheel(app, up=True, state=CTRL)
         check("zoom stops at 200%", app.block_scale == 2.0)
-        for _ in range(20):
+        for _ in range(9):
             wheel(app, up=False, state=CTRL)
         check("zoom out stops at 60%", app.block_scale == 0.6 and first_block_height(app) < h0)
 

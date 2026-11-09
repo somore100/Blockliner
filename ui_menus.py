@@ -112,7 +112,7 @@ class MenusMixin:
         self.create_node(pos=pos)
         for n in self.get_current_node_list(self.tabs[self.active_tab_index]):
             if n["id"] not in before and n.get("kind", "function") == "function":
-                self.add_wire_by_drag(source_id, n["id"])
+                self.add_wire_by_drag(source_id, n["id"], notify=False)
 
     def show_drop_menu(self, source_id, pos, x_root, y_root):
         menu = self.build_drop_menu(source_id, pos)

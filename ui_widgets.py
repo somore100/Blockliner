@@ -170,7 +170,9 @@ class BlockWidget(tk.Frame):
     container blocks (like If) with a nested, indented body of child
     BlockWidgets and a way to add more blocks into that body."""
     def __init__(self, parent, block_id, block_module, params, index, container_list, app):
-        super().__init__(parent, bg=BLOCK_BG, highlightthickness=2, highlightbackground=DARK_BORDER, relief=tk.RAISED)
+        # The outline is always 3 px thick (only its colour changes on hover/selection): a thickness that
+        # changed on hover moved the layout under a resting pointer, which flickered forever.
+        super().__init__(parent, bg=BLOCK_BG, highlightthickness=3, highlightbackground=DARK_BORDER, relief=tk.RAISED)
         self.block_id = block_id
         self.block_module = block_module
         self.params = params if isinstance(params, dict) else {}
@@ -445,7 +447,7 @@ class BlockWidget(tk.Frame):
         self.configure(bg=BLOCK_HOVER, highlightbackground=self.category_color, highlightthickness=3)
     
     def on_leave(self, event):
-        self.configure(bg=BLOCK_BG, highlightbackground=DARK_BORDER, highlightthickness=2)
+        self.configure(bg=BLOCK_BG, highlightbackground=DARK_BORDER, highlightthickness=3)
         self.refresh_selection_border()
 
     def refresh_selection_border(self):
@@ -454,7 +456,7 @@ class BlockWidget(tk.Frame):
         if selected and selected(self.index, self.container_list):
             self.configure(highlightbackground="#00e5ff", highlightthickness=3)
         else:
-            self.configure(highlightbackground=DARK_BORDER, highlightthickness=2)
+            self.configure(highlightbackground=DARK_BORDER, highlightthickness=3)
 
 class EventRowWidget(BlockWidget):
     """One line of a UI window's Behaviour view: "When <widget> <event>", the
@@ -504,7 +506,7 @@ class EventRowWidget(BlockWidget):
         if self.body_list is not None and target is self.body_list:
             self.configure(highlightbackground="#00e5ff", highlightthickness=3)
         else:
-            self.configure(highlightbackground=DARK_BORDER, highlightthickness=2)
+            self.configure(highlightbackground=DARK_BORDER, highlightthickness=3)
 
     def on_hover(self, event):
         pass

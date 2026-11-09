@@ -132,3 +132,7 @@ Collected from testing; none of this is started.
 - Review of how nodes connect: docs/nodes-connections-review.md (two verified bugs, proposal for Node input / Node output blocks and function nodes).
 - Test status in a real Tk (host Python under Xvfb): everything passes except tests/test_layer_step.py and tests/test_order_conflict.py (failing before this work,
   Xvfb has no window manager), tests/test_language_dropdown.py (hangs, not investigated) and tests/test_f_slotmatch.py (needs tree_sitter_python).
+- Fixed (found by running the zoom test in a real Tk): a block's outline was 2 px normally and 3 px on hover, so with the pointer resting on a block edge the
+  layout moved under it and the list flickered forever (the window froze at some zoom levels). The outline is now always 3 px; only its colour changes.
+- Wire to an ordinary node = run order (no call); function nodes are written first; the "now runs after" message is only shown for wires onto an
+  existing node, not for nodes created from the wire-drop menu. See docs/nodes-connections-review.md.

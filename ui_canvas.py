@@ -1,5 +1,6 @@
 """Node/file canvas rendering, dragging and wires."""
 import keyword
+import time
 import tkinter as tk
 import node_ports
 import wire_kinds
@@ -1282,7 +1283,14 @@ class CanvasMixin:
         """Click-away closes the wire-drop menu - but a click ON the menu
         (one of its entries or a cascade) must not, or the entry's command
         never runs (the menu is unposted before the button is released)."""
-        if isinstance(getattr(e, "widget", None), tk.Menu):
+        widget = getattr(e, "widget", None)
+        if isinstance(widget, tk.Menu):
+            return
+        # The press that OPENED a menu (a top-bar menu button, the Run arrow) reaches this
+        # handler right after the menu is posted; closing it here made those menus flash and vanish.
+        if widget is not None and widget.winfo_class() == "Menubutton":
+            return
+        if time.monotonic() - getattr(self, "_popup_born", 0.0) < 0.35:
             return
         self._dismiss_popup()
 

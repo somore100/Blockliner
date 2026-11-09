@@ -742,18 +742,6 @@ class PaletteMixin:
             font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(5, 0))
 
-        tour_var = tk.BooleanVar(value=not self.settings.get("tour_done", False))
-        tk.Checkbutton(
-            cur[0], text="Show the guided tour at next start",
-            variable=tour_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
-            activebackground=DARK_PANEL, activeforeground=DARK_FG,
-            font=("Segoe UI", 9)
-        ).pack(anchor="w", pady=(5, 0))
-        tk.Button(
-            cur[0], text="Start the tour now", command=lambda: (dialog.destroy(), self.after(150, self.start_tour)),
-            bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), padx=10
-        ).pack(anchor="w", pady=(4, 0))
-
         section("Canvas")
         coords_var = tk.BooleanVar(value=bool(self.settings.get("show_coords", False)))
         tk.Checkbutton(
@@ -802,6 +790,18 @@ class PaletteMixin:
             state="readonly", width=38
         ).pack(side=tk.LEFT)
         add_help("What happens when you give a node a number another node already has.")
+
+        tour_var = tk.BooleanVar(value=not self.settings.get("tour_done", False))
+        tk.Checkbutton(
+            cur[0], text="Show the guided tour at next start",
+            variable=tour_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+            activebackground=DARK_PANEL, activeforeground=DARK_FG,
+            font=("Segoe UI", 9)
+        ).pack(anchor="w", pady=(5, 0))
+        tk.Button(
+            cur[0], text="Start the tour now", command=lambda: (dialog.destroy(), self.after(150, self.start_tour)),
+            bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), padx=10
+        ).pack(anchor="w", pady=(4, 0))
 
         # --- Scroll mode ---
         row = add_row("Scroll mode:")

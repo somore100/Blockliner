@@ -100,7 +100,7 @@ def main():
         app._tour_next()                                  # Done on the last step
         settle(app, 0.4)
         check("finishing ends the tour", not app.tour_running() and not app._tour_widgets)
-        check("the layer you started on is back", app.view_mode == "files")
+        check("the layer you started on is back", app.view_mode == "node")      # the test app starts on Blocks
         check("finishing is remembered", app.settings["tour_done"] is True)
 
         count = len(saved)

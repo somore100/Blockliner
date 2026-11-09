@@ -122,6 +122,7 @@ def main():
     app.update()
     check("Escape closes a posted menu", app._active_popup is None)
     app._active_popup = m1
+    app._popup_born = 0.0                          # the menu has been open a while (a press right after posting is ignored)
     app._on_any_press(types.SimpleNamespace(widget=cv))
     check("click elsewhere closes it too", app._active_popup is None)
     app._active_popup = m1

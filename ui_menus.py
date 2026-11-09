@@ -1,4 +1,5 @@
 """Right-click context menus."""
+import time
 import tkinter as tk
 import sys
 from nodes_model import find_node_by_id
@@ -119,6 +120,7 @@ class MenusMixin:
         self._install_popup_guards()
         self._drop_menu = menu
         self._active_popup = menu
+        self._popup_born = time.monotonic()
         self._popup_watch(menu, 0)
 
         def close(_e=None):
@@ -180,6 +182,7 @@ class MenusMixin:
         stay on screen until clicked, even over other apps)."""
         self._dismiss_popup()
         self._active_popup = menu
+        self._popup_born = time.monotonic()
         self._install_popup_guards()
         self._popup_watch(menu, 0)
         try:

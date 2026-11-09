@@ -125,3 +125,10 @@ Collected from testing; none of this is started.
   (that was the "menu left in the workspace" bug); it now goes through `popup_menu`.
 - Reported, not reproduced: after finishing the tour the top buttons (Run, File...) stopped responding. `end_tour` now releases any Tk grab and
   returns the focus to the main window; if it still happens, note how the tour was started (first run or Help) and what the terminal shows.
+- Fixed (verified with real Tk events): the top-bar menus (File, Tools, Help, burger) and the Run arrow opened and closed again at once, so the top buttons
+  looked dead. Cause: my own popup guard; the bind_all press handler (`_on_any_press`) dismissed the menu that the same press had just opened. It now
+  ignores Menubutton presses and anything within 0.35 s of a menu opening (`_popup_born`). tests/test_topbar_menu_guard.py clicks the menus for real.
+- Fixed: the tour's Settings entry was in the Block palette section; it is now under General. Zoom keeps the scroll position (lay out first, then restore).
+- Review of how nodes connect: docs/nodes-connections-review.md (two verified bugs, proposal for Node input / Node output blocks and function nodes).
+- Test status in a real Tk (host Python under Xvfb): everything passes except tests/test_layer_step.py and tests/test_order_conflict.py (failing before this work,
+  Xvfb has no window manager), tests/test_language_dropdown.py (hangs, not investigated) and tests/test_f_slotmatch.py (needs tree_sitter_python).

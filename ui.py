@@ -224,7 +224,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         if canvas is self.workspace_canvas and self.canvas_wheel_zoom(step):
             return   # Files/Nodes layers: the wheel zooms instead of scrolling
         if canvas is self.workspace_canvas and self.view_mode == "node" \
-                and block_zoom.wheel_action(self.settings.get("block_zoom_wheel"), bool(event.state & 0x4)) == "zoom":
+                and block_zoom.wheel_action(self.settings.get("block_zoom_wheel"), bool(getattr(event, "state", 0) & 0x4)) == "zoom":
             self.zoom_blocks(-step)       # Blocks layer: wheel up = bigger
             return
         if normalize_mode(self.settings.get("scroll_mode", "smooth")) == "rigid":

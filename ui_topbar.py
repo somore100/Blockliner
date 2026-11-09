@@ -1,5 +1,6 @@
 """Top bar menus (hamburger + File/Run/Tools/Help) and the About window."""
 import os
+import time
 import tkinter as tk
 import webbrowser
 from PIL import Image, ImageTk
@@ -24,6 +25,7 @@ class TopBarMixin:
         stays on screen over other apps)."""
         def shown(_e=None):
             self._active_popup = menu
+            self._popup_born = time.monotonic()
             self._install_popup_guards()
             self._popup_watch(menu, 0)
 

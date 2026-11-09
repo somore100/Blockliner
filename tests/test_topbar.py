@@ -34,7 +34,7 @@ def main():
         return labels(menu)[:len(expected)] == expected
     check("File menu entries", starts_with(m["File"], ["Undo", "Redo", "Save", "Load", "Open Project...", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."]))
     check("Tools menu entries", starts_with(m["Tools"], ["Manage Custom Blocks...", "Imports...", "Extensions...", "AI tools connection...", "Settings", "Command palette..."]))
-    check("Help has Feedback and About", starts_with(m["Help"], ["Leave Feedback...", "About Blockliner"]))
+    check("Help has the tour, Feedback and About", starts_with(m["Help"], ["Take the tour", "Leave Feedback...", "About Blockliner"]))
     check("Run menu has Run + Clear", "Run in Blockliner" in labels(m["Run"]) and "Clear" in labels(m["Run"]))
     check("burger holds all four as cascades", labels(m["☰"]) == ["File", "Run", "Tools", "Help"])
 

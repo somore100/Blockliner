@@ -33,7 +33,9 @@ class BlockEditMixin:
         self._block_zoom_job = None
         keep = getattr(self, "_block_zoom_keep", 0.0)
         self.refresh_workspace()
-        self.after_idle(lambda: self.workspace_canvas.yview_moveto(keep))
+        self.update_idletasks()                         # let the new blocks lay out so the scroll region is right
+        self.workspace_canvas.yview_moveto(keep)
+        self.after(80, lambda: self.workspace_canvas.yview_moveto(keep))
 
     def _show_block_zoom(self, scale):
         """The percentage, in a corner for a moment."""

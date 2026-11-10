@@ -42,6 +42,7 @@ from ui_multiopen import MultiOpenMixin
 from ui_uinode import UINodeMixin
 from ui_designer import DESIGNER_SPEC, DesignerMixin
 from ui_tour import TourMixin
+from ui_structure import StructureMixin
 from editors import EditorRegistry
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
@@ -50,7 +51,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, TourMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -341,6 +342,11 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.layer_bar = tk.Frame(self.tab_bar_frame, bg=DARK_PANEL)
         self.layer_bar.pack(side=tk.RIGHT, padx=(0, 6), pady=3)
         self._layer_buttons = {}
+        self.structure_btn = tk.Button(
+            self.layer_bar, text="\u2754 How it fits", relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9),
+            padx=8, bd=0, bg=DARK_PANEL, fg="#aaaaaa", activebackground=DARK_PANEL, activeforeground="white",
+            command=self.show_structure_help)
+        self.structure_btn.pack(side=tk.LEFT, padx=(0, 8), fill=tk.Y)
         for key, text in (("files", "\U0001F4C1 Files"), ("nodes", "\U0001F5C2 Nodes"),
                           ("blocks", "\U0001F9E9 Blocks"), ("code", "\U0001F4C4 Code")):
             b = tk.Button(

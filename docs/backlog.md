@@ -169,3 +169,6 @@ Collected from testing; none of this is started.
   (informational). `build.yml` now has `tests` first and every build job `needs: tests`, so a tag with a red test publishes nothing.
   UNVERIFIED on GitHub: written and checked locally only (YAML parses; the runner passes everything here). The first push will show whether Tk 8.6 on
   the runners agrees with the Tk 9 the tests were written on; if a test fails only there, add it to expected_failures.txt with the reason, or fix it.
+- Built (untested on the desktop): "How it fits" button at the left of the layer bar (also Help > How is a project built?, and the command palette) opens
+  a window that draws a file holding nodes holding blocks, next to the code it makes (nodes shaded, marker lines grey), with a "Show me" button per layer.
+  Content: structure_help.py (pure); window: ui_structure.py. Test: tests/test_structure_help.py. Possible later: link it from the tour's layers step.

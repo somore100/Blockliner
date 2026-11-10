@@ -155,3 +155,9 @@ Collected from testing; none of this is started.
   tests in CI + a test harness that uses a temp data folder (this also explains the `test_language_dropdown` hang: a modal "Languages Refreshed" box);
   A1 per-language program skeleton in the packs (C, Go, Rust get no entry point; C++/Java put functions inside main); C2 atomic saves / overwrite
   prompt / autosave; C4 extension restart and writes off the Tk thread; C7/C8 string escaping in custom/built-in blocks; C12 pin the release tools.
+- Built (B2): "Run in Blockliner" runs the program in its own Python process (`program_runner.py`, pure; window in `ui_runwindow.py`). Output streams as it is
+  printed, an "Answer for input()" box feeds the program, Stop (button, Esc) ends it and anything it started, closing the window ends it, Run again re-generates
+  the code, errors show the traceback with "your program" as the file name, a flood of output is bounded, several windows never mix. The Python is the Settings
+  "Python command" (falls back to python3/python/py, and to the app's own Python only when run from source). It runs in the saved project's folder, else a
+  private temp folder. Tests: tests/test_program_runner.py (pure), tests/test_run_window.py (Tk; set BLOCKLINER_TEST_PYTHON to a python with no Tk needs).
+  Not built: running other languages, a "stop after N seconds" setting, line numbers that match the code panel (the file has no marker lines).

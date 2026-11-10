@@ -2,6 +2,7 @@
 import time
 import tkinter as tk
 import sys
+import node_function
 from nodes_model import find_node_by_id
 from ui_common import CATEGORY_COLORS, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr
 
@@ -53,6 +54,10 @@ class MenusMixin:
         if not in_code_view:
             if self.view_mode == "node":
                 self._add_block_cascade(menu)
+                cur = self.get_active_node(self.tabs[self.active_tab_index])
+                if cur is not None and cur.get("kind", "function") == "function" and node_function.why_not(
+                        cur, self.tabs[self.active_tab_index].get("language") or self.current_language) is None:
+                    menu.add_command(label="Make this node a function\u2026", command=self.make_node_function_dialog)
                 picked = len(self.block_multi_selection())
                 if picked > 1:
                     menu.add_command(label=f"\U0001F4E6 Group the {picked} selected blocks into a node\u2026",
@@ -455,6 +460,9 @@ class MenusMixin:
         if node.get("kind", "function") == "function":
             menu.add_command(label="Set order\u2026", state=off,
                              command=lambda: self.set_node_order_dialog(node_id))
+        if node.get("kind", "function") == "function" and node_function.why_not(node, tab.get("language") or self.current_language) is None:
+            menu.add_command(label="Make this node a function\u2026", state=off,
+                             command=lambda: self.make_node_function_dialog(node_id))
         if node.get("kind", "function") in ("function", "class"):
             menu.add_command(label="Save as node template\u2026",
                              command=lambda: self.save_node_as_template_dialog(node_id))

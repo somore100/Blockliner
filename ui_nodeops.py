@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog
 import contextlib
 import nodes_model
+import node_function
 import node_ports
 import ui_node
 import wire_kinds
@@ -523,6 +524,46 @@ class NodeOpsMixin:
         if answer is None:
             return
         self.set_node_order(tab, node, value, on_conflict="swap" if answer else "take")
+
+    def make_node_function_dialog(self, node_id=None):
+        """Right-click > Make this node a function: ask, then turn the node's blocks into a Define Function
+        (Node Input blocks = parameters, Node Output blocks = what it returns). One undo step."""
+        tab = self.tabs[self.active_tab_index]
+        node = find_node_by_id(tab["nodes"], node_id) if node_id else self.get_active_node(tab)
+        if node is None:
+            return
+        problem = node_function.why_not(node, tab.get("language") or self.current_language)
+        if problem:
+            messagebox.showinfo("Make a function", problem)
+            return
+        name = node.get("name") or node["id"]
+        if not messagebox.askyesno(
+                "Make a function",
+                f"Turn \u2018{name}\u2019 into a function?\n\n"
+                "\u2022 Its Node Input blocks become the function's parameters.\n"
+                "\u2022 Its Node Output blocks (or, with none, the variables it sets) become what it returns.\n"
+                "\u2022 Everything else becomes the body. Nodes that used its outputs get a call, so the program does the same thing.\n\n"
+                "You can undo this with Ctrl+Z."):
+            return
+        self.record_project_undo(f"Make {name} a function")
+        info = node_function.make_function(tab["nodes"], node)
+        self.mark_active_tab_dirty()
+        if self.view_mode == "node" and self.get_active_node(tab) is node:
+            self.project_blocks = node["blocks"]
+        self.refresh_workspace()
+        self.update_generated_code()
+        text = f"\u2018{info['name']}\u2019 is now a function"
+        if info["inputs"]:
+            text += f" taking {', '.join(info['inputs'])}"
+        if info["outputs"]:
+            text += f" and returning {', '.join(info['outputs'])}"
+        if info["caller"]:
+            text += f". \u2018{info['caller']}\u2019 now calls it"
+        if info["by_hand"]:
+            text += f". Add a call by hand in: {', '.join(info['by_hand'])}"
+        if info["renamed"]:
+            text += ". It was renamed to be a valid function name"
+        self.show_change_bar(text + ".")
 
     def rename_node_dialog(self, node_id):
         tab = self.tabs[self.active_tab_index]

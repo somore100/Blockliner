@@ -75,3 +75,13 @@ Wire drag, by target:
 - Tests: tests/test_node_declared_ports.py (pure), tests/test_node_blocks_ui.py (Tk, runs the generated code).
 - Not built: "Make this node a function" (wrap the blocks in a Define Function from the Input/Output blocks), a warning when a call has no function
   behind it, wire labels showing what flows, run-order wires. Node Output inside a function body is just an assignment (use Return there).
+
+## Status (2026-11-10): step 3 built (Make this node a function)
+- Right-click a node (Nodes layer) or the empty Blocks workspace > "Make this node a function...". Python only (other languages need typed parameters).
+  `node_function.py` (pure): Node Input blocks become the parameters of a Define Function named like the node; Node Output blocks (or, with none, the
+  variables the node assigns) become assignments followed by one Return; everything else is the body. The earliest node that used the outputs gets
+  `text = maker(base)` at its top, so the program still does the same thing and the function runs once; later users read the same variable. Users that are
+  themselves function nodes are listed ("add a call by hand"). A name that is not a valid function name is fixed and made unique (the node is renamed).
+- One undo step (`record_project_undo`) and a change bar with Undo. Tests: tests/test_node_function.py (pure, runs the programs),
+  tests/test_make_function_ui.py (Tk, including Undo).
+- Not built: the reverse (function back to a plain node), other languages, wire labels, the "call without a function" warning.

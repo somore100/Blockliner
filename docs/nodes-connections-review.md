@@ -62,3 +62,16 @@ Wire drag, by target:
 - Tests: tests/test_wire_fixes.py (pure), tests/test_wire_drag_rules.py (Tk, runs the generated code); tests/test_c3_wiredrag.py and
   tests/test_node_templates.py were updated because their "wired" nodes were ordinary nodes.
 - Not built yet: a warning on the box when a call has no function behind it (hand-written calls can still be wrong), and steps 2-4 above.
+
+## Status (2026-11-09, later): step 2 built (Node Input / Node Output blocks)
+- New category "Nodes" (orange) with two blocks in every code language (`languages/<lang>/blocks/node_output.json`, `node_input.json`).
+  **Node Output** `name = value` writes the language's normal assignment and declares an output port called `name`. **Node Input** `name`
+  writes only a comment ("needs name from another node") and declares an input port.
+- `node_ports.node_interface`: an ordinary node's ports are its declared Node Input / Node Output blocks; a node that declares no outputs still
+  falls back to guessing from assigned variables (old projects unchanged). Function nodes keep params/returns, but a returned expression that is
+  not a plain name is now called `result` (`result_2`, ...) instead of showing the code text.
+- `node_ports.data_wires`: producers are the declared outputs; a Node Input counts as a use (wire from the node that sends that name out even with
+  no code reading it); a name a node sends out itself is its own.
+- Tests: tests/test_node_declared_ports.py (pure), tests/test_node_blocks_ui.py (Tk, runs the generated code).
+- Not built: "Make this node a function" (wrap the blocks in a Define Function from the Input/Output blocks), a warning when a call has no function
+  behind it, wire labels showing what flows, run-order wires. Node Output inside a function body is just an assignment (use Return there).

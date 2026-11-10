@@ -1,0 +1,13 @@
+{
+  "display_name": "Node Input",
+  "category": "Nodes",
+  "description": "Says this node needs a value called this name from an earlier node. It gets an input port, and a wire from the node that sends it out. Writes only a comment.",
+  "template": "# needs [[name]] from another node\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "identifier",
+      "default": "data"
+    }
+  ]
+}

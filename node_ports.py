@@ -89,9 +89,26 @@ def return_names(expr):
     return [_short(p) for p in split_commas(expr)]
 
 
+def _unique(names):
+    out = []
+    for n in names:
+        base, i = n, 2
+        while n in out:
+            n, i = f"{base}_{i}", i + 1
+        out.append(n)
+    return out
+
+
 def _short(name):
     name = " ".join(name.split())
     return name if len(name) <= MAX_NAME else name[:MAX_NAME - 1] + "…"
+
+
+def _port_name(expr):
+    """The port name for one returned piece of code: a plain name stays; anything else
+    ("'hi ' + who", "a + 1") is just "result" rather than the code text."""
+    name = " ".join((expr or "").split())
+    return name if name.isidentifier() else "result"
 
 
 def _walk(blocks):
@@ -157,10 +174,27 @@ def assigned_names(node):
     return out
 
 
+def declared_names(node, block_id):
+    """Names given by the node's TOP-LEVEL Node Input / Node Output blocks, in order."""
+    out = []
+    for entry in node.get("blocks") or []:
+        try:
+            bid, p = entry
+        except (TypeError, ValueError):
+            continue
+        if bid == block_id and isinstance(p, dict) and isinstance(p.get("name"), str):
+            name = p["name"].strip()
+            if name.isidentifier() and not keyword.iskeyword(name) and name not in out:
+                out.append(name)
+    return out
+
+
 def node_interface(node):
     """(inputs, outputs): names only. With a func_def named like the node:
-    its parameters and returned values. Without one: no inputs, and the
-    variables the node assigns at its top level as outputs."""
+    its parameters and returned values (a returned expression that is not a plain
+    name is called "result"). Without one: the node's Node Input blocks are its inputs and its
+    Node Output blocks its outputs; a node that declares no outputs falls back to the
+    variables it assigns at its top level."""
     if node.get("kind", "function") != "function":
         return [], []
     name = (node.get("name") or "").strip()
@@ -173,11 +207,18 @@ def node_interface(node):
         outputs = []
         for bid, p in _walk(params.get("_children")):
             if bid == "return_statement" and isinstance(p, dict) and isinstance(p.get("value"), str):
-                for n in return_names(p["value"]):
-                    if n not in outputs:
-                        outputs.append(n)
-        return inputs, outputs
-    return [], assigned_names(node)
+                value = p["value"].strip()
+                if len(value) >= 2 and value[0] in "([" and value[-1] in ")]" and len(split_commas(value[1:-1])) > 1:
+                    value = value[1:-1]
+                for piece in split_commas(value):
+                    name = _short(_port_name(piece))
+                    if name == "result":                      # several unnamed results get result, result_2, ...
+                        outputs.append(name)
+                    elif name not in outputs:                 # the same returned name twice is one port
+                        outputs.append(name)
+        return inputs, _unique(outputs)
+    declared_out = declared_names(node, "node_output")
+    return declared_names(node, "node_input"), (declared_out or assigned_names(node))
 
 
 _QUALIFIERS = {"const", "mut", "unsigned", "signed", "std", "final", "ref", "var", "let",
@@ -381,28 +422,34 @@ def data_wires(ordered_nodes):
     for node in ordered_nodes:
         if node.get("kind", "function") != "function":
             continue
-        local = set(node_interface(node)[0])          # its own parameters
-        for _bid, params in _walk(node.get("blocks")):
+        local = set(node_interface(node)[0]) if has_function(node) else set()      # its own parameters
+        for bid, params in _walk(node.get("blocks")):
             if not isinstance(params, dict):
                 continue
+            uses = []
+            if bid == "node_input" and isinstance(params.get("name"), str):
+                uses.append(params["name"].strip())          # "this node needs <name>": a use, even with no code reading it
             for key, value in params.items():
                 if key in _NOT_CODE_KEYS:
                     continue
-                for name in _value_idents(value):
-                    prod = latest.get(name)
-                    if name in local or prod is None:
-                        continue
-                    key2 = (prod["id"], node["id"])
-                    if key2 not in found:
-                        found[key2] = []
-                        pairs.append(key2)
-                    if name not in found[key2]:
-                        found[key2].append(name)
+                uses.extend(_value_idents(value))
+            for name in uses:
+                prod = latest.get(name)
+                if name in local or prod is None:
+                    continue
+                key2 = (prod["id"], node["id"])
+                if key2 not in found:
+                    found[key2] = []
+                    pairs.append(key2)
+                if name not in found[key2]:
+                    found[key2].append(name)
             var = params.get("variable")
             if isinstance(var, str):
                 local.update(idents(var))
+            if bid == "node_output" and isinstance(params.get("name"), str):
+                local.add(params["name"].strip())            # sent out here: later reads in this node are its own
         if not has_function(node):
-            for name in assigned_names(node):
+            for name in node_interface(node)[1]:
                 latest[name] = node
     return [(a, b, found[(a, b)]) for a, b in pairs]
 

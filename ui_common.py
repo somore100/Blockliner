@@ -100,6 +100,7 @@ CATEGORY_COLORS = {
     "String Operations": "#9cdcfe",
     "Modules": "#4fc1ff",
     "GUI": "#b5cea8",
+    "Nodes": "#ffb454",
     "Advanced": "#f48771",
     "Custom Blocks": "#ff6b9d"
 }

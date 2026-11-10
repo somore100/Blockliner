@@ -1,0 +1,18 @@
+{
+  "display_name": "Node Output",
+  "category": "Nodes",
+  "description": "Sends a value out of this node under a name, so other nodes can use it. The node's output port is named after it. Writes a normal assignment.",
+  "template": "[[name]] = [[value]]\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "identifier",
+      "default": "result"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": ""
+    }
+  ]
+}

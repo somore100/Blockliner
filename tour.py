@@ -26,8 +26,9 @@ STEPS = [
              "Tip: Shift+click a first and last block to pick many, then group them into a node. "
              "Ctrl+mouse wheel zooms the blocks."},
     {"id": "code", "target": "code", "layer": "blocks", "title": "The generated code",
-     "text": "This is the real code your blocks make, and it updates as you build. Pick the language in the Language box: "
-             "the same blocks can become Python, C, C++, C#, Java, JavaScript, Rust, Go or HTML. "
+     "text": "This is the real code your blocks make, and it updates as you build. Each file has one language, chosen in the "
+             "Language box (Python, C, C++, C#, Java, JavaScript, Rust, Go or HTML), and its blocks write that language. "
+             "Switching language empties the blocks, because blocks can't be converted between languages. "
              "You can also type code here and it turns into blocks."},
     {"id": "markers", "target": "code", "layer": "blocks", "title": "Those \u201c$$$blockliner\u201d lines",
      "text": "The lines like  # $$$blockliner:node:main$$$ start  and  ... end  mark where each node begins and ends "

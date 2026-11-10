@@ -103,7 +103,7 @@ venv\Scripts\pip install -r requirements.txt
 venv\Scripts\python main.py
 ```
 
-Your first five minutes: pick a language, add a **Print** block from the palette, press **Run** (Python runs inside the app), then switch the language and watch the same blocks produce different code.
+Your first five minutes: pick a language, add a **Print** block from the palette, and press **Run** (Python runs in its own process, with a Stop button). Other languages are exported and run with their own tools. Each file has one language; switching it empties the blocks, because blocks can't be converted between languages.
 
 ## How it works
 

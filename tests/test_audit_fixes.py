@@ -29,7 +29,7 @@ def main():
         with open(p, encoding="utf-8") as f:
             check("export text is written as UTF-8", f.read() == "arrow → and é")
         one, two = E.private_folder(), E.private_folder()
-        check("private folders are new and different", os.path.isdir(one) and one != two and (os.stat(one).st_mode & 0o077) == 0)
+        check("private folders are new and different", os.path.isdir(one) and one != two and (os.name == "nt" or (os.stat(one).st_mode & 0o077) == 0))
         os.rmdir(one); os.rmdir(two)
 
         # a new language is a real pack

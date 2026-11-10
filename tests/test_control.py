@@ -65,7 +65,7 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "sub", "control.json")
         C.write_control_file(path, 1234, "tok", "read")
-        check("the control file is owner-only and readable back", stat.S_IMODE(os.stat(path).st_mode) == 0o600 and C.read_control_file(path)["port"] == 1234)
+        check("the control file is owner-only and readable back", (os.name == "nt" or stat.S_IMODE(os.stat(path).st_mode) == 0o600) and C.read_control_file(path)["port"] == 1234)
         C.remove_control_file(path)
         check("removing it turns the channel off for the bridge", C.read_control_file(path) is None)
         open(path, "w").write("{"); 

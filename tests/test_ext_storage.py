@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as d:
     st.set_secret("me/x", "api_key", "sk-secret")
     path = os.path.join(d, "data", "me__x", "secrets.json")
     check("a secret is stored and read back", st.get_secret("me/x", "api_key") == "sk-secret" and st.get_secret("me/y", "api_key") is None)
-    check("the secrets file is owner-only", stat.S_IMODE(os.stat(path).st_mode) == 0o600)
+    check("the secrets file is owner-only", os.name == "nt" or stat.S_IMODE(os.stat(path).st_mode) == 0o600)   # Windows has no owner-only mode bits
     check("the manager sees names, not values", st.secret_names("me/x") == ["api_key"] and "sk-secret" not in repr(st.secret_names("me/x")))
     check("secrets stay out of the settings", "sk-secret" not in repr(st.get_settings("me/x")))
     check("bad secrets are refused", refused(st.set_secret, "me/x", "k", 5) and refused(st.set_secret, "me/x", "k", "x" * (S.MAX_SECRET + 1)) and refused(st.set_secret, "me/x", "no good", "v"))

@@ -144,6 +144,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4      # for RELEASE_NOTES.md (edit it before each tag)
+
       - uses: actions/download-artifact@v4
         with:
           name: Blockliner-Windows
@@ -169,9 +171,4 @@ jobs:
             dist-macos/Blockliner-macOS-Intel.zip
             dist-linux/Blockliner-x86_64.AppImage
           generate_release_notes: true
-          body: |
-            **Windows:** run `Blockliner.exe`.
-            **Linux:** `chmod +x Blockliner-x86_64.AppImage`, then run it.
-            **macOS:** pick the zip for your Mac (`AppleSilicon` for M1 or newer, `Intel` for older ones; Apple menu > About This Mac
-            tells you). Unzip it, drag `Blockliner.app` to Applications, then right-click it and choose **Open** the first time
-            (the app is not signed with an Apple developer account).
+          body_path: RELEASE_NOTES.md

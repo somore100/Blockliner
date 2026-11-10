@@ -10,7 +10,7 @@ from panels import PanelManager
 import block_zoom
 from scroll_modes import SNAP_THROTTLE_S, next_snap, normalize_mode, snap_points
 from panels import PanelSpec
-from block_templates import make_raw_code_block_source
+import language_scaffold
 from nodes_model import default_active_node_id, find_node_by_id
 from ui_common import BLOCK_SELECTED, CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, PRESET_LANGUAGES
 from ui_tabs import TabsMixin
@@ -136,13 +136,11 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         # anything you've already built out (including python/cpp's real
         # block sets).
         for lang in PRESET_LANGUAGES:
-            lang_blocks_path = os.path.join(languages_path, lang, "blocks")
-            if not os.path.isdir(lang_blocks_path):
-                os.makedirs(lang_blocks_path, exist_ok=True)
-                raw_code_path = os.path.join(lang_blocks_path, "raw_code.py")
-                if not os.path.exists(raw_code_path):
-                    with open(raw_code_path, "w") as f:
-                        f.write(make_raw_code_block_source(lang))
+            if not os.path.isdir(os.path.join(languages_path, lang, "blocks")):
+                try:
+                    language_scaffold.write_starter(languages_path, lang)
+                except (OSError, ValueError):
+                    pass
         
         self.load_blocks_for_language(self.current_language)
         self.load_and_merge_custom_blocks()

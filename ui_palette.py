@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import colorchooser, messagebox, ttk
 import os
 import shutil
-from block_templates import make_raw_code_block_source
+import language_scaffold
 import palette_search
 import language_groups
 import language_switch
@@ -455,31 +455,27 @@ class PaletteMixin:
         """Prompt user to add a new language folder"""
         def create_language():
             new_lang = entry.get().strip().lower()
-            if not new_lang:
-                messagebox.showwarning("Invalid", "Language name cannot be empty.")
+            problem = language_scaffold.name_problem(new_lang)
+            if problem:
+                messagebox.showwarning("Invalid", problem, parent=dialog)
                 return
-            new_path = os.path.join(self.languages_path, new_lang)
-            if os.path.exists(new_path):
-                messagebox.showwarning("Exists", f"Language '{new_lang}' already exists.")
+            if os.path.exists(os.path.join(self.languages_path, new_lang)):
+                messagebox.showwarning("Exists", f"Language '{new_lang}' already exists.", parent=dialog)
                 return
-            blocks_path = os.path.join(new_path, "blocks")
-            os.makedirs(blocks_path)
-
-            # Every language gets a Raw Code escape-hatch block by default,
-            # so there's always a way to write code the block set doesn't
-            # cover yet, even before any other blocks exist for it.
-            raw_code_path = os.path.join(blocks_path, "raw_code.py")
-            with open(raw_code_path, "w") as f:
-                f.write(make_raw_code_block_source(new_lang))
-
-            self.maybe_notify("Created", f"Language '{new_lang}' created with a starter Custom Code block.")
+            try:
+                language_scaffold.write_starter(self.languages_path, new_lang)
+            except (OSError, ValueError) as e:
+                messagebox.showerror("Could not create", str(e), parent=dialog)
+                return
+            self.maybe_notify("Created", f"Language '{new_lang}' created with a starter Raw Code block.")
             dialog.destroy()
-            
-            # Refresh language list and select new language
+
+            # Refresh the list and offer the new language; switching asks first
+            # when it would empty the open file's blocks (Cancel keeps the old language).
             self.lang_combo['values'] = self.language_dropdown_values()
             self.lang_var.set(new_lang)
-            self.on_language_change()
-        
+            self.on_language_pick()
+
         dialog = tk.Toplevel(self)
         dialog.title("Add New Language")
         dialog.geometry("300x120")
@@ -508,6 +504,10 @@ class PaletteMixin:
         dialog.bind("<Escape>", lambda e: dialog.destroy())
         return dialog
 
+    def _open_file_language(self):
+        tabs = getattr(self, "tabs", None)
+        return tabs[self.active_tab_index]["language"] if tabs else None
+
     def delete_language_dialog(self, lang=None):
         """Delete a language's entire folder (default: the current one), after confirming."""
         lang = lang or self.lang_var.get()
@@ -523,7 +523,8 @@ class PaletteMixin:
             f"Delete language '{lang}'?\n\n"
             f"This permanently removes the folder:\n{lang_path}\n\n"
             f"All blocks (including custom ones) defined only for '{lang}' will be lost.\n"
-            f"This cannot be undone."
+            + (f"The open file is {lang}, so its blocks are emptied too.\n" if self._open_file_language() == lang else "")
+            + f"This cannot be undone."
         )
         if not confirm:
             return
@@ -547,6 +548,8 @@ class PaletteMixin:
         self.lang_combo['values'] = self.language_dropdown_values()
         if self.lang_var.get() == lang:
             self.lang_var.set(langs[0])
+            if getattr(self, "tabs", None):
+                language_switch.clear_blocks(self.tabs[self.active_tab_index])   # said so in the question above
             self.on_language_change()
         self.maybe_notify("Deleted", f"Language '{lang}' deleted.")
 

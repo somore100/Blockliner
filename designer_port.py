@@ -50,6 +50,12 @@ class UIDocumentPort:
         """(runnable script | None, problems)."""
         raise NotImplementedError
 
+    def python_command(self):
+        """The program that runs a preview script. A packaged app's own
+        executable is the app itself, not Python, so then the user's setting is used."""
+        import sys
+        return "python3" if getattr(sys, "frozen", False) else sys.executable
+
     def regenerate(self):
         """Bring the generated code up to date with the stored tree."""
         raise NotImplementedError
@@ -96,6 +102,12 @@ class CodeBuilderUIPort(UIDocumentPort):
 
     def detach(self):
         ui_node.detach(self._cb.active_node())
+
+    def python_command(self):
+        import sys
+        if not getattr(sys, "frozen", False):
+            return sys.executable
+        return self._cb.python_command()
 
     def preview_source(self):
         node, pack = self._cb.context()

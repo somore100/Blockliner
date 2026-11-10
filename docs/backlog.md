@@ -136,3 +136,22 @@ Collected from testing; none of this is started.
   layout moved under it and the list flickered forever (the window froze at some zoom levels). The outline is now always 3 px; only its colour changes.
 - Wire to an ordinary node = run order (no call); function nodes are written first; the "now runs after" message is only shown for wires onto an
   existing node, not for nodes created from the wire-drop menu. See docs/nodes-connections-review.md.
+
+## Audit round (a second model reviewed the code; every claim below was checked in the code before fixing)
+- Fixed (tests/test_audit_fixes.py pure, tests/test_audit_fixes_ui.py Tk):
+  - B1 renaming a function node now renames its own Define Function too (the node stayed a "function node" and is still written first); calls typed as
+    text are listed in the change bar after the rename.
+  - B3 "Export & Run" had a pasted copy of Run at its end and executed the code in the app, even after Cancel. Removed.
+  - B4 export headers use the language's comment style (`//`, `<!-- -->`...), run hints and file endings cover every preset language (`export_helpers.py`).
+  - B5 "Add language" now writes a manifest and a Raw Code block (`language_scaffold.py`), so the new language has blocks; switching goes through the
+    guarded `on_language_pick` (asks before emptying blocks); deleting the open file's language says so; opening a code file of another language asks too.
+  - B6 UI designer Preview runs the Python from Settings in a packaged build (it used the app itself).
+  - B7 `enabled_by_default` only counts for built-in extensions; a hand-copied folder never starts without asking.
+  - C1 exports and settings are written/read as UTF-8. C13 "Run in Terminal" and "Open in VS Code" use a private temp folder.
+  - C3 a request answered "busy" is dropped from the queue, and an approval that comes late changes nothing (no double edits on retry).
+  - C5 undo history is kept on the workspace, not under `id(workspace)`. C6 node ids must be marker-safe on load; a non-object file entry is skipped.
+  - C9 projects in a user-added language load as that language. C10 embedded metadata parses for any comment token.
+- Not done yet (in the order planned): B2 run in a subprocess with a Stop button (Run still executes inside the app: `while True` cannot be stopped);
+  tests in CI + a test harness that uses a temp data folder (this also explains the `test_language_dropdown` hang: a modal "Languages Refreshed" box);
+  A1 per-language program skeleton in the packs (C, Go, Rust get no entry point; C++/Java put functions inside main); C2 atomic saves / overwrite
+  prompt / autosave; C4 extension restart and writes off the Tk thread; C7/C8 string escaping in custom/built-in blocks; C12 pin the release tools.

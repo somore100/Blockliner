@@ -10,12 +10,16 @@ nodes). Unknown top-level keys are ignored, so adding it won't break
 old files.
 """
 import json
+import re
 
 import groups_model
 import node_ports
 import ui_node
 import doc_types
 from nodes_model import make_node, normalize_orders, default_active_node_id
+
+# the characters the node marker lines can carry (portable.NODE_MARKER_RE)
+_SAFE_ID = re.compile(r"[A-Za-z0-9_\-]+")
 
 FORMAT = "blockliner-project"
 VERSION = 2
@@ -50,8 +54,8 @@ def _node_from_json(raw, seen_ids, notes):
     if not isinstance(name, str) or not name or kind not in KINDS:
         notes.append("A damaged node was skipped.")
         return None
-    if not isinstance(nid, str) or not nid or nid in seen_ids:
-        base = "".join(c if c.isalnum() or c == "_" else "_" for c in name) or "node"
+    if not isinstance(nid, str) or not _SAFE_ID.fullmatch(nid) or nid in seen_ids:
+        base = "".join(c if (c.isascii() and c.isalnum()) or c == "_" else "_" for c in name) or "node"
         nid, n = base, 2
         while nid in seen_ids:
             nid = f"{base}_{n}"
@@ -186,6 +190,9 @@ def parse_workspace_data(data, known_languages, fallback_language="python"):
     if isinstance(data, dict) and isinstance(data.get("files"), list):
         files = []
         for raw in data["files"]:
+            if not isinstance(raw, dict):
+                notes.append("A damaged file was skipped.")
+                continue
             try:
                 lang, nodes, active, n = parse_project_data(raw, known_languages, fallback_language)
             except ValueError:

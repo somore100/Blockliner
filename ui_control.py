@@ -62,11 +62,13 @@ class ControlMixin:
     # ---- requests: queued from server threads, answered on the Tk thread -------------
     def _control_handler(self, method, params):
         reply = queue.Queue()
+        reply.cancelled = False                  # set when the caller gave up: a late approval must not apply the edit
         self._control_inbox.put((method, params, reply))
         wait = EDIT_WAIT if method in C.EDIT_METHODS else READ_WAIT
         try:
             answer = reply.get(timeout=wait)
         except queue.Empty:
+            reply.cancelled = True
             raise C.ControlError("busy", "Blockliner did not answer in time")
         if isinstance(answer, ext_runner.ExtensionError):
             raise C.ControlError(answer.code, answer.message)
@@ -78,10 +80,15 @@ class ControlMixin:
         try:
             while True:
                 method, params, reply = self._control_inbox.get_nowait()
+                if getattr(reply, "cancelled", False):
+                    continue                     # the caller already got "busy"; doing it now would double up on a retry
+                self._edit_reply = reply
                 try:
                     reply.put(self._control_handle(method, params))
                 except Exception as e:
                     reply.put(C.ControlError("failed", f"Blockliner could not do that ({e})"))
+                finally:
+                    self._edit_reply = None
         except queue.Empty:
             pass
         self.after(PUMP_MS, self._control_pump)

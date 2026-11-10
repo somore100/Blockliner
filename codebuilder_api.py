@@ -32,6 +32,10 @@ class CodeBuilderFacade:
         """The node open in the editor (a function node)."""
         return self._app.get_active_node(self._tab())
 
+    def python_command(self):
+        """The Python the user chose in Settings (the app may be a packaged build with no python of its own)."""
+        return (getattr(self._app, "settings", None) or {}).get("python_command") or "python3"
+
     def ui_pack(self):
         """The UI pack of the open node (its own UI library), or the file's default, or None."""
         node = self.active_node()

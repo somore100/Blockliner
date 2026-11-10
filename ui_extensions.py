@@ -79,10 +79,12 @@ class ExtensionsMixin:
             return {"ok": True}
         if method in ("project.read", "project.edit"):
             reply = queue.Queue()
+            reply.cancelled = False
             self._ext_inbox.put((ext_id, method, params, reply))        # answered on the Tk thread
             try:
                 answer = reply.get(timeout=5)
             except queue.Empty:
+                reply.cancelled = True
                 raise ext_runner.ExtensionError("busy", "Blockliner did not answer in time; try again")
             if isinstance(answer, Exception):
                 raise answer
@@ -240,11 +242,16 @@ class ExtensionsMixin:
         try:
             while True:
                 item = self._ext_inbox.get_nowait()
+                if item[3] is not None and getattr(item[3], "cancelled", False):
+                    continue                                # the extension was told "busy"; do not do it behind its back
+                self._edit_reply = item[3]
                 try:
                     self._ext_handle_message(*item)
                 except Exception as e:                      # a bug here must not stop the loop or leave a caller waiting
                     if item[3] is not None:
                         item[3].put(ext_runner.ExtensionError("failed", f"Blockliner could not do that ({e})"))
+                finally:
+                    self._edit_reply = None
         except queue.Empty:
             pass
         self._ext_ticks += 1
@@ -324,11 +331,16 @@ class ExtensionsMixin:
             new_files, summary = extensions_api.apply_edits(ws["files"], edits, known, code_to_blocks)
         except extensions_api.EditError as e:
             return ext_runner.ExtensionError("invalid", str(e))
+        def gone():
+            reply = self.__dict__.get("_edit_reply")
+            return reply is not None and getattr(reply, "cancelled", False)
         if confirm:
             shown = "\n".join(f"  \u2022 {line}" for line in summary[:10]) + (f"\n  ... and {len(summary) - 10} more" if len(summary) > 10 else "")
             if not messagebox.askyesno("Allow this change?", f"{source} wants to change your project:\n\n{shown}\n\n"
                                        "You can undo it afterwards (File > Undo)."):
                 return ext_runner.ExtensionError("declined", "the user declined the change")
+        if gone():
+            return ext_runner.ExtensionError("busy", "the request timed out before it was approved, so nothing was changed")
         self.record_project_undo(f"{source}: {summary[0]}" + (f" (+{len(summary) - 1} more)" if len(summary) > 1 else ""))
         ws["active_index"] = project_undo.restore_files(ws["files"], {"files": new_files, "active_index": ws["active_index"]})
         self._show_active_file(self.view_mode)

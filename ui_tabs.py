@@ -402,7 +402,7 @@ class TabsMixin:
         settings = dict(DEFAULT_SETTINGS)
         if os.path.exists(APP_SETTINGS_PATH):
             try:
-                with open(APP_SETTINGS_PATH, "r") as f:
+                with open(APP_SETTINGS_PATH, "r", encoding="utf-8") as f:
                     saved = json.load(f)
                 settings.update(saved)
             except Exception as e:
@@ -415,7 +415,7 @@ class TabsMixin:
         if not os.path.exists(user_data_dir):
             os.makedirs(user_data_dir)
         try:
-            with open(APP_SETTINGS_PATH, "w") as f:
+            with open(APP_SETTINGS_PATH, "w", encoding="utf-8") as f:
                 json.dump(self.settings, f, indent=2)
         except Exception as e:
             print(f"Failed to save app settings: {e}")

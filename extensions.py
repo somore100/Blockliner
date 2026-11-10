@@ -131,6 +131,7 @@ def find_extensions(roots):
             seen.add(manifest["id"])
             if scope != "built-in":
                 manifest["builtin"] = ""             # only shipped extensions may use built-in code
+                manifest["enabled_by_default"] = False  # nor may a hand-copied folder start itself without asking
             found.append({"manifest": manifest, "folder": folder, "scope": scope, "notes": notes})
     return found
 

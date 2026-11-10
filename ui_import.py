@@ -471,7 +471,7 @@ class ImportMixin:
                 )
                 if switch:
                     self.lang_var.set(detected_lang)
-                    self.on_language_change()
+                    self.on_language_pick()
             else:
                 messagebox.showinfo(
                     "Language Not Set Up",

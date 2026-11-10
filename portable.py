@@ -117,13 +117,25 @@ def render_meta_block(meta, token):
     return "\n".join(lines) + "\n"
 
 
-def _uncomment(line):
+def _uncomment(line, opener=None, closer=None):
+    """The text of one commented line. opener/closer are what the metadata's start/end
+    tag lines used (any language's comment style, e.g. '--' or '<!--' and '-->');
+    without them the three usual openers are tried."""
     s = line.strip()
-    for opener in ("<!--", "//", "#"):
+    opener = (opener or "").strip()
+    closer = (closer or "").strip()
+    if opener:
         if s.startswith(opener):
             s = s[len(opener):]
-            break
-    if s.endswith("-->"):
+    else:
+        for known in ("<!--", "//", "#"):
+            if s.startswith(known):
+                s = s[len(known):]
+                break
+    if closer:
+        if s.endswith(closer):
+            s = s[:-len(closer)]
+    elif s.endswith("-->"):
         s = s[:-3]
     return s[1:] if s.startswith(" ") else s
 
@@ -203,7 +215,9 @@ def parse_portable(text, ignore_lines=()):
         if end is None:
             diagnostics.append("metadata block was never closed - ignored")
         else:
-            raw = "\n".join(_uncomment(ln.rstrip("\n")) for ln in lines[start + 1:end])
+            opener = lines[start].split(META_START_TAG)[0]
+            closer = lines[end].split(META_END_TAG, 1)[1] if META_END_TAG in lines[end] else ""
+            raw = "\n".join(_uncomment(ln.rstrip("\n"), opener, closer) for ln in lines[start + 1:end])
             try:
                 parsed = json.loads(raw)
                 if isinstance(parsed, dict) and isinstance(parsed.get("nodes"), dict):

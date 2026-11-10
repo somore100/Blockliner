@@ -12,7 +12,8 @@ import portable
 import project_file
 import doc_types
 import code_autoclose
-from ui_common import BLOCKLINER_SAVES_PATH, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
+import export_helpers
+from ui_common import BLOCKLINER_SAVES_PATH, LANGUAGE_EXTENSIONS, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
 class CodegenMixin:
@@ -574,7 +575,7 @@ class CodegenMixin:
             self.sync_active_tab_state()
             ws = self.workspaces[self.active_ws_index]
             text = project_file.dumps_workspace(ws["files"], ws["active_index"], ws.get("groups"))
-            with open(filepath, 'w') as f:
+            with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(text)
 
             ws["filepath"] = filepath
@@ -601,14 +602,14 @@ class CodegenMixin:
         )
         if filename:
             try:
-                with open(filename, 'r') as f:
+                with open(filename, 'r', encoding='utf-8') as f:
                     project_data = json.load(f)
                 problem = doc_types.unsupported_message(project_data)
                 if problem:
                     messagebox.showerror("Load Error", problem)
                     return
                 files, active_index, notes = project_file.parse_workspace_data(
-                    project_data, PRESET_LANGUAGES, self.current_language)
+                    project_data, self.get_available_languages(), self.current_language)
                 stem = os.path.splitext(os.path.basename(filename))[0]
                 for i, fl in enumerate(files):
                     fl["filepath"] = None
@@ -645,8 +646,7 @@ class CodegenMixin:
             return
         
         lang = self.lang_var.get()
-        ext_map = {"python": ".py", "cpp": ".cpp", "javascript": ".js", "rust": ".rs"}
-        ext = ext_map.get(lang, ".txt")
+        ext = export_helpers.file_ending(lang, LANGUAGE_EXTENSIONS)
         
         filename = filedialog.asksaveasfilename(
             defaultextension=ext,
@@ -655,7 +655,7 @@ class CodegenMixin:
         )
         if filename:
             try:
-                with open(filename, 'w') as f:
+                with open(filename, 'w', encoding='utf-8') as f:
                     f.write(code)
                 note = ""
                 if not self.show_markers_setting():
@@ -679,6 +679,14 @@ class CodegenMixin:
             f.write(portable.render_sidecar(meta))
         return f"\n{side}"
 
+    def run_folder(self):
+        """A private temp folder for scripts we hand to a terminal (made once per
+        session; never the current folder, which a packaged app may not own)."""
+        folder = self.__dict__.get("_run_folder")
+        if folder is None or not os.path.isdir(folder):
+            folder = self.__dict__["_run_folder"] = export_helpers.private_folder()
+        return folder
+
     def run_in_terminal(self):
         """Run code in external terminal"""
         code = self.get_clean_code()
@@ -691,9 +699,8 @@ class CodegenMixin:
         try:
             if lang == "python":
                 # Create temp Python file
-                temp_file = os.path.join(os.getcwd(), "temp_blockliner_script.py")
-                with open(temp_file, 'w') as f:
-                    f.write(code)
+                temp_file = os.path.join(self.run_folder(), "blockliner_script.py")
+                export_helpers.write_text(temp_file, code)
                 
                 # Run in terminal based on OS
                 if os.name == 'nt':  # Windows
@@ -707,11 +714,9 @@ class CodegenMixin:
             
             elif lang == "cpp":
                 # Create temp C++ file
-                temp_cpp = os.path.join(os.getcwd(), "temp_blockliner_script.cpp")
-                temp_exe = os.path.join(os.getcwd(), "temp_blockliner_script.exe")
-                
-                with open(temp_cpp, 'w') as f:
-                    f.write(code)
+                temp_cpp = os.path.join(self.run_folder(), "blockliner_script.cpp")
+                temp_exe = os.path.join(self.run_folder(), "blockliner_script.exe")
+                export_helpers.write_text(temp_cpp, code)
                 
                 # Compile C++ code
                 messagebox.showinfo("Compiling", "Compiling C++ code...\nThis may take a moment.")
@@ -738,7 +743,7 @@ class CodegenMixin:
                 
                 else:  # macOS/Linux
                     compile_result = subprocess.run(
-                        [self.settings.get("cpp_compiler", "g++"), temp_cpp, '-o', 'temp_blockliner_script'],
+                        [self.settings.get("cpp_compiler", "g++"), temp_cpp, '-o', temp_exe],
                         capture_output=True,
                         text=True
                     )
@@ -751,7 +756,7 @@ class CodegenMixin:
                         return
                     
                     term_cmd = self.settings.get("terminal_command", "gnome-terminal --").split()
-                    subprocess.Popen(term_cmd + ['./temp_blockliner_script'])
+                    subprocess.Popen(term_cmd + [temp_exe])
                     messagebox.showinfo("Running", "C++ program is running in terminal!")
             
             else:
@@ -782,17 +787,13 @@ class CodegenMixin:
         
         try:
             lang = self.lang_var.get()
-            ext_map = {"python": ".py", "cpp": ".cpp", "javascript": ".js", "rust": ".rs"}
-            ext = ext_map.get(lang, ".txt")
+            ext = export_helpers.file_ending(lang, LANGUAGE_EXTENSIONS)
             
             # Create a temp file
-            temp_file = os.path.join(tempfile.gettempdir(), f"blockliner_script{ext}")
-            with open(temp_file, 'w') as f:
-                # Add header comment
-                f.write(f"# Generated by Blockliner - by domore100\n")
-                f.write(f"# Language: {lang}\n")
-                f.write(f"# Project blocks: {len(self.project_blocks)}\n\n")
-                f.write(code)
+            temp_file = os.path.join(export_helpers.private_folder(), f"blockliner_script{ext}")
+            token = self.get_comment_token(lang)
+            export_helpers.write_text(temp_file, export_helpers.header(
+                token, lang, [f"Project blocks: {len(self.project_blocks)}"]) + code)
             
             # Try to open in VS Code
             try:
@@ -825,8 +826,7 @@ class CodegenMixin:
             return
         
         lang = self.lang_var.get()
-        ext_map = {"python": ".py", "cpp": ".cpp", "javascript": ".js", "rust": ".rs"}
-        ext = ext_map.get(lang, ".txt")
+        ext = export_helpers.file_ending(lang, LANGUAGE_EXTENSIONS)
         
         filename = filedialog.asksaveasfilename(
             defaultextension=ext,
@@ -836,17 +836,17 @@ class CodegenMixin:
         
         if filename:
             try:
-                with open(filename, 'w') as f:
-                    f.write(f"# Generated by Blockliner - by domore100\n")
-                    f.write(f"# Language: {lang}\n\n")
-                    f.write(code)
+                export_helpers.write_text(filename, export_helpers.header(self.get_comment_token(lang), lang) + code)
                 
                 # Provide run instructions
                 run_instructions = {
                     "python": f"python {os.path.basename(filename)}",
                     "cpp": f"g++ {os.path.basename(filename)} -o output && ./output",
+                    "c": f"gcc {os.path.basename(filename)} -o output && ./output",
                     "javascript": f"node {os.path.basename(filename)}",
-                    "rust": f"rustc {os.path.basename(filename)} && ./output"
+                    "rust": f"rustc {os.path.basename(filename)} && ./output",
+                    "go": f"go run {os.path.basename(filename)}",
+                    "java": f"javac {os.path.basename(filename)} && java {os.path.splitext(os.path.basename(filename))[0]}",
                 }
                 
                 instruction = run_instructions.get(lang, f"Run with appropriate compiler/interpreter")
@@ -857,121 +857,7 @@ class CodegenMixin:
                 )
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export: {e}")
-        """Execute generated Python code in a thread to prevent freezing"""
-        code = self.get_clean_code()
-        if not code or code.startswith("# No code"):
-            messagebox.showwarning("No Code", "Generate some code first!")
-            return
-        
-        if self.lang_var.get() != "python":
-            messagebox.showinfo("Python Only", "Only Python code can be run directly.\nExport and compile/run externally.")
-            return
-        
-        # Create output window
-        output_window = tk.Toplevel(self)
-        output_window.title("Program Output")
-        output_window.geometry("700x500")
-        output_window.configure(bg=DARK_BG)
-        
-        # Header
-        header = tk.Frame(output_window, bg=DARK_ACCENT, height=40)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        
-        tk.Label(
-            header,
-            text="▶ Program Output",
-            bg=DARK_ACCENT,
-            fg="white",
-            font=("Segoe UI", 12, "bold")
-        ).pack(side=tk.LEFT, padx=15, pady=10)
-        
-        # Output text
-        output_text = tk.Text(
-            output_window,
-            bg="#1e1e1e",
-            fg="#00ff00",
-            font=("Consolas", 10),
-            padx=15,
-            pady=15,
-            wrap=tk.WORD
-        )
-        output_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Run in thread to prevent UI freezing
-        def execute_code():
-            import sys
-            from io import StringIO
-            
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
-            old_stdin = sys.stdin
-            
-            sys.stdout = StringIO()
-            sys.stderr = StringIO()
-            
-            # Create a custom input handler
-            input_buffer = []
-            
-            def custom_input(prompt=""):
-                # Schedule input dialog on main thread
-                result = []
-                def show_input():
-                    user_input = tk.simpledialog.askstring("Input", prompt, parent=output_window)
-                    result.append(user_input if user_input is not None else "")
-                
-                output_window.after(0, show_input)
-                # Wait for result
-                while not result:
-                    import time
-                    time.sleep(0.1)
-                return result[0]
-            
-            # Replace built-in input
-            import builtins
-            old_input = builtins.input
-            builtins.input = custom_input
-            
-            try:
-                exec(code, {"__builtins__": builtins})
-                stdout_output = sys.stdout.getvalue()
-                stderr_output = sys.stderr.getvalue()
-                
-                def update_output():
-                    if stdout_output:
-                        output_text.insert(tk.END, stdout_output)
-                    if stderr_output:
-                        output_text.insert(tk.END, f"\n--- Errors ---\n{stderr_output}", "error")
-                        output_text.tag_config("error", foreground="#ff5555")
-                    if not stdout_output and not stderr_output:
-                        output_text.insert(tk.END, "✓ Program executed successfully (no output)")
-                
-                output_window.after(0, update_output)
-                
-            except Exception as e:
-                # Capture the message now - 'e' is deleted the moment this
-                # except block exits (Python does this automatically), but
-                # show_error runs later via .after(), by which point 'e'
-                # would already be gone, causing a NameError/free-variable
-                # crash every single time a runtime error occurred.
-                error_message = str(e)
 
-                def show_error():
-                    output_text.insert(tk.END, f"❌ Runtime Error:\n{error_message}", "error")
-                    output_text.tag_config("error", foreground="#ff5555")
-                
-                output_window.after(0, show_error)
-                
-            finally:
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
-                sys.stdin = old_stdin
-                builtins.input = old_input
-        
-        # Start execution in thread
-        thread = threading.Thread(target=execute_code, daemon=True)
-        thread.start()
-    
     def run_code(self):
         """Execute generated Python code in a thread to prevent freezing - runs in Blockliner"""
         code = self.get_clean_code()

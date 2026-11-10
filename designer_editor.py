@@ -1033,7 +1033,7 @@ class UIDesignerEditor:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(source)
         try:
-            proc = subprocess.Popen([sys.executable, path], stdout=subprocess.DEVNULL,
+            proc = subprocess.Popen([self.port.python_command(), path], stdout=subprocess.DEVNULL,
                                     stderr=subprocess.PIPE, text=True)
         except OSError as e:
             os.unlink(path)

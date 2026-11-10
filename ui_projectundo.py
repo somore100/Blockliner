@@ -15,7 +15,6 @@ TEXT_CLASSES = ("Entry", "TEntry", "Spinbox", "TSpinbox", "TCombobox", "Text")
 class ProjectUndoMixin:
 
     def install_project_undo(self):
-        self._undo_stacks = {}               # id(workspace) -> UndoStack
         self._change_bar = None
         self._change_job = None
         self.bind_all("<Control-z>", self._undo_key, add="+")
@@ -27,7 +26,8 @@ class ProjectUndoMixin:
 
     def _undo_stack(self):
         ws = self.workspaces[self.active_ws_index]
-        return self._undo_stacks.setdefault(id(ws), project_undo.UndoStack())
+        # kept on the workspace itself, so a closed project takes its history along
+        return ws.setdefault("undo_stack", project_undo.UndoStack())
 
     def _typing_in_a_box(self):
         w = self.focus_get()

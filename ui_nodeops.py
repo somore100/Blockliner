@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import contextlib
+import re
 import nodes_model
 import node_function
 import node_ports
@@ -319,13 +320,25 @@ class NodeOpsMixin:
         if any(n is not node and n["name"] == new_name for n, _p in self.iter_tab_nodes(tab)):
             return False, f"Another node in this file is already called '{new_name}'.", 0
         updated = 0
+        self._rename_text_mentions = []
         if node.get("kind", "function") == "function":
+            call_text = re.compile(r"(?<![\w.])" + re.escape(old) + r"\s*\(")
             with self._language_scope(tab["language"]):
                 for other in self.all_function_nodes(tab):
                     for bid, params in self.iter_all_blocks_recursive(other["blocks"]):
+                        if not isinstance(params, dict):
+                            continue
                         if bid == "func_call" and (params.get("name") or "").strip() == old:
                             params["name"] = new_name
                             updated += 1
+                        elif bid == "func_def" and other is node and (params.get("name") or "").strip() == old:
+                            # the node's own function keeps the node's name, or it stops being
+                            # a function node and would be written after the code that calls it
+                            params["name"] = new_name
+                            updated += 1
+                        elif bid != "func_def" and other["name"] not in self._rename_text_mentions and any(
+                                isinstance(v, str) and call_text.search(v) for v in params.values()):
+                            self._rename_text_mentions.append(other["name"])
         node["name"] = new_name
         self.mark_active_tab_dirty()
         # Rewritten func_calls can change other boxes' ports: full refresh then.
@@ -576,6 +589,10 @@ class NodeOpsMixin:
         ok, msg, _n = self.rename_node(tab, node, name)
         if not ok:
             messagebox.showwarning("Can't rename", msg)
+            return
+        typed = getattr(self, "_rename_text_mentions", [])
+        if typed:
+            self.show_change_bar(f"Renamed. Calls typed as text still use the old name, check: {', '.join(typed)}.")
 
     def delete_node_dialog(self, node_id):
         tab = self.tabs[self.active_tab_index]

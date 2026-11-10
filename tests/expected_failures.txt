@@ -1,0 +1,4 @@
+# Tests that are known to fail in some setups, one per line: name  # reason.
+# run_all.py reports them as XFAIL (not counted as failures); if one passes it says XPASS.
+test_layer_step.py      # needs a window manager for keybind capture (plain Xvfb has none)
+test_order_conflict.py  # needs a window manager for one scroll check

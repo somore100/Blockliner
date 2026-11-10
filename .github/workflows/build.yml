@@ -15,7 +15,12 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Nothing is built or published unless the tests pass (see tests.yml).
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build-windows:
+    needs: tests
     runs-on: windows-latest
     env:
       PYTHONUTF8: "1"
@@ -50,6 +55,7 @@ jobs:
           if-no-files-found: error
 
   build-macos:
+    needs: tests
     # Two Macs: macos-latest is Apple Silicon (arm64); macos-15-intel is the Intel (x86_64) runner.
     strategy:
       fail-fast: false
@@ -91,6 +97,7 @@ jobs:
           if-no-files-found: error
 
   build-linux:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

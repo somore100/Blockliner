@@ -161,3 +161,11 @@ Collected from testing; none of this is started.
   "Python command" (falls back to python3/python/py, and to the app's own Python only when run from source). It runs in the saved project's folder, else a
   private temp folder. Tests: tests/test_program_runner.py (pure), tests/test_run_window.py (Tk; set BLOCKLINER_TEST_PYTHON to a python with no Tk needs).
   Not built: running other languages, a "stop after N seconds" setting, line numbers that match the code panel (the file has no marker lines).
+- Built (tests + CI): `tests/run_all.py` runs every test in its own process with an empty throw-away data folder (`BLOCKLINER_DATA_DIR`) and message/file
+  dialogs answered (`tests/run_one.py`), so tests never read the real settings or wait on a modal box. This cured the `test_language_dropdown` hang
+  (a "Languages Refreshed" box). Known window-manager-only failures are in `tests/expected_failures.txt` (XFAIL, not counted). `--strict` makes a
+  skipped test (missing module) a failure; `--pure` / `--window` / name filters; `--python CMD` picks the interpreter.
+  `.github/workflows/tests.yml`: Ubuntu (Python 3.11 and 3.13, xvfb + openbox) on every push to main and pull request; a Windows job for the no-window tests
+  (informational). `build.yml` now has `tests` first and every build job `needs: tests`, so a tag with a red test publishes nothing.
+  UNVERIFIED on GitHub: written and checked locally only (YAML parses; the runner passes everything here). The first push will show whether Tk 8.6 on
+  the runners agrees with the Tk 9 the tests were written on; if a test fails only there, add it to expected_failures.txt with the reason, or fix it.

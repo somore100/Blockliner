@@ -165,7 +165,7 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 **Beta (version 2.x).** The core is built and used daily by its author: you can build, wire, save, reopen and export projects in all nine languages. Beta here means:
 
 - It is developed and tested mainly on **Linux**. Windows and macOS builds exist but have had much less real-world use.
-- Some newer features have only been tested automatically (a headless UI test suite of 50+ files), not on every desktop.
+- Some newer features have only been tested automatically (a headless UI test suite of 120+ files), not on every desktop.
 - File formats can still change between versions. **Keep backups of projects you care about.**
 - Some features are partial; see [Known limitations](#known-limitations).
 
@@ -224,10 +224,12 @@ Ideas, bug reports and language packs are welcome: open an [issue](https://githu
 To run the tests:
 
 ```bash
-for t in tests/test_*.py; do venv/bin/python "$t" || break; done
+venv/bin/python tests/run_all.py            # everything
+venv/bin/python tests/run_all.py --pure     # only the tests that need no window
+venv/bin/python tests/run_all.py tour       # only tests whose file name contains "tour"
 ```
 
-The interface tests need a display; on a headless machine run them under `xvfb-run -a`.
+Each test runs in its own process with an empty data folder (your real settings are never touched) and message boxes are answered automatically. The interface tests need a display; on a headless machine run `xvfb-run -a venv/bin/python tests/run_all.py`. Tests that are known to need a window manager are listed in `tests/expected_failures.txt`. GitHub runs the same thing (`.github/workflows/tests.yml`) on every push and before a release is built.
 
 ## License
 

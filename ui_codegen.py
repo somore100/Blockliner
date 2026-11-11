@@ -13,6 +13,7 @@ import project_file
 import doc_types
 import code_autoclose
 import export_helpers
+import safe_write
 from ui_common import BLOCKLINER_SAVES_PATH, LANGUAGE_EXTENSIONS, PRESET_LANGUAGES, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, get_block_attr, safe_grab_set
 
 
@@ -470,7 +471,18 @@ class CodegenMixin:
         self.line_count_label.config(text=f"{line_count} lines")
     
     def save_project(self):
-        """Save project - shows a small dialog to name the file and
+        """Save (Ctrl+S): straight to the file this project already lives in; a project
+        that has no file yet asks where (Save As)."""
+        self.sync_active_tab_state()
+        ws = self.workspaces[self.active_ws_index]
+        if ws.get("filepath"):
+            if self._write_project_file(ws["filepath"], quiet=True):
+                self.show_change_bar(f"Saved to {ws['filepath']}", undo=False)
+            return
+        self.save_project_as()
+
+    def save_project_as(self):
+        """Save As (Ctrl+Shift+S) - shows a small dialog to name the file and
         choose where it goes: Blockliner's own saves folder, or any
         custom location via the normal file browser."""
         self.sync_active_tab_state()
@@ -526,6 +538,10 @@ class CodegenMixin:
                 name += ".json"
             os.makedirs(BLOCKLINER_SAVES_PATH, exist_ok=True)
             filepath = os.path.join(BLOCKLINER_SAVES_PATH, name)
+            if (os.path.exists(filepath) and os.path.abspath(filepath) != os.path.abspath(ws.get("filepath") or "")
+                    and not messagebox.askyesno("Replace file?", f"'{name}' already exists in the app folder.\n\n"
+                                                "Replace it? (the old version is kept next to it as a .bak file)", parent=dialog)):
+                return
             if self._write_project_file(filepath):
                 dialog.destroy()
 
@@ -568,23 +584,26 @@ class CodegenMixin:
         return len(tab["nodes"]) < 2 and not any(
             n["blocks"] for n in self.all_function_nodes(tab))
 
-    def _write_project_file(self, filepath):
-        """Write the whole workspace (every file in this tab) as JSON.
+    def _write_project_file(self, filepath, quiet=False):
+        """Write the whole workspace (every file in this tab) as JSON, all at once (a crash
+        mid-save leaves the old file whole; the previous version stays as '<name>.bak').
         Returns True on success."""
         try:
             self.sync_active_tab_state()
             ws = self.workspaces[self.active_ws_index]
             text = project_file.dumps_workspace(ws["files"], ws["active_index"], ws.get("groups"))
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(text)
+            safe_write.write_text_atomic(filepath, text, keep_backup=True)
 
             ws["filepath"] = filepath
             ws["title"] = os.path.splitext(os.path.basename(filepath))[0]
             for f in ws["files"]:
                 f["dirty"] = False
             self.refresh_tab_bar()
+            if hasattr(self, "forget_recovery"):
+                self.forget_recovery(ws)
 
-            self.maybe_notify("Saved", f"Project saved to:\n{filepath}")
+            if not quiet:
+                self.maybe_notify("Saved", f"Project saved to:\n{filepath}")
             return True
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save: {e}")

@@ -172,3 +172,18 @@ Collected from testing; none of this is started.
 - Built (untested on the desktop): "How it fits" button at the left of the layer bar (also Help > How is a project built?, and the command palette) opens
   a window that draws a file holding nodes holding blocks, next to the code it makes (nodes shaded, marker lines grey), with a "Show me" button per layer.
   Content: structure_help.py (pure); window: ui_structure.py. Test: tests/test_structure_help.py. Possible later: link it from the tour's layers step.
+- Built (C2, saves): File > Save (Ctrl+S) saves straight to the project's file, with a small "Saved to ..." bar; a project with no file yet asks
+  where. File > Save As... (Ctrl+Shift+S) is the old dialog. Writes are all-or-nothing (`safe_write.py`: temp file + swap), and the previous version stays
+  as `<name>.json.bak`. "Save to App Folder" asks before replacing an existing file.
+- Built (autosave / recovery): every `autosave_seconds` (Settings > Files, default 60, 0 = off) each project with unsaved changes gets a recovery copy in
+  `<data folder>/user_data/recovery/` (never over the user's own file; `autosave.py`, `ui_autosave.py`). Saving, closing the tab, or quitting on purpose
+  deletes it; after a crash the next start offers "Recover your work?" (Yes reopens them unsaved, No deletes the copies; copies older than 30 days are dropped).
+  The tour waits until that question is answered (`startup_sequence`). Tests: tests/test_autosave.py (pure), tests/test_save_autosave_ui.py (Tk).
+  Not built: a "recover" list in the File menu, per-file (not per-project) copies, Windows owner-only permissions on the copies.
+
+## Next up (2026-11-11)
+- Source-first mode (a per-project mode next to today's blocks-first one; link a folder, follow outside/AI edits, auto-create nodes, write back by node):
+  design and phases in docs/source-first-mode.md. Needs the author's answer on node-creation pain points first.
+- A1 per-language program skeletons (C, Go, Rust have no entry point; C++/Java put functions in main).
+- Audit leftovers: C4 extension restart/writes off the Tk thread, C7/C8 string escaping, C12 pin release tools, Node 20 action bump.
+- Autosave follow-ups: a File > "Recover..." list, Windows owner-only permissions for recovery/secrets files.

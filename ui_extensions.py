@@ -56,6 +56,8 @@ class ExtensionsMixin:
                 + ("\n  \u2026" if len(unsaved) > 8 else "") + "\n\nClose Blockliner anyway?"):
             return
         try:
+            if hasattr(self, "clear_recovery"):
+                self.clear_recovery()                       # leaving on purpose: nothing to recover
             if hasattr(self, "stop_control"):
                 self.stop_control()
             self._ext_host.stop_all()

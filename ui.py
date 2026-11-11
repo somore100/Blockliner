@@ -43,6 +43,7 @@ from ui_uinode import UINodeMixin
 from ui_designer import DESIGNER_SPEC, DesignerMixin
 from ui_tour import TourMixin
 from ui_structure import StructureMixin
+from ui_autosave import AutosaveMixin
 from editors import EditorRegistry
 # Re-exported so `ui.<name>` keeps working for tests and old imports.
 from nodes_model import *  # noqa: F401,F403
@@ -51,7 +52,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
@@ -617,6 +618,7 @@ class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, Bloc
         self.install_code_sync()
         self.install_line_check()
         self.install_project_undo()
+        self.install_autosave()
         self.install_control()
         self.install_extensions()
         self.install_commands()
@@ -683,5 +685,5 @@ def start_ui(blocks=None, initial_lang="python", languages_path="languages"):
     """Start the Blockliner UI"""
     app = BlocklinerUI(initial_lang=initial_lang, languages_path=languages_path)
     app.goto_layer("files")          # open on the Files layer; tests build BlocklinerUI directly and keep the Blocks start
-    app.after(900, app.maybe_start_tour)     # offered once, to someone who hasn't seen it
+    app.after(700, app.startup_sequence)     # offered once, to someone who hasn't seen it
     app.mainloop()

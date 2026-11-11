@@ -4,6 +4,7 @@ from tkinter import colorchooser, messagebox, ttk
 import os
 import shutil
 import language_scaffold
+import autosave
 import palette_search
 import language_groups
 import language_switch
@@ -847,6 +848,11 @@ class PaletteMixin:
         ).pack(side=tk.LEFT)
         add_help("Exported code always has node start/end markers. Node names, order and layout go in a separate .blockliner.json file, or inside the code file.")
 
+        row = add_row("Recovery copy every (seconds):")
+        auto_var = tk.StringVar(value=str(autosave.seconds(self.settings)))
+        ttk.Spinbox(row, from_=0, to=autosave.MAX_SECONDS, increment=30, textvariable=auto_var, width=8).pack(side=tk.LEFT)
+        add_help("Blockliner keeps a copy of unsaved projects and offers it back if it ever closes unexpectedly. 0 turns this off. It never replaces your own file.")
+
         row = add_row("Clean project undo (seconds):")
         undo_var = tk.StringVar(value=str(clean_undo.undo_seconds(self.settings)))
         ttk.Spinbox(row, from_=0, to=clean_undo.MAX_SECONDS, increment=30, textvariable=undo_var, width=8).pack(side=tk.LEFT)
@@ -1000,6 +1006,7 @@ class PaletteMixin:
             self.settings["code_sync_confirm"] = bool(sync_confirm_var.get())
             self.settings["zoom_speed"] = next(
                 (k for k, label, _f in ZOOM_SPEED_CHOICES if label == zoom_var.get()), DEFAULT_ZOOM_SPEED)
+            self.settings["autosave_seconds"] = autosave.seconds({"autosave_seconds": auto_var.get()})
             self.settings["clean_undo_seconds"] = clean_undo.undo_seconds({"clean_undo_seconds": undo_var.get()})
             self.settings["line_check"] = bool(line_check_var.get())
             try:

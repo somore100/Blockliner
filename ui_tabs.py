@@ -97,6 +97,8 @@ class TabsMixin:
                 return
         self.sync_active_tab_state()
         was_active = (index == self.active_ws_index)
+        if hasattr(self, "forget_recovery"):
+            self.forget_recovery(ws)
         self.workspaces.pop(index)
         if not self.workspaces:
             self.workspaces.append({"title": f"Project {self._next_project_number}",

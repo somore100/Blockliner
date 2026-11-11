@@ -194,10 +194,15 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [x] Projects: save and reopen workspaces, open a whole folder
 - [x] Zoom level-of-detail (compact boxes when zoomed out)
 - [x] About window, top-bar menus, settings
+- [x] Automated release builds (Windows, macOS Apple Silicon and Intel, Linux), gated by the tests
+- [x] Guided tour, a "How it fits" explainer, Node Input/Output blocks and *Make this node a function*
+- [x] Run in its own process with Stop and an input box
+- [x] Safer saving: Ctrl+S, all-or-nothing writes with a .bak, recovery copies after a crash
 
 **Next**
 
-- [ ] Confirmed, automated release builds for Windows, macOS and Linux
+- [ ] Source-first mode: link a folder, follow outside edits (AI tools, other editors), create nodes automatically ([design](docs/source-first-mode.md))
+- [ ] Per-language program skeletons so C, Go and Rust output compiles
 - [ ] Testing and polish on Windows and macOS (the author develops on Linux)
 - [ ] Wires to and from collapsed categories, and a legend for the wire kinds
 - [ ] Wires between files on the Files layer, and import nodes
@@ -209,12 +214,11 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 
 - [ ] Plugin and extension API
 - [ ] Growing the library of prebuilt and custom node templates
-- [ ] Full "open an existing project" conversion into nodes and blocks
+- [ ] Full "open an existing project" conversion into nodes and blocks (the first step is source-first mode)
 - [ ] More languages able to run inside the app
 - [ ] Block descriptions that show the real generated syntax
 - [ ] Non-code files (Markdown, JSON, text) inside a project
 - [ ] A "push to git" button
-- [ ] A basic tutorial
 - [ ] A web version (no mobile app is planned)
 
 ## Contributing

@@ -16,7 +16,8 @@ STANDARD_MENUS = ("File", "Run", "Tools", "Help")
 CORE = [
     ("file.undo", "Undo", "File", 0, lambda a: a.undo_project(), "Ctrl+Z", "step back revert"),
     ("file.redo", "Redo", "File", 0, lambda a: a.undo_project(redo=True), "Ctrl+Y", "step forward"),
-    ("file.save", "Save", "File", 1, lambda a: a.save_project(), "", "write store project"),
+    ("file.save", "Save", "File", 1, lambda a: a.save_project(), "Ctrl+S", "write store project"),
+    ("file.save_as", "Save As...", "File", 1, lambda a: a.save_project_as(), "Ctrl+Shift+S", "write store project new name copy"),
     ("file.load", "Load", "File", 1, lambda a: a.load_project(), "", "open project"),
     ("file.open_project", "Open Project...", "File", 1, lambda a: a.open_project_dialog(), "", "folder"),
     ("file.open_code", "Open Code File...", "File", 1,

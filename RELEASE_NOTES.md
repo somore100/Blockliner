@@ -1,33 +1,20 @@
-## What's new in 2.5.0
+## What's new in 2.5.1
 
-**Learn and find your way**
-- A guided tour of the window: Help > Take the tour. It switches layers for you and can go on by itself when you do what it asks. Settings > General turns the first-start offer on or off.
-- The app now opens on the Files layer.
+**Never lose work**
+- Ctrl+S saves straight to the project's file (Ctrl+Shift+S is Save As). Saving is safe against a crash half way: the old file is kept as `.bak`.
+- A recovery copy is written every minute while you have unsaved changes (Settings: how often). If Blockliner or the computer dies, it offers the copy back at the next start. It never overwrites your own file.
 
-**Working with many blocks**
-- Select several blocks (Shift+click, or click the first and last) and group them into a node. How selecting works is a setting.
-- A Divider block to organise a long list with a coloured line and a title.
-- Ctrl + mouse wheel zooms the blocks (swap it with plain wheel in Settings).
+**More blocks**
+- Python grows from 23 to 69 blocks: change a variable, try / except / finally, loops over ranges and items, open a file, classes, dictionaries, list and text helpers, math, random, time, imports.
+- JavaScript 52, C++ 43, Java 44, C# 44, Rust 32, Go 32 and C 29 blocks (each had 19). Blocks that need a library or header add it for you.
+- Typed or pasted code is recognised as these blocks when it is read back.
 
-**Nodes show what goes in and out**
-- New *Node Input* and *Node Output* blocks declare what a node needs and what it gives.
-- **Make this node a function** (right-click a node, Python): inputs become parameters, outputs become a return, and the nodes that used them call it. One Undo brings it back.
-- Fixes for wires: a wire to an ordinary node means "run after this one", and function nodes are always written first.
-
-**Run**
-- Run now starts your program in its own process: output appears as it prints, there is a box to answer `input()`, and a **Stop** button (or Esc) ends it, so a `while True` is no longer a trap. A crash can't take Blockliner down with it.
+**Smoother**
+- Zooming a busy canvas is much calmer: boxes show as flat stand-ins while the wheel turns, then the real ones come back once. Settings > "While zooming, boxes" picks Auto, Live or Fast.
+- A **How it fits** button next to the layers explains file > node > block.
 
 **Fixes**
-- Top menus no longer get stuck open after minimizing.
-- Renaming a function node keeps the program working. Export & Run no longer also runs the code inside the app.
-- Export files get a comment header in the right style for the language, the right file ending, and are always UTF-8.
-- Add language now makes a real language with a starter block; switching language asks before emptying blocks.
-- Projects in a language you added load as that language; node ids are checked when a project is opened.
-- A late approval of an AI-tool or extension edit can't change the project after the caller gave up.
-- UI designer Preview works in the packaged app. Extensions copied by hand never start without asking.
-
-**Behind the scenes**
-- Every test now runs automatically before a release is built, on Linux (Python 3.11 and 3.13).
+- The tour no longer says blocks convert between languages (they do not).
 
 Windows and macOS builds have had much less real-world testing than Linux. Please report problems with your system and what you were doing.
 

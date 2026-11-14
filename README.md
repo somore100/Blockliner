@@ -203,6 +203,8 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 
 - [ ] Source-first mode: link a folder, follow outside edits (AI tools, other editors), create nodes automatically ([design](docs/source-first-mode.md))
 - [ ] Per-language program skeletons so C, Go and Rust output compiles
+- [ ] Calmer zoom on the Nodes layer: node boxes visibly resize as you zoom, which gets distracting with many nodes
+- [ ] More blocks for every language (the palettes are still small)
 - [ ] Testing and polish on Windows and macOS (the author develops on Linux)
 - [ ] Wires to and from collapsed categories, and a legend for the wire kinds
 - [ ] Wires between files on the Files layer, and import nodes
@@ -219,6 +221,7 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [ ] Block descriptions that show the real generated syntax
 - [ ] Non-code files (Markdown, JSON, text) inside a project
 - [ ] A "push to git" button
+- [ ] A faster interface: rewrite the UI layer in a faster language or toolkit (big; the pure Python core would stay)
 - [ ] A web version (no mobile app is planned)
 
 ## Contributing

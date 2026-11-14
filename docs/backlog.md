@@ -187,3 +187,16 @@ Collected from testing; none of this is started.
 - A1 per-language program skeletons (C, Go, Rust have no entry point; C++/Java put functions in main).
 - Audit leftovers: C4 extension restart/writes off the Tk thread, C7/C8 string escaping, C12 pin release tools, Node 20 action bump.
 - Autosave follow-ups: a File > "Recover..." list, Windows owner-only permissions for recovery/secrets files.
+
+## Added 2026-11-14 (author)
+- **Zoom resizing on the Nodes layer.** When zooming, node boxes visibly resize (the level-of-detail switch between full and compact boxes, plus the
+  size changes between steps). With many nodes this is distracting. To find out first: which zoom steps change the box size, and whether it is the
+  LOD threshold, the per-step scaling, or a redraw. Ideas: fewer or smoother LOD switches, keep the box footprint fixed and only change what is drawn
+  inside, hysteresis around the threshold, redraw only visible boxes. Needs a profile on a 100+ node file before choosing.
+- **More blocks.** Grow every language's palette (Python and C++ first, the other seven are thin). Plan before writing: list what beginners reach for
+  (lists and dictionaries, loops over ranges, string work, files, classes, try/except, math, time/random) and add them per language as JSON packs;
+  each new block needs its reverse pattern so code -> blocks still recognises it. Good fit for community packs.
+- **Faster interface (idea).** Tk is the limit on big canvases (the audit measured ~6,000 widgets for a 2,000-file folder). A rewrite of the UI layer
+  would be large; the pure core (language packs, nodes model, project files, portable, sync, runner) has no Tk and could stay. Options to evaluate
+  later: a canvas-only redraw in Tk first (cheap), PySide/Qt, or a web/Tauri front end. Decide after the zoom profile above shows whether the cost is
+  Tk itself or how we use it.

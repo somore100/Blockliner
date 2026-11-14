@@ -1,0 +1,18 @@
+{
+  "display_name": "Import From",
+  "category": "Modules",
+  "description": "Brings some names out of a module: from math import pi.",
+  "template": "from [[module]] import [[names]]\n",
+  "params": [
+    {
+      "name": "module",
+      "type": "identifier",
+      "default": "math"
+    },
+    {
+      "name": "names",
+      "type": "expression",
+      "default": "pi"
+    }
+  ]
+}

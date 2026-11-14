@@ -1,0 +1,18 @@
+{
+  "display_name": "Text With Values",
+  "category": "String Operations",
+  "description": "Builds text with values inside it: write {name} where the value goes.",
+  "template": "[[variable]] = f\"[[text]]\"\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "message"
+    },
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Hello {name}"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "display_name": "Round Number",
+  "category": "Math",
+  "description": "Rounds a number to some decimal places.",
+  "template": "[[variable]] = round([[value]], [[digits]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "3.14159"
+    },
+    {
+      "name": "digits",
+      "type": "expression",
+      "default": "2"
+    }
+  ]
+}

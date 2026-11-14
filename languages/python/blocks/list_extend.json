@@ -1,0 +1,18 @@
+{
+  "display_name": "Add List To List",
+  "category": "Data Structures",
+  "description": "Adds every item of another list to the end of this one.",
+  "template": "[[list]].extend([[other]])\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "identifier",
+      "default": "my_list"
+    },
+    {
+      "name": "other",
+      "type": "expression",
+      "default": "other_list"
+    }
+  ]
+}

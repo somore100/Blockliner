@@ -1,0 +1,13 @@
+{
+  "display_name": "Use Global",
+  "category": "Functions",
+  "description": "Inside a function, lets you change a variable that lives outside it.",
+  "template": "global [[name]]\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "identifier",
+      "default": "counter"
+    }
+  ]
+}

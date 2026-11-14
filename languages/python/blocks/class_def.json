@@ -1,0 +1,15 @@
+{
+  "display_name": "Class",
+  "category": "Functions",
+  "description": "Defines a new kind of object. Put Define Function blocks inside for its methods.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "class [[name]]:\n[[body]]\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "identifier",
+      "default": "MyClass"
+    }
+  ]
+}

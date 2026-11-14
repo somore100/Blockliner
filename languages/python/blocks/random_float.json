@@ -1,0 +1,16 @@
+{
+  "display_name": "Random Decimal",
+  "category": "Math",
+  "description": "A random number from 0 up to 1. The file gets 'import random'.",
+  "requires": [
+    "random"
+  ],
+  "template": "[[variable]] = random.random()\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "chance"
+    }
+  ]
+}

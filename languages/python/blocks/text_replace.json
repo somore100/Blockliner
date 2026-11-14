@@ -1,0 +1,28 @@
+{
+  "display_name": "Replace In Text",
+  "category": "String Operations",
+  "description": "Swaps every occurrence of some text for other text.",
+  "template": "[[variable]] = [[text]].replace([[old]], [[new]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "name"
+    },
+    {
+      "name": "old",
+      "type": "expression",
+      "default": "\"a\""
+    },
+    {
+      "name": "new",
+      "type": "expression",
+      "default": "\"b\""
+    }
+  ]
+}

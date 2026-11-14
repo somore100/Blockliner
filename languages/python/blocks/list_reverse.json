@@ -1,0 +1,13 @@
+{
+  "display_name": "Reverse List",
+  "category": "Data Structures",
+  "description": "Flips a list around.",
+  "template": "[[list]].reverse()\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "identifier",
+      "default": "my_list"
+    }
+  ]
+}

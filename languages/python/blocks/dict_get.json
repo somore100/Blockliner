@@ -1,0 +1,28 @@
+{
+  "display_name": "Get With Fallback",
+  "category": "Data Structures",
+  "description": "Reads a dictionary entry, or a default value when the key is missing.",
+  "template": "[[variable]] = [[dict]].get([[key]], [[default]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "value"
+    },
+    {
+      "name": "dict",
+      "type": "identifier",
+      "default": "my_dict"
+    },
+    {
+      "name": "key",
+      "type": "expression",
+      "default": "\"a\""
+    },
+    {
+      "name": "default",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

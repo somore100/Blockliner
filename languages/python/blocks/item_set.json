@@ -1,0 +1,23 @@
+{
+  "display_name": "Set Item",
+  "category": "Data Structures",
+  "description": "Sets one entry of a list (by position) or a dictionary (by key).",
+  "template": "[[name]][[[key]]] = [[value]]\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "variable",
+      "default": "my_dict"
+    },
+    {
+      "name": "key",
+      "type": "expression",
+      "default": "\"a\""
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "1"
+    }
+  ]
+}

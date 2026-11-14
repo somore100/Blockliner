@@ -1,0 +1,32 @@
+{
+  "display_name": "Open File",
+  "category": "Control",
+  "description": "Opens a file, runs its body, and closes the file again afterwards.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "with open([[path]], \"[[mode]]\") as [[file]]:\n[[body]]\n",
+  "params": [
+    {
+      "name": "path",
+      "type": "expression",
+      "default": "\"notes.txt\""
+    },
+    {
+      "name": "mode",
+      "type": "choice",
+      "default": "r",
+      "choices": [
+        "r",
+        "w",
+        "a",
+        "rb",
+        "wb"
+      ]
+    },
+    {
+      "name": "file",
+      "type": "identifier",
+      "default": "f"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "display_name": "Random Whole Number",
+  "category": "Math",
+  "description": "A random whole number from low to high (both included). The file gets 'import random'.",
+  "requires": [
+    "random"
+  ],
+  "template": "[[variable]] = random.randint([[low]], [[high]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "roll"
+    },
+    {
+      "name": "low",
+      "type": "expression",
+      "default": "1"
+    },
+    {
+      "name": "high",
+      "type": "expression",
+      "default": "6"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "display_name": "Join Text",
+  "category": "String Operations",
+  "description": "Glues a list of texts together with a separator in between.",
+  "template": "[[variable]] = [[separator]].join([[items]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "separator",
+      "type": "expression",
+      "default": "\", \""
+    },
+    {
+      "name": "items",
+      "type": "expression",
+      "default": "parts"
+    }
+  ]
+}

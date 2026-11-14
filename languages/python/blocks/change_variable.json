@@ -1,0 +1,32 @@
+{
+  "display_name": "Change Variable",
+  "category": "Basic",
+  "description": "Changes a variable in place: add to it, subtract from it, multiply it...",
+  "template": "[[variable]] [[op]] [[value]]\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "score"
+    },
+    {
+      "name": "op",
+      "type": "choice",
+      "default": "+=",
+      "choices": [
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "//=",
+        "%=",
+        "**="
+      ]
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "1"
+    }
+  ]
+}

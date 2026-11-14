@@ -1,0 +1,23 @@
+{
+  "display_name": "Insert Into List",
+  "category": "Data Structures",
+  "description": "Puts an item into a list at a position.",
+  "template": "[[list]].insert([[index]], [[item]])\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "identifier",
+      "default": "my_list"
+    },
+    {
+      "name": "index",
+      "type": "expression",
+      "default": "0"
+    },
+    {
+      "name": "item",
+      "type": "expression",
+      "default": "item"
+    }
+  ]
+}

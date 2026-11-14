@@ -1,0 +1,29 @@
+{
+  "display_name": "Convert Type",
+  "category": "Basic",
+  "description": "Turns a value into a whole number, a decimal number, text or True/False.",
+  "template": "[[variable]] = [[type]]([[value]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "number"
+    },
+    {
+      "name": "type",
+      "type": "choice",
+      "default": "int",
+      "choices": [
+        "int",
+        "float",
+        "str",
+        "bool"
+      ]
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "text"
+    }
+  ]
+}

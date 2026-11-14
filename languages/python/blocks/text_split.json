@@ -1,0 +1,23 @@
+{
+  "display_name": "Split Text",
+  "category": "String Operations",
+  "description": "Cuts text into a list of pieces at a separator.",
+  "template": "[[variable]] = [[text]].split([[separator]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "parts"
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "line"
+    },
+    {
+      "name": "separator",
+      "type": "expression",
+      "default": "\",\""
+    }
+  ]
+}

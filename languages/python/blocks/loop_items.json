@@ -1,0 +1,25 @@
+{
+  "display_name": "For Each Key / Value",
+  "category": "Control",
+  "description": "Goes through a dictionary, one key and its value at a time.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "for [[key]], [[value]] in [[dict]].items():\n[[body]]\n",
+  "params": [
+    {
+      "name": "key",
+      "type": "identifier",
+      "default": "key"
+    },
+    {
+      "name": "value",
+      "type": "identifier",
+      "default": "value"
+    },
+    {
+      "name": "dict",
+      "type": "identifier",
+      "default": "my_dict"
+    }
+  ]
+}

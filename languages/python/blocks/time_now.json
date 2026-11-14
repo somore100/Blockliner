@@ -1,0 +1,16 @@
+{
+  "display_name": "Current Time",
+  "category": "Modules",
+  "description": "Seconds since 1970: subtract two of them to time something. The file gets 'import time'.",
+  "requires": [
+    "time"
+  ],
+  "template": "[[variable]] = time.time()\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "now"
+    }
+  ]
+}

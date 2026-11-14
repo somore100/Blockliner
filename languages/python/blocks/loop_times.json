@@ -1,0 +1,15 @@
+{
+  "display_name": "Repeat N Times",
+  "category": "Control",
+  "description": "Runs its body a fixed number of times.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "for _ in range([[times]]):\n[[body]]\n",
+  "params": [
+    {
+      "name": "times",
+      "type": "expression",
+      "default": "3"
+    }
+  ]
+}

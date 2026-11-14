@@ -1,0 +1,15 @@
+{
+  "display_name": "Except",
+  "category": "Control",
+  "description": "Runs when the Try block before it hit an error of this kind.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "except [[error]]:\n[[body]]\n",
+  "params": [
+    {
+      "name": "error",
+      "type": "identifier",
+      "default": "Exception"
+    }
+  ]
+}

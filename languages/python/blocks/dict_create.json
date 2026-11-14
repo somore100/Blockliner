@@ -1,0 +1,18 @@
+{
+  "display_name": "Create Dictionary",
+  "category": "Data Structures",
+  "description": "Makes a dictionary: a set of key: value pairs.",
+  "template": "[[variable]] = {[[items]]}\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "my_dict"
+    },
+    {
+      "name": "items",
+      "type": "expression",
+      "default": "\"a\": 1, \"b\": 2"
+    }
+  ]
+}

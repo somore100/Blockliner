@@ -1,0 +1,13 @@
+{
+  "display_name": "Sort List",
+  "category": "Data Structures",
+  "description": "Puts a list in order, smallest first.",
+  "template": "[[list]].sort()\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "identifier",
+      "default": "my_list"
+    }
+  ]
+}

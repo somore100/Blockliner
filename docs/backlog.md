@@ -207,3 +207,17 @@ Collected from testing; none of this is started.
   160 ms after the last notch (`ZOOM_SETTLE_MS`) the real boxes come back once. The pointer point stays put. Test: tests/test_zoom_preview.py.
   Known: the real boxes settle ~5% different in height from the stand-ins (the font rounding above); making real box heights follow the zoom exactly
   would remove that last small change. The 0.6 look switch still rebuilds once (~170 ms) when you stop there.
+- Built (more blocks, round 1: Python, 23 -> 69 blocks; 46 new JSON files in languages/python/blocks/):
+  Basic: Change Variable (+= -= *= /= //= %= **=), Convert Type (int/float/str/bool), Length Of, Do Nothing, Exit Program.
+  Control: Break, Continue, Check (assert), Raise Error, Try / Except / Finally, Repeat From To, Repeat N Times, For Each With Number (enumerate),
+  For Each Key / Value, Open File (with open ... as). Functions: Class, Class (From Another), Use Global.
+  Data Structures: Create Dictionary, Set Item, Get Item, Get With Fallback, Insert / Remove / Extend / Sort / Reverse List, Take Last From List.
+  Text: Change Text (upper/lower/strip/title/capitalize), Replace, Split, Join, Text With Values (f-string), Is In.
+  Math: Math Function (sqrt/floor/ceil/fabs), Round, Smallest/Biggest/Power, Absolute, Random Whole Number / Item / Decimal. Modules: Current Time, Import From, Import As.
+  How they were checked: every block's own code turns back into the same block with its values (tests/test_more_blocks.py, all Python blocks, not only the new
+  ones), 29 typical typed lines land on the right block, a program written with them reads back, regenerates identical code and prints the same;
+  tests/test_block_packs.py lints every block file of all nine packs. Lessons for writing blocks: a dropdown that must be recognised from code needs
+  "type": "choice" (each value gets its own reverse pattern); a plain-name slot should be "type": "variable" (accepts only [A-Za-z_]\w*) or it can swallow
+  other lines; "requires": ["math"] adds the import. Known: text values with quotes inside are not escaped (audit C8).
+  Next: the same set for JavaScript and C++ (their palettes are still 19 blocks), then Rust/Go/Java/C#/C. Also not yet: match/case, lambda, comprehensions,
+  set blocks, a Dictionary "for each key" shortcut, datetime, os/path helpers.

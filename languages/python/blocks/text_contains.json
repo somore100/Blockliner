@@ -1,0 +1,23 @@
+{
+  "display_name": "Is In",
+  "category": "String Operations",
+  "description": "True when the first value is inside the second (text or list).",
+  "template": "[[variable]] = [[item]] in [[container]]\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "found"
+    },
+    {
+      "name": "item",
+      "type": "expression",
+      "default": "\"a\""
+    },
+    {
+      "name": "container",
+      "type": "expression",
+      "default": "text"
+    }
+  ]
+}

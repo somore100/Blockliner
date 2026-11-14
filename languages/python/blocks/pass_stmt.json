@@ -1,0 +1,7 @@
+{
+  "display_name": "Do Nothing",
+  "category": "Basic",
+  "description": "A placeholder that does nothing (Python's pass).",
+  "template": "pass\n",
+  "params": []
+}

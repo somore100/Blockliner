@@ -1,0 +1,33 @@
+{
+  "display_name": "Smallest / Biggest / Power",
+  "category": "Math",
+  "description": "Picks the smaller or bigger of two numbers, or raises one to a power.",
+  "template": "[[variable]] = [[function]]([[a]], [[b]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "function",
+      "type": "choice",
+      "default": "max",
+      "choices": [
+        "min",
+        "max",
+        "pow"
+      ]
+    },
+    {
+      "name": "a",
+      "type": "expression",
+      "default": "a"
+    },
+    {
+      "name": "b",
+      "type": "expression",
+      "default": "b"
+    }
+  ]
+}

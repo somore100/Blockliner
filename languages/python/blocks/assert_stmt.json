@@ -1,0 +1,18 @@
+{
+  "display_name": "Check (assert)",
+  "category": "Control",
+  "description": "Stops with a message if the condition is not true. Handy for catching mistakes.",
+  "template": "assert [[condition]], \"[[message]]\"\n",
+  "params": [
+    {
+      "name": "condition",
+      "type": "boolean",
+      "default": "x > 0"
+    },
+    {
+      "name": "message",
+      "type": "string",
+      "default": "x must be positive"
+    }
+  ]
+}

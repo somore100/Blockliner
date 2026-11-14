@@ -1,0 +1,18 @@
+{
+  "display_name": "Remove From List",
+  "category": "Data Structures",
+  "description": "Removes the first item equal to the value.",
+  "template": "[[list]].remove([[item]])\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "identifier",
+      "default": "my_list"
+    },
+    {
+      "name": "item",
+      "type": "expression",
+      "default": "item"
+    }
+  ]
+}

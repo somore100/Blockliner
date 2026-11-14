@@ -1,0 +1,9 @@
+{
+  "display_name": "Finally",
+  "category": "Control",
+  "description": "Always runs after Try / Except, error or not.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "finally:\n[[body]]\n",
+  "params": []
+}

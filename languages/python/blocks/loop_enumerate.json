@@ -1,0 +1,25 @@
+{
+  "display_name": "For Each With Number",
+  "category": "Control",
+  "description": "Goes through a list and gives you the position as well as the item.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "for [[index]], [[item]] in enumerate([[iterable]]):\n[[body]]\n",
+  "params": [
+    {
+      "name": "index",
+      "type": "identifier",
+      "default": "i"
+    },
+    {
+      "name": "item",
+      "type": "identifier",
+      "default": "item"
+    },
+    {
+      "name": "iterable",
+      "type": "expression",
+      "default": "my_list"
+    }
+  ]
+}

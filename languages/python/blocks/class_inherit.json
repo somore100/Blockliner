@@ -1,0 +1,20 @@
+{
+  "display_name": "Class (From Another)",
+  "category": "Functions",
+  "description": "Defines a class that builds on another class.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "class [[name]]([[base]]):\n[[body]]\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "identifier",
+      "default": "MyClass"
+    },
+    {
+      "name": "base",
+      "type": "identifier",
+      "default": "BaseClass"
+    }
+  ]
+}

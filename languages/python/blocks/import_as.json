@@ -1,0 +1,18 @@
+{
+  "display_name": "Import As",
+  "category": "Modules",
+  "description": "Imports a module under a short name: import numpy as np.",
+  "template": "import [[module]] as [[alias]]\n",
+  "params": [
+    {
+      "name": "module",
+      "type": "identifier",
+      "default": "numpy"
+    },
+    {
+      "name": "alias",
+      "type": "identifier",
+      "default": "np"
+    }
+  ]
+}

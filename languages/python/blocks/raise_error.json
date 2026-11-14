@@ -1,0 +1,18 @@
+{
+  "display_name": "Raise Error",
+  "category": "Control",
+  "description": "Stops with an error you choose.",
+  "template": "raise [[error]](\"[[message]]\")\n",
+  "params": [
+    {
+      "name": "error",
+      "type": "identifier",
+      "default": "ValueError"
+    },
+    {
+      "name": "message",
+      "type": "string",
+      "default": "Something went wrong"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "display_name": "Absolute Value",
+  "category": "Math",
+  "description": "Drops the minus sign of a number.",
+  "template": "[[variable]] = abs([[value]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "-5"
+    }
+  ]
+}

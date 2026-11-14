@@ -1,0 +1,25 @@
+{
+  "display_name": "Repeat From To",
+  "category": "Control",
+  "description": "Counts a variable from the start up to (not including) the stop number.",
+  "is_container": true,
+  "empty_body": "pass",
+  "template": "for [[variable]] in range([[start]], [[stop]]):\n[[body]]\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "i"
+    },
+    {
+      "name": "start",
+      "type": "expression",
+      "default": "0"
+    },
+    {
+      "name": "stop",
+      "type": "expression",
+      "default": "10"
+    }
+  ]
+}

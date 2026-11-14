@@ -200,3 +200,10 @@ Collected from testing; none of this is started.
   would be large; the pure core (language packs, nodes model, project files, portable, sync, runner) has no Tk and could stay. Options to evaluate
   later: a canvas-only redraw in Tk first (cheap), PySide/Qt, or a web/Tauri front end. Decide after the zoom profile above shows whether the cost is
   Tk itself or how we use it.
+- Built (zoom, from the 2026-11-14 note; Settings > "While zooming, boxes": Automatic = stand-ins from 25 boxes, Always live, Always stand-ins. An earlier version of the stand-ins was removed in 2.4.2 in favour of live in-place resizing, so live stays for small files): measured on a 150-node file (2,100 widgets): a wheel notch cost 35-48 ms (every box's fonts/paddings re-laid out),
+  box heights drifted from the zoom (+6% at 0.7, -8% at 2.0, because fonts round to whole pixels while positions scale exactly), and crossing the 0.6
+  look switch rebuilt every box (170-200 ms). Now, while the wheel turns, the boxes are hidden and drawn as flat stand-ins (frame, title strip, name)
+  of exactly model size x zoom (`ui_zoompreview.py`); wires/groups are scaled, the grid redrawn: about 5 ms a notch, 10 notches 75 ms (was 343 ms).
+  160 ms after the last notch (`ZOOM_SETTLE_MS`) the real boxes come back once. The pointer point stays put. Test: tests/test_zoom_preview.py.
+  Known: the real boxes settle ~5% different in height from the stand-ins (the font rounding above); making real box heights follow the zoom exactly
+  would remove that last small change. The 0.6 look switch still rebuilds once (~170 ms) when you stop there.

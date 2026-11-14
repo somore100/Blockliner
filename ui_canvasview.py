@@ -1,7 +1,7 @@
 """Files/Nodes canvas: wheel zoom, coordinate grid, view anchoring."""
 import tkinter as tk
 import tkinter.font as tkfont
-from canvas_view import (anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
+from canvas_view import (ZOOM_SETTLE_MS, use_zoom_preview, anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
                          lod_mode, zoom_after_wheel, zoom_anchor_point, zoom_factor)
 from nodes_model import find_node_by_id
 
@@ -129,12 +129,19 @@ class CanvasViewMixin:
         # The canvas is still laid out at the last applied zoom until the
         # pending resize runs, so the model point under the pointer is read
         # at that zoom. Several fast wheel steps collapse into ONE resize.
-        gz = self._rendered_zoom or 1.0
+        gz = self.shown_canvas_zoom()
         mx, my = c.canvasx(sx) / gz, c.canvasy(sy) / gz
         self._zoom_anchor = (mx, my, sx, sy)
         self.canvas_zoom = z1
         self._cancel_zoom_job()
-        self._zoom_job = self.after_idle(self.apply_zoom)
+        if self._zprev is not None or use_zoom_preview(getattr(self, "settings", {}), len(self._preview_sources())):
+            # Many boxes: turning the wheel only moves cheap stand-in rectangles; the real boxes (text, buttons)
+            # are resized once, when the wheel has been still for a moment. Resizing them on every notch cost
+            # ~40 ms a notch at 150 nodes and made them breathe (fonts round off differently from positions).
+            self.zoom_preview_update(mx, my, sx, sy, z1)
+            self._zoom_job = self.after(ZOOM_SETTLE_MS, self.apply_zoom)
+        else:
+            self._zoom_job = self.after_idle(self.apply_zoom)        # few boxes: resize them live, as before
 
     def _cancel_zoom_job(self):
         if self._zoom_job is not None:
@@ -152,6 +159,7 @@ class CanvasViewMixin:
 
     def apply_zoom(self):
         self._cancel_zoom_job()
+        self.zoom_preview_end()
         anchor, self._zoom_anchor = self._zoom_anchor, None
         if not self.canvas_layer_active():
             return

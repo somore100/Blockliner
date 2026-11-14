@@ -13,7 +13,7 @@ from scroll_modes import SCROLL_MODE_CHOICES, normalize_mode
 import block_zoom
 from block_split import SELECT_MODE_CHOICES, normalize_select_mode
 import clean_undo
-from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
+from canvas_view import (DEFAULT_ZOOM_AROUND, DEFAULT_ZOOM_SPEED, DEFAULT_ZOOM_STYLE, ZOOM_STYLE_CHOICES, LOD_MODE_CHOICES, ZOOM_AROUND_CHOICES,
                          ZOOM_SPEED_CHOICES, lod_mode)
 from code_sync import SYNC_MODE_CHOICES, normalize_sync_mode
 from ui_common import CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, DARK_HOVER, DARK_PANEL, KEYBIND_ACTIONS, LANGUAGE_EXTENSIONS, ORDER_CONFLICT_CHOICES, PRESET_LANGUAGES, SAVE_FORMAT_CHOICES, get_block_attr, normalize_save_format, keybind_from_event, keybind_label, safe_grab_set
@@ -783,6 +783,13 @@ class PaletteMixin:
                      state="readonly", width=38).pack(side=tk.LEFT)
         add_help("Which point stays still while you zoom: under the mouse, or the middle of the view.")
 
+        row = add_row("While zooming, boxes:")
+        style_labels = dict(ZOOM_STYLE_CHOICES)
+        style_var = tk.StringVar(value=style_labels.get(self.settings.get("zoom_style", DEFAULT_ZOOM_STYLE), style_labels[DEFAULT_ZOOM_STYLE]))
+        ttk.Combobox(row, textvariable=style_var, values=list(style_labels.values()),
+                     state="readonly", width=44).pack(side=tk.LEFT)
+        add_help("With many nodes, resizing every box on every wheel notch looks busy and is slow. Stand-ins (flat boxes with the name) scale smoothly, then the real boxes appear when you stop.")
+
         section("General")
         # --- Order number already used ---
         row = add_row("Order number taken:")
@@ -1014,6 +1021,8 @@ class PaletteMixin:
             except ValueError:
                 pass
             self.schedule_line_check(0)
+            self.settings["zoom_style"] = next(
+                (k for k, label in ZOOM_STYLE_CHOICES if label == style_var.get()), DEFAULT_ZOOM_STYLE)
             self.settings["zoom_around"] = next(
                 (k for k, label in ZOOM_AROUND_CHOICES if label == around_var.get()), DEFAULT_ZOOM_AROUND)
             self.save_app_settings()

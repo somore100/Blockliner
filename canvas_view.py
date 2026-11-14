@@ -20,6 +20,29 @@ def zoom_anchor_point(settings, pointer, size):
     if mode == "centre":
         return size[0] / 2, size[1] / 2
     return pointer
+# Setting "zoom_style": what the boxes do while the wheel turns.
+ZOOM_STYLE_CHOICES = [
+    ("auto", "Automatic: flat stand-ins when there are many boxes"),
+    ("live", "Always resize the real boxes (smooth with few boxes)"),
+    ("fast", "Always use flat stand-ins while zooming"),
+]
+DEFAULT_ZOOM_STYLE = "auto"
+PREVIEW_MIN_BOXES = 25          # "auto" uses stand-ins from this many boxes on
+
+
+def use_zoom_preview(settings, box_count):
+    """True when wheel zoom should draw stand-ins instead of resizing every real box."""
+    style = (settings if isinstance(settings, dict) else {}).get("zoom_style", DEFAULT_ZOOM_STYLE)
+    if style == "fast":
+        return True
+    if style == "live":
+        return False
+    return box_count >= PREVIEW_MIN_BOXES
+
+
+# While the wheel is turning the boxes are drawn as flat stand-ins that scale exactly with the zoom; the real
+# boxes are put back once, this many milliseconds after the last notch.
+ZOOM_SETTLE_MS = 160
 NODE_W, NODE_MIN_W, NODE_MIN_H = 215, 120, 36       # node box size on the canvas (model units)
 
 

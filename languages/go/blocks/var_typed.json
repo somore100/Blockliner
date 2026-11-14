@@ -1,0 +1,29 @@
+{
+  "display_name": "Typed Variable",
+  "category": "Basic",
+  "description": "Makes a variable with a type you choose.",
+  "template": "var [[variable]] [[type]] = [[value]]\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "count"
+    },
+    {
+      "name": "type",
+      "type": "choice",
+      "default": "int",
+      "choices": [
+        "int",
+        "float64",
+        "string",
+        "bool"
+      ]
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

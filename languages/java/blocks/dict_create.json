@@ -1,0 +1,13 @@
+{
+  "display_name": "New Map",
+  "category": "Data Structures",
+  "description": "Makes a map from text to whole numbers.",
+  "template": "var [[variable]] = new java.util.HashMap<String, Integer>();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "scores"
+    }
+  ]
+}

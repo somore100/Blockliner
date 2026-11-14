@@ -1,0 +1,13 @@
+{
+  "display_name": "Clear List",
+  "category": "Data Structures",
+  "description": "Empties a list.",
+  "template": "[[list]].clear();\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

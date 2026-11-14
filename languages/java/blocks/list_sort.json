@@ -1,0 +1,13 @@
+{
+  "display_name": "Sort List",
+  "category": "Data Structures",
+  "description": "Puts the items of a list in order.",
+  "template": "java.util.Collections.sort([[list]]);\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

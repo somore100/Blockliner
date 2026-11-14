@@ -1,0 +1,18 @@
+{
+  "display_name": "Single Letter",
+  "category": "Basic",
+  "description": "Makes a variable holding one letter.",
+  "template": "char [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "letter"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "'a'"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "display_name": "Text Change",
+  "category": "String Operations",
+  "description": "Makes text upper case, lower case or trims the spaces.",
+  "requires": [
+    "strings"
+  ],
+  "template": "[[variable]] := strings.[[method]]([[text]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "shout"
+    },
+    {
+      "name": "method",
+      "type": "choice",
+      "default": "ToUpper",
+      "choices": [
+        "ToUpper",
+        "ToLower",
+        "TrimSpace"
+      ]
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "name"
+    }
+  ]
+}

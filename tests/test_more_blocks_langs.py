@@ -29,6 +29,21 @@ def code_of(app, node, blocks):
     return app.get_clean_code()
 
 
+WRAPPERS = {"main", "Main", "Program"}
+
+
+def find_block(blocks, bid):
+    """first block with this id anywhere in the tree, ignoring the scaffold's own main/Program wrappers"""
+    for b in blocks:
+        prm = b[1] if isinstance(b[1], dict) else {}
+        if b[0] == bid and prm.get("name") not in WRAPPERS:
+            return b
+        inner = find_block(prm.get("_children", []), bid)
+        if inner is not None:
+            return inner
+    return None
+
+
 def run_language(lang):
     app = BlocklinerUI(initial_lang=lang, languages_path="languages")
     app.geometry("1300x800+0+0")
@@ -47,9 +62,9 @@ def run_language(lang):
                 params["_children"] = [("print_output", {"value": "1"})]
             code = code_of(app, node, [(bid, params)])
             blocks, _matched, _raw = app.import_code_to_blocks(code)
-            if lang == "cpp":                      # code sits inside main(), after the includes
-                main = [b for b in blocks if b[0] == "int_function" and isinstance(b[1], dict) and b[1].get("name") == "main"]
-                blocks = main[0][1].get("_children", []) if main and bid != "int_function" else blocks
+            if lang != "javascript":                # the scaffold wraps the code in main() / a class
+                hit = find_block(blocks, bid)
+                blocks = [hit] if hit else blocks
             back = [b for b in blocks if b[0] not in ("import_module", "raw_code") or bid in ("import_module", "raw_code")]          # blocks that need a module add its import first
             if not back or back[0][0] != bid:
                 bad_id.append((bid, code.strip().replace("\n", " | "), [b[0] for b in blocks][:3]))
@@ -69,7 +84,7 @@ def run_language(lang):
 
 
 def main():
-    for lang in ("javascript", "cpp"):
+    for lang in ("javascript", "cpp", "rust", "go", "java", "csharp", "c"):
         run_language(lang)
     print("ALL OK" if not FAILURES else f"{len(FAILURES)} FAILED")
     sys.exit(1 if FAILURES else 0)

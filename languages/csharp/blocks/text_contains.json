@@ -1,0 +1,23 @@
+{
+  "display_name": "Contains",
+  "category": "String Operations",
+  "description": "True or false: does the text contain this?",
+  "template": "bool [[variable]] = [[text]].Contains([[part]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "found"
+    },
+    {
+      "name": "text",
+      "type": "variable",
+      "default": "text"
+    },
+    {
+      "name": "part",
+      "type": "expression",
+      "default": "\"a\""
+    }
+  ]
+}

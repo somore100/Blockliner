@@ -1,0 +1,13 @@
+{
+  "display_name": "New Dictionary",
+  "category": "Data Structures",
+  "description": "Makes a dictionary from text to whole numbers.",
+  "template": "var [[variable]] = new Dictionary<string, int>();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "scores"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "display_name": "Copy Text",
+  "category": "String Operations",
+  "description": "Copies a text into a character list.",
+  "requires": [
+    "string.h"
+  ],
+  "template": "strcpy([[target]], [[text]]);\n",
+  "params": [
+    {
+      "name": "target",
+      "type": "variable",
+      "default": "buffer"
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "\"hello\""
+    }
+  ]
+}

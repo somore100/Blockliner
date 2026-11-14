@@ -1,0 +1,13 @@
+{
+  "display_name": "Reverse List",
+  "category": "Data Structures",
+  "description": "Turns a list around.",
+  "template": "java.util.Collections.reverse([[list]]);\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

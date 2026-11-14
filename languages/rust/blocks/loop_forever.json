@@ -1,0 +1,8 @@
+{
+  "display_name": "Repeat Forever",
+  "category": "Control",
+  "description": "Repeats until a Break happens.",
+  "is_container": true,
+  "template": "loop {\n[[body]]\n}\n",
+  "params": []
+}

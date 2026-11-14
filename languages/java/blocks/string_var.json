@@ -1,0 +1,18 @@
+{
+  "display_name": "Text Variable",
+  "category": "Basic",
+  "description": "Makes a text variable variable.",
+  "template": "String [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "name"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "\"hello\""
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "display_name": "Break",
+  "category": "Control",
+  "description": "Leaves the loop right now.",
+  "template": "break;\n",
+  "params": []
+}

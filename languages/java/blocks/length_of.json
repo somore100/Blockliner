@@ -1,0 +1,28 @@
+{
+  "display_name": "Length Of",
+  "category": "Basic",
+  "description": "How many items or characters something has.",
+  "template": "int [[variable]] = [[value]].[[prop]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "size"
+    },
+    {
+      "name": "value",
+      "type": "variable",
+      "default": "items"
+    },
+    {
+      "name": "prop",
+      "type": "choice",
+      "default": "size()",
+      "choices": [
+        "size()",
+        "length()",
+        "length"
+      ]
+    }
+  ]
+}

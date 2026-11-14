@@ -1,0 +1,29 @@
+{
+  "display_name": "Math Function",
+  "category": "Math",
+  "description": "Square root, round down, round up or absolute value.",
+  "template": "double [[variable]] = Math.[[func]]([[value]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "func",
+      "type": "choice",
+      "default": "sqrt",
+      "choices": [
+        "sqrt",
+        "floor",
+        "ceil",
+        "abs"
+      ]
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "16"
+    }
+  ]
+}

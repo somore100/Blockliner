@@ -1,0 +1,26 @@
+{
+  "display_name": "Contains",
+  "category": "String Operations",
+  "description": "True or false: does the text contain this?",
+  "requires": [
+    "strings"
+  ],
+  "template": "[[variable]] := strings.Contains([[text]], [[part]])\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "found"
+    },
+    {
+      "name": "text",
+      "type": "expression",
+      "default": "text"
+    },
+    {
+      "name": "part",
+      "type": "expression",
+      "default": "\"a\""
+    }
+  ]
+}

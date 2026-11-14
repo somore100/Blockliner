@@ -1,0 +1,23 @@
+{
+  "display_name": "Insert Into List",
+  "category": "Data Structures",
+  "description": "Puts an item at a position in a list.",
+  "template": "[[list]].Insert([[index]], [[item]]);\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    },
+    {
+      "name": "index",
+      "type": "expression",
+      "default": "0"
+    },
+    {
+      "name": "item",
+      "type": "expression",
+      "default": "1"
+    }
+  ]
+}

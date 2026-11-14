@@ -1,0 +1,32 @@
+{
+  "display_name": "Math Function",
+  "category": "Math",
+  "description": "Square root, round down, round up or absolute value.",
+  "requires": [
+    "math.h"
+  ],
+  "template": "double [[variable]] = [[func]]([[value]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "result"
+    },
+    {
+      "name": "func",
+      "type": "choice",
+      "default": "sqrt",
+      "choices": [
+        "sqrt",
+        "floor",
+        "ceil",
+        "fabs"
+      ]
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "16"
+    }
+  ]
+}

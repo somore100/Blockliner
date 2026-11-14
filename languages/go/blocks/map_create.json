@@ -1,0 +1,18 @@
+{
+  "display_name": "New Map",
+  "category": "Data Structures",
+  "description": "Makes a map from text to whole numbers.",
+  "template": "[[variable]] := map[string]int{[[items]]}\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "scores"
+    },
+    {
+      "name": "items",
+      "type": "expression",
+      "default": "\"a\": 1"
+    }
+  ]
+}

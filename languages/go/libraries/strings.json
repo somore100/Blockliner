@@ -1,0 +1,35 @@
+{
+  "name": "strings",
+  "import": "import \"strings\"",
+  "description": "Work with text",
+  "commands": [
+    {
+      "name": "ToUpper",
+      "use": "strings.ToUpper",
+      "signature": "strings.ToUpper(s)",
+      "does": "Upper case text",
+      "example": "strings.ToUpper(\"a\")"
+    },
+    {
+      "name": "Contains",
+      "use": "strings.Contains",
+      "signature": "strings.Contains(s, part)",
+      "does": "Is the part inside?",
+      "example": "strings.Contains(\"abc\", \"b\")"
+    },
+    {
+      "name": "Split",
+      "use": "strings.Split",
+      "signature": "strings.Split(s, sep)",
+      "does": "Cut text into a list",
+      "example": "strings.Split(\"a,b\", \",\")"
+    },
+    {
+      "name": "Join",
+      "use": "strings.Join",
+      "signature": "strings.Join(list, sep)",
+      "does": "Glue a list together",
+      "example": "strings.Join(parts, \"-\")"
+    }
+  ]
+}

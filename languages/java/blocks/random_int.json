@@ -1,0 +1,18 @@
+{
+  "display_name": "Random Whole Number",
+  "category": "Math",
+  "description": "A random whole number from 0 up to but not including the limit.",
+  "template": "int [[variable]] = new java.util.Random().nextInt([[limit]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "roll"
+    },
+    {
+      "name": "limit",
+      "type": "expression",
+      "default": "6"
+    }
+  ]
+}

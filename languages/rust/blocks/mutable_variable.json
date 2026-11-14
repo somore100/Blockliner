@@ -1,0 +1,18 @@
+{
+  "display_name": "Changeable Variable",
+  "category": "Basic",
+  "description": "Makes a variable whose value can change later.",
+  "template": "let mut [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "count"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

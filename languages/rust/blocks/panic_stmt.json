@@ -1,0 +1,13 @@
+{
+  "display_name": "Stop With Error",
+  "category": "Control",
+  "description": "Stops the program with an error message.",
+  "template": "panic!([[message]]);\n",
+  "params": [
+    {
+      "name": "message",
+      "type": "expression",
+      "default": "\"Something went wrong\""
+    }
+  ]
+}

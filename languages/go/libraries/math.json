@@ -1,0 +1,35 @@
+{
+  "name": "math",
+  "import": "import \"math\"",
+  "description": "Maths functions",
+  "commands": [
+    {
+      "name": "Sqrt",
+      "use": "math.Sqrt",
+      "signature": "math.Sqrt(x)",
+      "does": "Square root",
+      "example": "math.Sqrt(16)"
+    },
+    {
+      "name": "Floor",
+      "use": "math.Floor",
+      "signature": "math.Floor(x)",
+      "does": "Round down",
+      "example": "math.Floor(2.7)"
+    },
+    {
+      "name": "Ceil",
+      "use": "math.Ceil",
+      "signature": "math.Ceil(x)",
+      "does": "Round up",
+      "example": "math.Ceil(2.1)"
+    },
+    {
+      "name": "Abs",
+      "use": "math.Abs",
+      "signature": "math.Abs(x)",
+      "does": "Absolute value",
+      "example": "math.Abs(-3)"
+    }
+  ]
+}

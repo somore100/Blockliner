@@ -1,0 +1,18 @@
+{
+  "display_name": "Delete From Map",
+  "category": "Data Structures",
+  "description": "Removes a key from a map.",
+  "template": "delete([[map]], [[key]])\n",
+  "params": [
+    {
+      "name": "map",
+      "type": "variable",
+      "default": "scores"
+    },
+    {
+      "name": "key",
+      "type": "expression",
+      "default": "\"a\""
+    }
+  ]
+}

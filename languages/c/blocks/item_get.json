@@ -1,0 +1,23 @@
+{
+  "display_name": "Get Item",
+  "category": "Data Structures",
+  "description": "Reads a value from a list at a position.",
+  "template": "int [[variable]] = [[target]][[[key]]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "value"
+    },
+    {
+      "name": "target",
+      "type": "variable",
+      "default": "my_list"
+    },
+    {
+      "name": "key",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

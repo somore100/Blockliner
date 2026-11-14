@@ -1,0 +1,18 @@
+{
+  "display_name": "Whole Number",
+  "category": "Basic",
+  "description": "Makes a whole number variable.",
+  "template": "int [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "count"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

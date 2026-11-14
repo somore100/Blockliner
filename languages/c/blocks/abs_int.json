@@ -1,0 +1,21 @@
+{
+  "display_name": "Absolute Value",
+  "category": "Math",
+  "description": "A whole number without its minus sign.",
+  "requires": [
+    "stdlib.h"
+  ],
+  "template": "int [[variable]] = abs([[value]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "size"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "-3"
+    }
+  ]
+}

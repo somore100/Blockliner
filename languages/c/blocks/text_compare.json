@@ -1,0 +1,26 @@
+{
+  "display_name": "Compare Text",
+  "category": "String Operations",
+  "description": "0 when two texts are the same.",
+  "requires": [
+    "string.h"
+  ],
+  "template": "int [[variable]] = strcmp([[a]], [[b]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "same"
+    },
+    {
+      "name": "a",
+      "type": "variable",
+      "default": "first"
+    },
+    {
+      "name": "b",
+      "type": "variable",
+      "default": "second"
+    }
+  ]
+}

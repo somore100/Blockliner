@@ -1,0 +1,32 @@
+{
+  "display_name": "Smallest / Biggest",
+  "category": "Math",
+  "description": "The smaller or bigger of two numbers.",
+  "template": "var [[variable]] = Math.[[which]]([[a]], [[b]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "best"
+    },
+    {
+      "name": "which",
+      "type": "choice",
+      "default": "Max",
+      "choices": [
+        "Max",
+        "Min"
+      ]
+    },
+    {
+      "name": "a",
+      "type": "expression",
+      "default": "1"
+    },
+    {
+      "name": "b",
+      "type": "expression",
+      "default": "2"
+    }
+  ]
+}

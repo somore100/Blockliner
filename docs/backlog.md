@@ -225,4 +225,6 @@ Collected from testing; none of this is started.
 ## More blocks, round 2 (JavaScript and C++)
 - JavaScript got 33 blocks (19 → 52) and C++ 24 (19 → 43), same set as Python where the language has it. C++ blocks that need a header ask for a library (`languages/cpp/libraries/`: algorithm, cmath, cstdlib).
 - Not done: C++ `class` and `do { } while`, because the importer only knows blocks that close with a plain `}` (`};` and `} while (...)` read back as raw lines). JS `switch`, async/await, destructuring, template strings.
-- Still 19 blocks: Rust, Go, Java, C#, C.
+- Round 3: Rust 32, Go 32, Java 44, C# 44, C 29 blocks (all were 19). Go gets `strings`/`math` libraries; C blocks ask for `string.h`/`math.h`/`stdlib.h`. `tests/test_more_blocks_langs.py` now covers all seven brace languages.
+- Rust has no range-loop block: `for i in 0..10` already reads as the existing loop_for. Go: no try/catch (it has none), C: no lists that grow (fixed arrays), no text split/join.
+- Not done anywhere: switch/match, lambdas, enums/structs, file reading, async. Java/C# `class` blocks are only tested as containers, not as a place for functions.

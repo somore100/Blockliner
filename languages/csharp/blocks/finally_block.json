@@ -1,0 +1,8 @@
+{
+  "display_name": "Finally",
+  "category": "Control",
+  "description": "Runs at the end, whether or not an error happened.",
+  "is_container": true,
+  "template": "finally\n{\n[[body]]\n}\n",
+  "params": []
+}

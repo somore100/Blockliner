@@ -1,0 +1,23 @@
+{
+  "display_name": "Set Item",
+  "category": "Data Structures",
+  "description": "Puts a value into a list at a position.",
+  "template": "[[target]][[[key]]] = [[value]];\n",
+  "params": [
+    {
+      "name": "target",
+      "type": "variable",
+      "default": "my_list"
+    },
+    {
+      "name": "key",
+      "type": "expression",
+      "default": "0"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "2"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "display_name": "Catch",
+  "category": "Control",
+  "description": "Runs when the Try block before it hit an error.",
+  "is_container": true,
+  "template": "catch (Exception [[error]])\n{\n[[body]]\n}\n",
+  "params": [
+    {
+      "name": "error",
+      "type": "variable",
+      "default": "e"
+    }
+  ]
+}

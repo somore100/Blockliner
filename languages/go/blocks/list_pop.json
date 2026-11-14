@@ -1,0 +1,13 @@
+{
+  "display_name": "Remove Last Item",
+  "category": "Data Structures",
+  "description": "Removes the last item of a list.",
+  "template": "[[list]] = [[list]][:len([[list]])-1]\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "display_name": "Class",
+  "category": "Functions",
+  "description": "Starts a new kind of object.",
+  "is_container": true,
+  "template": "class [[name]]\n{\n[[body]]\n}\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "variable",
+      "default": "Thing"
+    }
+  ]
+}

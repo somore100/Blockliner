@@ -1,0 +1,21 @@
+{
+  "display_name": "Text Length",
+  "category": "String Operations",
+  "description": "How many letters a text has.",
+  "requires": [
+    "string.h"
+  ],
+  "template": "size_t [[variable]] = strlen([[text]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "size"
+    },
+    {
+      "name": "text",
+      "type": "variable",
+      "default": "name"
+    }
+  ]
+}

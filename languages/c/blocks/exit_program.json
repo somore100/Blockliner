@@ -1,0 +1,16 @@
+{
+  "display_name": "Exit Program",
+  "category": "Basic",
+  "description": "Stops the program right now.",
+  "requires": [
+    "stdlib.h"
+  ],
+  "template": "exit([[code]]);\n",
+  "params": [
+    {
+      "name": "code",
+      "type": "expression",
+      "default": "0"
+    }
+  ]
+}

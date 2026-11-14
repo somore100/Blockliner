@@ -1,0 +1,18 @@
+{
+  "display_name": "Add To Text",
+  "category": "String Operations",
+  "description": "Adds more text to the end of a text variable.",
+  "template": "[[target]].append([[part]]);\n",
+  "params": [
+    {
+      "name": "target",
+      "type": "variable",
+      "default": "name"
+    },
+    {
+      "name": "part",
+      "type": "expression",
+      "default": "\"!\""
+    }
+  ]
+}

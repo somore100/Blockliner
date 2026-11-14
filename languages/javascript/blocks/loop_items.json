@@ -1,0 +1,24 @@
+{
+  "display_name": "Loop Over Entries",
+  "category": "Control",
+  "description": "Goes through each key and value of an object.",
+  "is_container": true,
+  "template": "for (const [[[key]], [[value]]] of Object.entries([[object]])) {\n[[body]]\n}\n",
+  "params": [
+    {
+      "name": "key",
+      "type": "variable",
+      "default": "key"
+    },
+    {
+      "name": "value",
+      "type": "variable",
+      "default": "value"
+    },
+    {
+      "name": "object",
+      "type": "variable",
+      "default": "my_object"
+    }
+  ]
+}

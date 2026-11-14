@@ -1,0 +1,13 @@
+{
+  "display_name": "Throw Error",
+  "category": "Control",
+  "description": "Stops with an error message.",
+  "template": "throw new Error([[message]]);\n",
+  "params": [
+    {
+      "name": "message",
+      "type": "expression",
+      "default": "\"Something went wrong\""
+    }
+  ]
+}

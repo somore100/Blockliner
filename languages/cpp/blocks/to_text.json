@@ -1,0 +1,18 @@
+{
+  "display_name": "Number To Text",
+  "category": "String Operations",
+  "description": "Turns a number into text.",
+  "template": "std::string [[variable]] = std::to_string([[value]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "as_text"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "42"
+    }
+  ]
+}

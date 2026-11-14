@@ -1,0 +1,19 @@
+{
+  "display_name": "Function Returning Number",
+  "category": "Functions",
+  "description": "A function that gives back a whole number.",
+  "is_container": true,
+  "template": "int [[name]]([[params]]) {\n[[body]]\n}\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "variable",
+      "default": "add"
+    },
+    {
+      "name": "params",
+      "type": "expression",
+      "default": "int a, int b"
+    }
+  ]
+}

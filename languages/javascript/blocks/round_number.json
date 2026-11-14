@@ -1,0 +1,18 @@
+{
+  "display_name": "Round Number",
+  "category": "Math",
+  "description": "Rounds a number to the nearest whole number.",
+  "template": "let [[variable]] = Math.round([[value]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "rounded"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "3.7"
+    }
+  ]
+}

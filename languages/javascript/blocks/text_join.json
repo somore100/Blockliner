@@ -1,0 +1,23 @@
+{
+  "display_name": "Join List",
+  "category": "String Operations",
+  "description": "Glues the items of a list into one text.",
+  "template": "let [[variable]] = [[list]].join([[sep]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "joined"
+    },
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    },
+    {
+      "name": "sep",
+      "type": "expression",
+      "default": "\"-\""
+    }
+  ]
+}

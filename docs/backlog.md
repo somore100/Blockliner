@@ -221,3 +221,8 @@ Collected from testing; none of this is started.
   other lines; "requires": ["math"] adds the import. Known: text values with quotes inside are not escaped (audit C8).
   Next: the same set for JavaScript and C++ (their palettes are still 19 blocks), then Rust/Go/Java/C#/C. Also not yet: match/case, lambda, comprehensions,
   set blocks, a Dictionary "for each key" shortcut, datetime, os/path helpers.
+
+## More blocks, round 2 (JavaScript and C++)
+- JavaScript got 33 blocks (19 → 52) and C++ 24 (19 → 43), same set as Python where the language has it. C++ blocks that need a header ask for a library (`languages/cpp/libraries/`: algorithm, cmath, cstdlib).
+- Not done: C++ `class` and `do { } while`, because the importer only knows blocks that close with a plain `}` (`};` and `} while (...)` read back as raw lines). JS `switch`, async/await, destructuring, template strings.
+- Still 19 blocks: Rust, Go, Java, C#, C.

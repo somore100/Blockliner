@@ -1,0 +1,18 @@
+{
+  "display_name": "Take Last Item",
+  "category": "Data Structures",
+  "description": "Removes the last item of a list and keeps it.",
+  "template": "let [[variable]] = [[list]].pop();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "last"
+    },
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

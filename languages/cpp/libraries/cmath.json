@@ -1,0 +1,42 @@
+{
+  "name": "cmath",
+  "import": "#include <cmath>",
+  "description": "Maths functions",
+  "commands": [
+    {
+      "name": "sqrt",
+      "use": "std::sqrt",
+      "signature": "std::sqrt(x)",
+      "does": "Square root",
+      "example": "std::sqrt(16)"
+    },
+    {
+      "name": "floor",
+      "use": "std::floor",
+      "signature": "std::floor(x)",
+      "does": "Round down",
+      "example": "std::floor(2.7)"
+    },
+    {
+      "name": "ceil",
+      "use": "std::ceil",
+      "signature": "std::ceil(x)",
+      "does": "Round up",
+      "example": "std::ceil(2.1)"
+    },
+    {
+      "name": "round",
+      "use": "std::round",
+      "signature": "std::round(x)",
+      "does": "Round to nearest",
+      "example": "std::round(3.7)"
+    },
+    {
+      "name": "fabs",
+      "use": "std::fabs",
+      "signature": "std::fabs(x)",
+      "does": "Absolute value",
+      "example": "std::fabs(-3.5)"
+    }
+  ]
+}

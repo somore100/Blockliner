@@ -1,0 +1,16 @@
+{
+  "display_name": "Sort List",
+  "category": "Data Structures",
+  "description": "Puts the items of a list in order.",
+  "requires": [
+    "algorithm"
+  ],
+  "template": "std::sort([[list]].begin(), [[list]].end());\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

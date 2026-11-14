@@ -1,0 +1,23 @@
+{
+  "display_name": "Short Function",
+  "category": "Functions",
+  "description": "A small function stored in a variable.",
+  "template": "const [[name]] = ([[params]]) => [[expr]];\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "variable",
+      "default": "double"
+    },
+    {
+      "name": "params",
+      "type": "expression",
+      "default": "x"
+    },
+    {
+      "name": "expr",
+      "type": "expression",
+      "default": "x * 2"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "display_name": "Length Of",
+  "category": "Basic",
+  "description": "How many items or characters something has.",
+  "template": "auto [[variable]] = [[value]].size();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "size"
+    },
+    {
+      "name": "value",
+      "type": "variable",
+      "default": "items"
+    }
+  ]
+}

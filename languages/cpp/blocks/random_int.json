@@ -1,0 +1,21 @@
+{
+  "display_name": "Random Whole Number",
+  "category": "Math",
+  "description": "A random whole number from 0 up to but not including the limit.",
+  "requires": [
+    "cstdlib"
+  ],
+  "template": "int [[variable]] = std::rand() % [[limit]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "roll"
+    },
+    {
+      "name": "limit",
+      "type": "expression",
+      "default": "6"
+    }
+  ]
+}

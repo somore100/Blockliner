@@ -1,0 +1,35 @@
+{
+  "display_name": "Smallest / Biggest",
+  "category": "Math",
+  "description": "The smaller or bigger of two numbers.",
+  "requires": [
+    "algorithm"
+  ],
+  "template": "auto [[variable]] = std::[[which]]([[a]], [[b]]);\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "best"
+    },
+    {
+      "name": "which",
+      "type": "choice",
+      "default": "max",
+      "choices": [
+        "max",
+        "min"
+      ]
+    },
+    {
+      "name": "a",
+      "type": "expression",
+      "default": "1"
+    },
+    {
+      "name": "b",
+      "type": "expression",
+      "default": "2"
+    }
+  ]
+}

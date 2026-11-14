@@ -1,0 +1,7 @@
+{
+  "display_name": "Continue",
+  "category": "Control",
+  "description": "Skips to the next round of the loop.",
+  "template": "continue;\n",
+  "params": []
+}

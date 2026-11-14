@@ -1,0 +1,18 @@
+{
+  "display_name": "Import Names",
+  "category": "Modules",
+  "description": "Imports named things from a module.",
+  "template": "import { [[names]] } from [[module]];\n",
+  "params": [
+    {
+      "name": "names",
+      "type": "expression",
+      "default": "readFile"
+    },
+    {
+      "name": "module",
+      "type": "expression",
+      "default": "\"fs\""
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "display_name": "Random Number",
+  "category": "Math",
+  "description": "A random decimal between 0 and 1.",
+  "template": "let [[variable]] = Math.random();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "chance"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "display_name": "True / False Variable",
+  "category": "Basic",
+  "description": "Makes a true/false variable.",
+  "template": "bool [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "done"
+    },
+    {
+      "name": "value",
+      "type": "choice",
+      "default": "false",
+      "choices": [
+        "false",
+        "true"
+      ]
+    }
+  ]
+}

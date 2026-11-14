@@ -1,0 +1,16 @@
+{
+  "display_name": "Reverse List",
+  "category": "Data Structures",
+  "description": "Turns a list around.",
+  "requires": [
+    "algorithm"
+  ],
+  "template": "std::reverse([[list]].begin(), [[list]].end());\n",
+  "params": [
+    {
+      "name": "list",
+      "type": "variable",
+      "default": "my_list"
+    }
+  ]
+}

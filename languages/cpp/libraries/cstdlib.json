@@ -1,0 +1,14 @@
+{
+  "name": "cstdlib",
+  "import": "#include <cstdlib>",
+  "description": "Random numbers and exit",
+  "commands": [
+    {
+      "name": "rand",
+      "use": "std::rand",
+      "signature": "std::rand()",
+      "does": "A random whole number",
+      "example": "std::rand() % 6"
+    }
+  ]
+}

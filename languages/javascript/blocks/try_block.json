@@ -1,0 +1,8 @@
+{
+  "display_name": "Try",
+  "category": "Control",
+  "description": "Runs its body; if an error happens, the Catch block after it takes over.",
+  "is_container": true,
+  "template": "try {\n[[body]]\n}\n",
+  "params": []
+}

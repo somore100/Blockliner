@@ -1,0 +1,18 @@
+{
+  "display_name": "Constant",
+  "category": "Basic",
+  "description": "Makes a value that is never reassigned.",
+  "template": "const [[variable]] = [[value]];\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "limit"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "10"
+    }
+  ]
+}

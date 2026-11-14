@@ -1,0 +1,13 @@
+{
+  "display_name": "Time Now",
+  "category": "Basic",
+  "description": "The current time in milliseconds.",
+  "template": "let [[variable]] = Date.now();\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "variable",
+      "default": "now"
+    }
+  ]
+}

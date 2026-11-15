@@ -5,7 +5,8 @@
     python tests/run_all.py --window        only tests that open the app
     python tests/run_all.py NAME ...        only tests whose file name contains NAME
     python tests/run_all.py --strict        (CI) a test skipped for a missing module counts as a failure
-    python tests/run_all.py --timeout 90    seconds per test (default 120)
+    python tests/run_all.py --timeout 90    seconds a test may run before it is stopped and counted as failed (default 100)
+    python tests/run_all.py --live          use your real screen instead of a hidden one (slower, windows flash up)
     python tests/run_all.py --python "CMD"   run the tests with another Python / wrapper
 
 Exit status 0 when nothing unexpected failed. Known failures live in tests/expected_failures.txt.
@@ -74,10 +75,18 @@ def main():
     ap.add_argument("--pure", action="store_true")
     ap.add_argument("--window", action="store_true")
     ap.add_argument("--strict", action="store_true")
-    ap.add_argument("--timeout", type=int, default=120)
+    ap.add_argument("--timeout", type=int, default=100, help="seconds one test may run before it is killed and counted as failed")
+    ap.add_argument("--live", action="store_true", help="show the test windows on your real screen instead of a hidden X server")
+    ap.add_argument("--no-xvfb", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--python", default=None, help="the Python that runs each test (default: the one running this script)")
     args = ap.parse_args()
 
+    # On a Linux desktop the tests run on a hidden screen: much faster (compositor and focus handling are what
+    # make them crawl on a real desktop) and the test windows do not flash up while you work.
+    if (sys.platform.startswith("linux") and not args.live and not args.no_xvfb and not os.environ.get("CI")
+            and not args.pure and shutil.which("xvfb-run")):
+        cmd = ["xvfb-run", "-a", "-s", "-screen 0 1600x1000x24", sys.executable, os.path.abspath(__file__), "--no-xvfb"] + sys.argv[1:]
+        return subprocess.call(cmd)
     files = sorted(f for f in os.listdir(HERE) if f.startswith("test_") and f.endswith(".py"))
     if args.names:
         files = [f for f in files if any(n in f for n in args.names)]
@@ -92,7 +101,7 @@ def main():
         if (args.pure and window) or (args.window and not window):
             continue
         if window and not has_display:
-            print(f"SKIP   {name}  (no display: on Linux run under xvfb-run)")
+            print(f"SKIP   {name}  (no display: install xvfb-run (Fedora: sudo dnf install xorg-x11-server-Xvfb) or run with a desktop)")
             counts["SKIP"] += 1
             if args.strict:
                 bad.append(name)

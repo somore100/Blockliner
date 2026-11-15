@@ -317,10 +317,12 @@ class ImportMixin:
                         if j >= n or indent_of(lines[j]) <= base:
                             break  # header with no body yet (mid-typing)
                         children, next_i = parse(lines, j, indent_of(lines[j]))
-                        if (len(children) == 1 and raw_block_id
+                        if len(children) == 1 and children[0][0] == "pass_stmt":
+                            children = []  # the container's own empty-body filler (the Do Nothing block)
+                        elif (len(children) == 1 and raw_block_id
                                 and children[0][0] == raw_block_id
                                 and children[0][1].get(raw_param_name, "").strip() == "pass"):
-                            children = []  # the container's own empty-body filler
+                            children = []  # the same filler when the language has no such block
                             counts["raw"] -= 1
                     else:
                         if not brace_mode:

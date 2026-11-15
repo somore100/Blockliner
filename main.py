@@ -7,12 +7,21 @@ exec'd - everything is JSON, loaded and schema-validated by
 engine.loader before the UI ever sees it.
 """
 
+import faulthandler
 import os
 import shutil
+import signal
 import sys
 
 import app_paths
 import data_migration
+
+# If the window ever freezes: `kill -USR1 <pid of main.py>` prints where every thread is stuck (to the terminal
+# that started it), without stopping the program. Not available on Windows.
+try:
+    faulthandler.register(signal.SIGUSR1, all_threads=True)
+except (AttributeError, ValueError, OSError, RuntimeError):
+    pass
 
 # Must run before `ui` is imported: ui_common fixes its paths at import time.
 MIGRATION = data_migration.run(frozen=getattr(sys, "frozen", False))

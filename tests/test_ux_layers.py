@@ -151,11 +151,13 @@ def main():
 
     # real event path: press/motion/release delivered through Tk's own bindings
     app.goto_layer("blocks"); app.update()
+    app._palette_sig = None            # the palette is kept when unchanged; this test added its own items to it, so rebuild
     app.refresh_palette(); app.update()
     real_add = app.add_block_to_workspace
     dropped = []
     app.add_block_to_workspace = lambda m, c=None, insert_at=None: dropped.append(m)
     try:
+        app._palette_sig = None
         app.refresh_palette(); app.update()
         items = []
         def find(w):

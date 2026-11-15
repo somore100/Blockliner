@@ -210,12 +210,31 @@ class PaletteMixin:
                 scored.append((sc, b))
         return [b for _sc, b in sorted(scored, key=lambda p: -p[0])]
 
+    def _palette_signature(self, search_term):
+        """Everything that decides what the palette shows (without a search): same value = same palette."""
+        cats = tuple((c, tuple((get_block_attr(b, "id", None) or get_block_attr(b, "display_name", ""),
+                                get_block_attr(b, "display_name", ""),
+                                get_block_attr(b, "description", "") or "")
+                               for b in self.blocks_by_category[c]))
+                     for c in self.get_ordered_categories() if c in self.blocks_by_category)
+        return (self.current_language, cats, tuple(sorted(CATEGORY_COLORS.items())),
+                bool(self.settings.get("animate_blocks", False)))
+
     def build_palette(self):
-        """Build the block palette"""
+        """Build the block palette. Opening a file or switching layers asks for a rebuild every time; when nothing
+        the palette shows has changed, the ~450 widgets of the last build are kept (rebuilding them was the
+        slowest part of opening a file on a desktop where every widget costs a round trip to the display)."""
+        search_term = self.search_var.get().lower()
+        if not search_term.strip():
+            sig = self._palette_signature(search_term)
+            if sig == getattr(self, "_palette_sig", None) and self.palette_frame.winfo_children():
+                return
+            self._palette_sig = sig
+        else:
+            self._palette_sig = None
         for widget in self.palette_frame.winfo_children():
             widget.destroy()
         
-        search_term = self.search_var.get().lower()
         self.palette_library_section(search_term)
         
         if not self.blocks_by_category:

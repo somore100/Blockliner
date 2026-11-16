@@ -1,5 +1,6 @@
 ## Next
 
+- Followed folders: optional presence (Settings > Show who else is editing). Each Blockliner shares which node it has open or is editing through a small file in the folder (kept out of git); node boxes show the other people, and a warning appears when you edit the same node.
 - Followed files: the "File changed on disk" dialog has a new **Merge** answer. Your edit and the change on disk are merged node by node; nodes only one side changed are taken as they are, nodes both sides changed differently are asked about (theirs / mine / both) or written as git-style conflict markers. A file with markers is read-only until **File > Resolve Conflicts...** (or your editor) resolves them.
 - Followed files: Settings can now write edits automatically after a pause you choose, or only when you choose File > Update Source Files.
 - Nodes layer: a node box no longer shows a thick border; its resize grips are laid over the same thin ring as a file box.

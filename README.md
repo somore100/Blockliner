@@ -207,7 +207,7 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [x] Source-first mode: node order written back
 - [x] Source-first mode: renames written back, with the files that use the name fixed too (Python, JS, Go, Rust, Java, C#, C/C++)
 - [x] Team editing, phase A: node-level three-way merge with conflict markers (docs/team-editing.md)
-- [ ] Team editing, phase B: presence (who is editing which node/line)
+- [x] Team editing, phase B: presence (who has which node open or is editing it, with the starting line)
 - [ ] Source-first mode, later: more languages, renames outside the followed folder
 - [ ] Per-language program skeletons so C, Go and Rust output compiles
 - [ ] Calmer zoom on the Nodes layer: node boxes visibly resize as you zoom, which gets distracting with many nodes

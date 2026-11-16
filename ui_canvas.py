@@ -487,6 +487,10 @@ class CanvasMixin:
                 info, text=f"id {node['id']}",
                 bg=BLOCK_BG, fg="#7a7a7a", font=self._zfont(7), anchor="w"
             ).pack(anchor="w")
+            who = self.presence_tag_for_node(node)      # someone else in the followed folder has this node open
+            if who and who[0]:
+                tk.Label(info, text=who[0], bg=BLOCK_BG, fg=who[1], font=self._zfont(8, "bold"),
+                         anchor="w").pack(anchor="w")
             tk.Button(
                 body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
                 relief=tk.FLAT, cursor="hand2", font=self._zfont(9),

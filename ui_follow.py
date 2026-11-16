@@ -65,6 +65,7 @@ class FollowMixin:
         if opened:
             self.goto_layer("files")
         self._follow_schedule()
+        self.presence_start()
         self.remember_follow(self._follow["folder"], bool(write))
         mode = ("Edits you make to a block are written back into that file (only the nodes you change)."
                 if write else "This is read-only: Blockliner never writes to these files, and what you change here is "
@@ -78,6 +79,7 @@ class FollowMixin:
 
     def stop_following(self, forget=False):
         self.follow_flush()                              # an edit still waiting to be written is written first
+        self.presence_stop()
         f, self._follow = self._follow, None
         if forget:
             self.remember_follow(None)
@@ -96,6 +98,7 @@ class FollowMixin:
         change is only on screen. Returns True when a notice was shown."""
         tab["dirty"] = False
         f = self._follow
+        self.presence_note_edit(tab)
         state = tab.get("follow_state")
         if f is not None and f.get("write") and state and state.get("writable"):
             self._follow_cancel_write(tab)
@@ -585,6 +588,7 @@ class FollowMixin:
         t0 = time.time()
         try:
             self.follow_check_now()
+            self.presence_tick()
         except Exception as exc:                    # a watcher must never take the window down
             print(f"follow: {exc}")
         self._follow_schedule(time.time() - t0)

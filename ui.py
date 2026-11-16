@@ -39,6 +39,7 @@ from ui_canvasview import CanvasViewMixin
 from ui_groups import GroupsMixin
 from ui_openproject import OpenProjectMixin
 from ui_follow import FollowMixin
+from ui_presence import PresenceMixin
 from ui_multiopen import MultiOpenMixin
 from ui_uinode import UINodeMixin
 from ui_designer import DESIGNER_SPEC, DesignerMixin
@@ -54,7 +55,7 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
-class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, FollowMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, ZoomPreviewMixin, tk.Tk):
+class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, FollowMixin, PresenceMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, ZoomPreviewMixin, tk.Tk):
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")

@@ -1,8 +1,10 @@
 # Team editing on followed files
 
 **Status:** phase A (merge, conflict markers, Resolve Conflicts) is built: `source_merge.py` (pure, `tests/test_source_merge.py`),
-`ui_follow.py` (`_follow_merge`, `ask_follow_resolve`, `follow_resolve_conflicts`, `tests/test_follow_merge.py`). Phase B (presence) is
-not built yet.
+`ui_follow.py` (`_follow_merge`, `ask_follow_resolve`, `follow_resolve_conflicts`, `tests/test_follow_merge.py`). Phase B (presence) is built too:
+`presence.py` (pure), `ui_presence.py`, `tests/test_presence.py`; off by default (Settings > Show who else is editing), a node box shows
+`✎ Name · line N` (editing) or `● Name` (open); editing the same node as someone else shows a warning. The line is the line the node
+starts at in its file; block-level and in-editor line markers are not built.
 
 Goal: two or more people (or a person and an AI agent) work on the same source files through Blockliner without
 silently overwriting each other. The source files stay the truth; git (or a shared folder) stays the transport.

@@ -157,6 +157,72 @@ def _reorder(out, order):
     return fixed
 
 
+def _python_names(text):
+    """[(line, col, name, prev_op, next_op, depth)] for every NAME token, or None when the text does not tokenize."""
+    import io
+    import keyword
+    import tokenize
+    out = []
+    try:
+        toks = [t for t in tokenize.generate_tokens(io.StringIO(text).readline)
+                if t.type not in (tokenize.NL, tokenize.COMMENT, tokenize.INDENT, tokenize.DEDENT, tokenize.NEWLINE)]
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return None
+    depth = 0
+    for i, t in enumerate(toks):
+        if t.type == tokenize.OP and t.string in "([{":
+            depth += 1
+        elif t.type == tokenize.OP and t.string in ")]}":
+            depth -= 1
+        if t.type == tokenize.NAME and not keyword.iskeyword(t.string):
+            prev = toks[i - 1].string if i else ""
+            nxt = toks[i + 1].string if i + 1 < len(toks) else ""
+            out.append((t.start[0], t.start[1], t.string, prev, nxt, depth))
+    return out
+
+
+def rename_python(text, old, new):
+    """`text` with the NAME `old` replaced by `new` (strings and comments are left alone, `x.old` attributes and
+    keyword arguments `f(old=1)` are not the function). Returns (text, count) or (None, 0) when it cannot be done."""
+    names = _python_names(text)
+    if names is None:
+        return None, 0
+    lines = text.split("\n")
+    hits = [(ln, col) for ln, col, name, prev, nxt, depth in names
+            if name == old and prev != "." and not (depth > 0 and nxt == "=")]
+    for ln, col in sorted(hits, reverse=True):
+        line = lines[ln - 1]
+        lines[ln - 1] = line[:col] + new + line[col + len(old):]
+    return "\n".join(lines), len(hits)
+
+
+def apply_renames(chunks, renames, original=None):
+    """Python only. renames {id: (old name, new name)}: rewrite the definition and every use of the old name in all
+    chunks. A rename is skipped (and reported) when the new name is not a plain identifier, is already used in the
+    file as it was before (`original` chunks; Blockliner's own edit may already use the new name), or the text does not
+    tokenize. Returns (chunks, [skipped descriptions])."""
+    import keyword
+    skipped = []
+    for cid, (old, new) in renames.items():
+        if not (new.isidentifier() and not keyword.iskeyword(new)):
+            skipped.append(f"{new!r} is not a valid name")
+            continue
+        whole = "".join(t for _c, t in (original or chunks))
+        used = _python_names(whole)
+        if used is None:
+            skipped.append(f"{old}: the file does not tokenize")
+            continue
+        if any(n == new for _l, _c, n, *_r in used):
+            skipped.append(f"{new!r} is already used in the file")
+            continue
+        out = []
+        for c, t in chunks:
+            t2, _n = rename_python(t, old, new)
+            out.append((c, t if t2 is None else t2))
+        chunks = out
+    return chunks, skipped
+
+
 def join(chunks):
     return "".join(text for _cid, text in chunks)
 

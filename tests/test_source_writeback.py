@@ -113,5 +113,16 @@ moved = sw.join(sw.plan(ch, base, cur, ["c", "a", "b"]))
 check("a moved node moves its text, gaps stay alike",
       moved == "def c():\n    pass\n\n\ndef a():\n    pass\n\n\ndef b():\n    pass\n")
 
+code = "def old(x):\n    return x  # old\n\n\nprint('old', old(1), obj.old, f(old=2))\n"
+out, n = sw.rename_python(code, "old", "new")
+check("rename touches the definition and calls, not strings, comments, attributes or keyword names",
+      out == "def new(x):\n    return x  # old\n\n\nprint('old', new(1), obj.old, f(old=2))\n" and n == 2)
+rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n"), ("b", "old()\n")], {"a": ("old", "new")})
+check("apply_renames renames across chunks", rc == [("a", "def new():\n    pass\n"), ("b", "new()\n")] and not skipped)
+rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n"), ("b", "new = 1\n")], {"a": ("old", "new")})
+check("a name already in use is refused", skipped and rc[0][1].startswith("def old"))
+rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n")], {"a": ("old", "class")})
+check("a keyword is refused", skipped)
+
 print("ALL OK" if not FAILURES else f"{len(FAILURES)} FAILED")
 sys.exit(1 if FAILURES else 0)

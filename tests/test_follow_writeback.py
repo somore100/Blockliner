@@ -199,6 +199,29 @@ def main():
             app.follow_check_now()
             tab = app._follow_tab("app.py")
 
+            # renaming a node renames the function in the file, calls typed as text included
+            tab = app._follow_tab("app.py")
+            before = raw(p_app)
+            node = [n for n in tab["nodes"] if n["name"] == "shout"][0]
+            ok, _m, _n = app.rename_node(tab, node, "yell")
+            check("a renamed function is renamed in the file", ok and app.follow_write_back(tab) is True
+                  and b"def yell" in raw(p_app) and b"def shout" not in raw(p_app))
+            app.follow_check_now()
+            tab = app._follow_tab("app.py")
+            check("and the file reads back with the new name", "yell" in [n["name"] for n in tab["nodes"]])
+
+            node = [n for n in tab["nodes"] if n["name"] == "greet"][0]
+            ok, _m, _n = app.rename_node(tab, node, "hello")
+            app.follow_write_back(tab)
+            check("calls in code that was not edited are renamed too", b"hello('x')" in raw(p_app)
+                  and b"greet" not in raw(p_app))
+            for was, now_name in (("hello", "greet"), ("yell", "shout")):
+                app.rename_node(tab, [n for n in tab["nodes"] if n["name"] == was][0], now_name)
+                app.follow_write_back(tab)
+            check("renaming back restores the file's names", b"def greet" in raw(p_app) and b"def shout" in raw(p_app))
+            app.follow_check_now()
+            tab = app._follow_tab("app.py")
+
             # a node deleted here is dropped from the file
             app.follow_check_now()
             tab = app._follow_tab("app.py")

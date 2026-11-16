@@ -10,6 +10,7 @@ and a file another program changed in the meantime is never overwritten without 
 theirs, or save mine as a copy). Without it the mode is read-only: nothing is
 written, and edits stay in Blockliner until the file changes on disk."""
 import os
+import re
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -137,7 +138,7 @@ class FollowMixin:
         """Remember how a followed file looked when it was read (its chunks, what each node generates, its line ends),
         so a later edit can be written back as a splice. Sets tab["follow_state"]; "writable" False says why not."""
         lang = info["language"]
-        state = {"writable": False, "why": "", "chunks": [], "baseline": {}, "eol": "\n", "bom": False}
+        state = {"writable": False, "why": "", "chunks": [], "baseline": {}, "names": {}, "eol": "\n", "bom": False}
         tab["follow_state"] = state
         src, why = source_writeback.read_source(info["path"])
         if src is None:
@@ -154,7 +155,8 @@ class FollowMixin:
             state["why"] = "its nodes do not line up with the file's top-level parts"
             return state
         state.update(writable=True, chunks=[(i, c) for i, (_n, c) in zip(ids, chunks)], eol=src.eol, bom=src.bom,
-                     baseline={n["id"]: self.generate_code_for_node(n, lang) for n in nodes})
+                     baseline={n["id"]: self.generate_code_for_node(n, lang) for n in nodes},
+                     names={n["id"]: n["name"] for n in nodes})
         return state
 
     def follow_write_back(self, tab):
@@ -170,15 +172,33 @@ class FollowMixin:
             return False
         if self.tabs[self.active_tab_index] is tab:
             self.sync_active_tab_state()                 # the blocks on screen into the node
-        lang = info["language"]
-        nodes = tab["nodes"]
-        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in nodes]
-        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
+        new_chunks, current = self._follow_plan(tab, info)
         if new_chunks == state["chunks"]:
             return False                                 # nothing was edited: the file is not touched
         if source_writeback.hash_file(info["path"]) != info["hash"]:
             return self._follow_conflict(tab, rel, info, new_chunks, current)
         return self._follow_store(tab, rel, info, state, new_chunks, current)
+
+    def _follow_plan(self, tab, info):
+        """(the file's new chunks, [(id, generated code)]) for the edits made to this tab: edited nodes regenerated, nodes
+        in execution order and, in Python, a renamed function/class renamed everywhere in the file."""
+        state = tab["follow_state"]
+        lang = info["language"]
+        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
+        chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
+        if lang == "python":
+            old_text = dict(state["chunks"])
+            renames = {}
+            for n in tab["nodes"]:
+                was = state["names"].get(n["id"])
+                if was and was != n["name"] and re.match(r"\s*(async\s+def|def|class)\s+" + re.escape(was) + r"\b",
+                                                         old_text.get(n["id"], "")):
+                    renames[n["id"]] = (was, n["name"])
+            if renames:
+                chunks, skipped = source_writeback.apply_renames(chunks, renames, state["chunks"])
+                if skipped:
+                    self.show_change_bar("Not renamed in the file: " + "; ".join(skipped) + ".", undo=False)
+        return chunks, current
 
     def _follow_order(self, tab):
         """Node ids in execution order: the order the nodes have in the file once written (a node's execution order
@@ -202,6 +222,7 @@ class FollowMixin:
         info.update(size=size, mtime=mtime, hash=digest)    # our own write: not an outside change
         state["chunks"] = new_chunks
         state["baseline"] = dict(current)
+        state["names"] = {n["id"]: n["name"] for n in tab["nodes"]}
         tab["follow_codes"] = {cid: t for cid, t in new_chunks}
         tab["dirty"] = False
         self.show_change_bar(f"Saved to {rel}", undo=False)
@@ -347,9 +368,7 @@ class FollowMixin:
         self._follow_cancel_write(tab)
         if self.tabs[self.active_tab_index] is tab:
             self.sync_active_tab_state()
-        lang = info["language"]
-        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
-        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
+        new_chunks, current = self._follow_plan(tab, info)
         if new_chunks == state["chunks"]:
             return False
         return self._follow_conflict(tab, rel, info, new_chunks, current, recheck=False)

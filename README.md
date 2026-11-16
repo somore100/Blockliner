@@ -205,7 +205,8 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [x] Source-first mode, phase 2: opt-in write-back - an edited block is spliced into its file (only the edited nodes, atomic, never over a file another program changed first)
 - [x] Source-first mode, phase 3: a "file changed on disk" dialog (keep mine / take theirs / save as copy)
 - [x] Source-first mode: node order written back
-- [ ] Source-first mode, later: renames written back, more languages
+- [x] Source-first mode: Python renames written back
+- [ ] Source-first mode, later: renames in other languages and across files
 - [ ] Per-language program skeletons so C, Go and Rust output compiles
 - [ ] Calmer zoom on the Nodes layer: node boxes visibly resize as you zoom, which gets distracting with many nodes
 - [ ] More blocks for every language (the palettes are still small)

@@ -1,0 +1,15 @@
+{
+  "format": "blockliner-extension",
+  "version": 1,
+  "id": "blockliner/presence",
+  "name": "Who is editing",
+  "description": "In a followed folder shared with others, shows who has which node open or is editing it (down to the line), and tags their nodes on the Nodes layer.",
+  "author": "Blockliner",
+  "extension_version": "0.1.0",
+  "requires": {"api": "1.0"},
+  "icon": "👥",
+  "builtin": "presence",
+  "permissions": ["ui.panel", "project.read"],
+  "panel": {"title": "Who is editing", "dock": "right", "width": 260},
+  "enabled_by_default": false
+}

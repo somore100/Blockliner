@@ -2,7 +2,7 @@
 
 **Status:** phase A (merge, conflict markers, Resolve Conflicts) is built: `source_merge.py` (pure, `tests/test_source_merge.py`),
 `ui_follow.py` (`_follow_merge`, `ask_follow_resolve`, `follow_resolve_conflicts`, `tests/test_follow_merge.py`). Phase B (presence) is built too:
-`presence.py` (pure), `ui_presence.py`, `tests/test_presence.py`; off by default (Settings > Show who else is editing), a node box shows
+`presence.py` (pure), `ui_presence.py`, `tests/test_presence.py`; it ships as the built-in extension "Who is editing" (`extensions/builtin/presence`, off until enabled in the extension manager; the name is Settings > Name shown to teammates), a node box shows
 `✎ Name · line N` (editing) or `● Name` (open); editing the same node as someone else shows a warning. The line is the line the node
 starts at in its file; block-level and in-editor line markers are not built.
 

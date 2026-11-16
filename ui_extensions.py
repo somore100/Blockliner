@@ -129,6 +129,8 @@ class ExtensionsMixin:
                 threading.Thread(target=self._ext_start, args=(ext_id, ext["folder"], m["run"], m["permissions"]),
                                  daemon=True).start()
         self.draw_extension_bar()
+        if hasattr(self, "presence_sync"):
+            self.presence_sync()
 
     def _ext_start(self, ext_id, folder, command, permissions):
         try:
@@ -199,6 +201,8 @@ class ExtensionsMixin:
         self.draw_extension_bar()
 
     def _panel_description(self, ext):
+        if ext["manifest"]["builtin"] == "presence":
+            return B.presence_panel(self.presence_people(), getattr(self, "_follow", None) is not None)
         build = B.PANELS.get(ext["manifest"]["builtin"])
         if build:
             return build(self.tabs)

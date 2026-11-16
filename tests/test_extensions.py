@@ -45,7 +45,7 @@ def main():
 
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "extensions", "builtin")
     shipped = X.find_extensions([(root, "built-in")])
-    check("the two shipped extensions load cleanly", {e["manifest"]["id"] for e in shipped if e["manifest"]} == {"blockliner/statistics", "blockliner/copy-code"}
+    check("the shipped extensions load cleanly", {e["manifest"]["id"] for e in shipped if e["manifest"]} == {"blockliner/statistics", "blockliner/copy-code", "blockliner/presence"}
           and all(not e["notes"] for e in shipped))
 
     check("compatible", X.compatibility(X.clean_manifest(GOOD)[0])[0] == "ok")

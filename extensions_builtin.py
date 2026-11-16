@@ -65,4 +65,18 @@ def run_command(builtin, command, context):
     return {}
 
 
+def presence_panel(people, following):
+    """people: [(user, file, node name, line or None, editing bool)] for everyone else in the followed folder."""
+    kids = [{"type": "label", "text": "Who is editing", "style": "title"}]
+    if not following:
+        kids.append({"type": "label", "text": "Follow a folder (File > Follow a Folder...) that others share to see who is in it.", "style": "muted"})
+    elif not people:
+        kids.append({"type": "label", "text": "Nobody else is in this folder right now.", "style": "muted"})
+    for user, rel, node, line, editing in people:
+        where = f"{rel} \u203a {node}" + (f" (line {line})" if line else "")
+        kids.append({"type": "label", "text": ("\u270e " if editing else "\u25cf ") + user})
+        kids.append({"type": "label", "text": where, "style": "muted"})
+    return {"type": "column", "children": kids}
+
+
 PANELS = {"statistics": statistics_panel}

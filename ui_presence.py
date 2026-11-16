@@ -1,5 +1,6 @@
 """Team editing, phase B (docs/team-editing.md): see who else is in the followed folder and which node (and line)
-they are editing. Off unless Settings > "Show who else is editing" is on. The pure part is presence.py."""
+they are editing. It is the built-in extension "Who is editing" (extensions/builtin/presence), off until switched on in the
+extension manager. The pure part is presence.py."""
 import getpass
 import os
 import secrets
@@ -14,7 +15,36 @@ class PresenceMixin:
     _presence = None
 
     def presence_enabled(self):
-        return bool(self.settings.get("presence_on"))
+        import extensions as X
+        return any(e["manifest"]["id"] == "blockliner/presence" for e in X.active(self._ext_all, self.settings))
+
+    def presence_sync(self):
+        """The extension was switched on or off (or a folder followed): start or stop sharing."""
+        if self.presence_enabled():
+            self.presence_start()
+        else:
+            self.presence_stop()
+            try:
+                self.rerender_canvas_layer()
+            except Exception:
+                pass
+
+    def presence_people(self):
+        """[(user, file, node name, line, editing)] for the panel."""
+        p = self._presence
+        out = []
+        if p is None:
+            return out
+        for (rel, nid), people in sorted(p["others"].items()):
+            tab = next((t for t in self.tabs if t.get("followed") == rel), None)
+            name = nid
+            if tab:
+                for n in tab.get("nodes") or []:
+                    if n.get("id") == nid:
+                        name = n.get("name") or nid
+            line = self._presence_line(tab, nid) if tab else None
+            out += [(q["user"], rel, name, line, bool(q["editing"])) for q in people]
+        return out
 
     def presence_user(self):
         name = (self.settings.get("presence_name") or "").strip()

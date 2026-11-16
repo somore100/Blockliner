@@ -8,6 +8,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import extensions as X
 import presence as P
 
 FAILURES = []
@@ -77,13 +78,13 @@ def ui():
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "a.py"), "w") as f:
                 f.write("def one():\n    return 1\n\n\ndef two():\n    return 2\n")
-            app.settings["presence_on"] = False
+            X.set_enabled(app.settings, "blockliner/presence", False)
             app.follow_folder(d, write=True)
             settle(app, 0.3)
             check("off by default: no presence folder", not os.path.exists(P.folder_of(d)) and app._presence is None)
             app.stop_following()
 
-            app.settings["presence_on"] = True
+            X.set_enabled(app.settings, "blockliner/presence", True)
             app.settings["presence_name"] = "Me"
             app.follow_folder(d, write=True)
             settle(app, 0.3)

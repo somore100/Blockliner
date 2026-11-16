@@ -889,14 +889,10 @@ class PaletteMixin:
         ttk.Spinbox(row, from_=0.1, to=300, increment=0.5, textvariable=fs_sec_var, width=8).pack(side=tk.LEFT)
         add_help("Only for File > Follow a Folder with \"write edits back\" on. Automatic: an edit goes into the file this long after your last change. Manual: edits wait until you choose File > Update Source Files.")
 
-        row = add_row("Show who else is editing:")
-        presence_var = tk.BooleanVar(value=bool(self.settings.get("presence_on")))
-        tk.Checkbutton(row, variable=presence_var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
-                       activebackground=DARK_PANEL).pack(side=tk.LEFT)
+        row = add_row("Name shown to teammates:")
         presence_name_var = tk.StringVar(value=self.settings.get("presence_name", ""))
-        tk.Label(row, text="  Your name:", bg=DARK_PANEL, fg=DARK_FG, font=("Segoe UI", 9)).pack(side=tk.LEFT)
-        ttk.Entry(row, textvariable=presence_name_var, width=16).pack(side=tk.LEFT, padx=4)
-        add_help("While following a folder, each Blockliner writes a small file in <folder>/.blockliner/presence/ (kept out of git) saying which node it has open and which it is editing, and shows the others' on the node boxes. Needs a shared or synced folder. Takes effect the next time you follow a folder.")
+        ttk.Entry(row, textvariable=presence_name_var, width=16).pack(side=tk.LEFT)
+        add_help("Used by the \"Who is editing\" extension (switch it on in the extension manager). While following a folder it writes a small file in <folder>/.blockliner/presence/ (kept out of git) saying which node you have open and which you are editing, and shows the others' on the node boxes. Needs a shared or synced folder.")
 
         row = add_row("Clean project undo (seconds):")
         undo_var = tk.StringVar(value=str(clean_undo.undo_seconds(self.settings)))
@@ -1051,7 +1047,6 @@ class PaletteMixin:
             self.settings["code_sync_confirm"] = bool(sync_confirm_var.get())
             self.settings["zoom_speed"] = next(
                 (k for k, label, _f in ZOOM_SPEED_CHOICES if label == zoom_var.get()), DEFAULT_ZOOM_SPEED)
-            self.settings["presence_on"] = bool(presence_var.get())
             self.settings["presence_name"] = presence_name_var.get().strip()
             self.settings["follow_sync_mode"] = next((k for k, v in fs_labels if v == fs_var.get()), "auto")
             try:

@@ -21,6 +21,7 @@ CORE = [
     ("file.load", "Load", "File", 1, lambda a: a.load_project(), "", "open project"),
     ("file.open_project", "Open Project...", "File", 1, lambda a: a.open_project_dialog(), "", "folder"),
     ("file.follow_folder", "Follow a Folder (read-only)...", "File", 1, lambda a: a.follow_folder(), "", "folder"),
+    ("file.stop_following", "Stop Following the Folder", "File", 1, lambda a: a.stop_following(forget=True), "", "unfollow read-only"),
     ("file.open_code", "Open Code File...", "File", 1,
      lambda a: a.open_code_to_blocks_dialog(prefill_from_file=True), "", "import source"),
     ("file.paste_code", "Paste Code as Nodes...", "File", 1, lambda a: a.open_code_to_blocks_dialog(), "", "import text"),

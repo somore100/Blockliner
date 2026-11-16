@@ -15,6 +15,7 @@ import source_follow
 from ui_common import LANGUAGE_EXTENSIONS
 
 FOLLOW_MS = 1500
+NOTICE_SECONDS = 20
 
 
 class FollowMixin:
@@ -41,16 +42,20 @@ class FollowMixin:
         if opened:
             self.goto_layer("files")
         self._follow_schedule()
+        self.remember_follow(self._follow["folder"])
         messagebox.showinfo(
             "Following a folder",
             f"Following {os.path.basename(self._follow['folder']) or folder}: {opened} file(s).\n\n"
             "The files on disk are the truth. When another program changes a file, Blockliner updates by itself.\n"
             "This mode is read-only for now: Blockliner never writes to these files, and what you change here is "
-            "replaced the next time the file changes on disk.")
+            "replaced the next time the file changes on disk.\n\nNext time Blockliner starts it will offer to follow "
+            "this folder again.")
         return opened
 
-    def stop_following(self):
+    def stop_following(self, forget=False):
         f, self._follow = self._follow, None
+        if forget:
+            self.remember_follow(None)
         if f and f.get("job") is not None:
             try:
                 self.after_cancel(f["job"])
@@ -58,6 +63,46 @@ class FollowMixin:
                 pass
         for tab in getattr(self, "tabs", []):
             tab.pop("followed", None)
+
+    def follow_edit_notice(self, tab):
+        """Called when a followed tab is edited here: it stays clean (nothing is saved to the file) and the user is
+        told once in a while that the change is only on screen. Returns True when a notice was shown."""
+        tab["dirty"] = False
+        now = time.time()
+        if now - tab.get("follow_notice_at", 0) < NOTICE_SECONDS:
+            return False
+        tab["follow_notice_at"] = now
+        self.show_change_bar("Following this folder: the file on disk is the truth. This change is not saved to it and "
+                             "is replaced when the file changes.", undo=False)
+        return True
+
+    # ---- remembering the folder ----------------------------------------------
+    def remember_follow(self, folder):
+        """Keep (or forget, with None) the followed folder in the settings so it can be offered at the next start."""
+        if folder:
+            self.settings["follow_folder"] = folder
+        else:
+            self.settings.pop("follow_folder", None)
+        try:
+            self.save_app_settings()
+        except Exception:
+            pass
+
+    def offer_follow_again(self):
+        """At startup: offer to follow the folder that was followed last time. Returns True when it was re-followed."""
+        folder = self.settings.get("follow_folder")
+        if not folder or self._follow is not None:
+            return False
+        if not os.path.isdir(folder):
+            self.remember_follow(None)
+            return False
+        if not messagebox.askyesno(
+                "Follow the folder again?",
+                f"Last time you were following:\n\n  {folder}\n\nFollow it again? (Read-only: Blockliner never "
+                "writes to those files.)"):
+            self.remember_follow(None)
+            return False
+        return bool(self.follow_folder(folder))
 
     # ---- the watcher ----------------------------------------------------
     def _follow_schedule(self, took=0.0):
@@ -124,20 +169,29 @@ class FollowMixin:
         tab = self.tabs[-1]
         tab["followed"] = rel
         tab["dirty"] = False                         # it is on disk exactly like this
+        try:
+            tab["follow_codes"] = source_follow.chunk_codes(self._follow_chunks(rel, info))
+        except OSError:
+            tab["follow_codes"] = {}
         return True
 
-    def _follow_reload(self, tab, rel, info):
-        """Read the file again into an existing tab, keeping the nodes where they were."""
-        try:
-            text = project_scan.read_text(info["path"])
-        except OSError:
-            return False
-        lang = info["language"]
-        token = self.get_comment_token(lang) or "#"
+    def _follow_chunks(self, rel, info):
+        """[(name, code)] the file is cut into (the same cut for the first opening and every reload)."""
+        text = project_scan.read_text(info["path"])
         chunks = portable.split_top_level(text)
         if not chunks:
             stem = os.path.splitext(os.path.basename(rel))[0]
             chunks = [(stem or "main", text)]
+        return chunks
+
+    def _follow_reload(self, tab, rel, info):
+        """Read the file again into an existing tab, keeping the nodes where they were."""
+        try:
+            chunks = self._follow_chunks(rel, info)
+        except OSError:
+            return False
+        lang = info["language"]
+        token = self.get_comment_token(lang) or "#"
         marked = portable.wrap_with_markers(chunks, token)
         idx = self.tabs.index(tab)
         if idx != self.active_tab_index:
@@ -145,7 +199,9 @@ class FollowMixin:
         nodes, active, _diag = self.nodes_from_portable_text(marked, lang)
         if not nodes:
             return False
-        source_follow.carry_layout(tab["nodes"], nodes)
+        new_codes = source_follow.chunk_codes(chunks)
+        source_follow.carry_layout(tab["nodes"], nodes, tab.get("follow_codes"), new_codes)
+        tab["follow_codes"] = new_codes
         tab["nodes"], tab["active_node_id"], tab["dirty"] = nodes, active, False
         tab["title"] = project_scan.node_title(rel)
         self.project_blocks = self.get_active_node(tab)["blocks"]

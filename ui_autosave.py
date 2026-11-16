@@ -87,7 +87,8 @@ class AutosaveMixin:
     def startup_sequence(self):
         """After the window is up: offer lost work first, then the tour (never both at once)."""
         try:
-            self.offer_recovery()
+            if not self.offer_recovery():
+                self.offer_follow_again()
         finally:
             self.maybe_start_tour()
 

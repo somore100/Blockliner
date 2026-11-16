@@ -592,15 +592,23 @@ def _after_head(lines, kinds, i):
     return j >= 0 and kinds[j] == "head"
 
 
-def wrap_with_markers(chunks, token="#"):
-    """[(name, code)] -> marker-wrapped text with unique safe ids."""
+def unique_ids(names):
+    """Safe, unique node ids for a run of names (a repeat gets _2, _3, ...), in order."""
     used, out = set(), []
-    for name, code in chunks:
+    for name in names:
         base = _ID_BAD.sub("_", name) or "node"
         node_id, n = base, 2
         while node_id in used:
             node_id, n = f"{base}_{n}", n + 1
         used.add(node_id)
+        out.append(node_id)
+    return out
+
+
+def wrap_with_markers(chunks, token="#"):
+    """[(name, code)] -> marker-wrapped text with unique safe ids."""
+    out = []
+    for node_id, (_name, code) in zip(unique_ids(n for n, _c in chunks), chunks):
         start, end = node_marker_lines(node_id, token)
         if code and not code.endswith("\n"):
             code += "\n"

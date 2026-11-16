@@ -96,6 +96,52 @@ def main():
             check("quiet folder: nothing happens", app.follow_check_now() == ([], [], []))
             check("the timer is running", app._follow is not None and app._follow["job"] is not None)
 
+
+            # a renamed function keeps its node's place
+            tab = app._follow_tab("app.py")
+            shout = [n for n in tab["nodes"] if n["name"] == "shout"][0]
+            shout["canvas_x"], shout["canvas_y"] = 555, 222
+            write(os.path.join(d, "app.py"), open(os.path.join(d, "app.py"), encoding="utf-8").read().replace("shout", "yell"))
+            app.follow_check_now()
+            settle(app, 0.2)
+            tab = app._follow_tab("app.py")
+            yell = [n for n in tab["nodes"] if n["name"] == "yell"]
+            check("a renamed function keeps its place", len(yell) == 1 and (yell[0]["canvas_x"], yell[0]["canvas_y"]) == (555, 222))
+
+            # editing a followed tab here is only on screen: it stays clean and the user is told
+            app.switch_to_tab(app.tabs.index(tab))
+            settle(app, 0.2)
+            shown = []
+            app.show_change_bar = lambda text, undo=True: shown.append(text)
+            app.mark_active_tab_dirty()
+            app.mark_active_tab_dirty()
+            check("an edit on a followed tab does not make it unsaved", tab["dirty"] is False)
+            check("the user is told once (not on every edit)", len(shown) == 1 and "not saved" in shown[0])
+            tab["follow_notice_at"] -= ui_follow.NOTICE_SECONDS + 1
+            app.mark_active_tab_dirty()
+            check("and again after a while", len(shown) == 2)
+            plain = [t for t in app.tabs if "followed" not in t][0]
+            app.switch_to_tab(app.tabs.index(plain))
+            app.mark_active_tab_dirty()
+            check("a normal tab is still marked unsaved", plain["dirty"] is True and len(shown) == 2)
+
+            # remembered between runs
+            check("the folder is remembered", app.settings.get("follow_folder") == os.path.abspath(d))
+            app.stop_following()
+            asked = []
+            messagebox.askyesno = lambda *a, **k: (asked.append(a), True)[1]
+            check("offered again at startup and re-followed", app.offer_follow_again() is True and app._follow is not None
+                  and len(asked) == 1 and d in asked[0][1])
+            messagebox.askyesno = lambda *a, **k: False
+            app.stop_following()
+            check("saying no forgets it", app.offer_follow_again() is False and "follow_folder" not in app.settings)
+            app.settings["follow_folder"] = os.path.join(d, "gone")
+            check("a folder that no longer exists is dropped quietly", app.offer_follow_again() is False
+                  and "follow_folder" not in app.settings)
+            app.follow_folder(d)
+            app.stop_following(forget=True)
+            check("Stop Following forgets the folder", "follow_folder" not in app.settings)
+
             after = tree_state(d)
             after_expected = dict(before)
             check("Blockliner never wrote into the folder",

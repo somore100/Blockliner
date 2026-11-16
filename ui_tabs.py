@@ -180,7 +180,11 @@ class TabsMixin:
 
     def mark_active_tab_dirty(self):
         if getattr(self, "tabs", None):
-            self.tabs[self.active_tab_index]["dirty"] = True
+            tab = self.tabs[self.active_tab_index]
+            if tab.get("followed") is not None:       # followed folder: read-only, see ui_follow
+                self.follow_edit_notice(tab)
+                return
+            tab["dirty"] = True
             self.refresh_tab_bar()
 
     def switch_to_tab(self, index):

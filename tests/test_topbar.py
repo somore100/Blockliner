@@ -32,7 +32,7 @@ def main():
     check("menus: burger + File Run Tools Help", set(m) == {"☰", "File", "Run", "Tools", "Help"})
     def starts_with(menu, expected):          # extensions may add entries after the app's own
         return labels(menu)[:len(expected)] == expected
-    check("File menu entries", starts_with(m["File"], ["Undo", "Redo", "Save", "Save As...", "Load", "Open Project...", "Follow a Folder...", "Update Source Files", "Stop Following the Folder", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."]))
+    check("File menu entries", starts_with(m["File"], ["Undo", "Redo", "Save", "Save As...", "Load", "Open Project...", "Follow a Folder...", "Update Source Files", "Resolve Conflicts...", "Stop Following the Folder", "Open Code File...", "Paste Code as Nodes...", "Export", "Clean Project..."]))
     check("Tools menu entries", starts_with(m["Tools"], ["Manage Custom Blocks...", "Imports...", "Extensions...", "AI tools connection...", "Settings", "Command palette..."]))
     check("Help has the structure, the tour, Feedback and About", starts_with(m["Help"], ["How is a project built?", "Take the tour", "Leave Feedback...", "About Blockliner"]))
     check("Run menu has Run + Clear", "Run in Blockliner" in labels(m["Run"]) and "Clear" in labels(m["Run"]))

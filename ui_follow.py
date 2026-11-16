@@ -18,6 +18,7 @@ from tkinter import filedialog, messagebox
 import portable
 import project_scan
 import source_follow
+import source_merge
 import source_rename
 import source_writeback
 from nodes_model import normalize_orders
@@ -223,6 +224,9 @@ class FollowMixin:
         if portable.NODE_MARKER_RE.search(src.text):
             state["why"] = "it has Blockliner node markers"
             return state
+        if source_merge.has_conflicts(src.text):
+            state["why"] = "it has unresolved conflicts (File > Resolve Conflicts...)"
+            return state
         chunks = portable.split_top_level(src.text) or [
             (os.path.splitext(os.path.basename(rel))[0] or "main", src.text)]
         ids = portable.unique_ids(n for n, _c in chunks)
@@ -349,8 +353,8 @@ class FollowMixin:
 
     # ---- the file changed on disk under an edit (phase 3) -----------------------
     def ask_follow_conflict(self, rel):
-        """Ask what to do when a file changed on disk while an edit of it is waiting. Returns "mine" (overwrite the file
-        with this version), "theirs" (take the file as it is now, drop the edit) or "copy" (save my version as a copy
+        """Ask what to do when a file changed on disk while an edit of it is waiting. Returns "merge" (node by node, see
+        source_merge), "mine" (overwrite the file with this version), "theirs" (take the file as it is now, drop the edit) or "copy" (save my version as a copy
         somewhere, then take theirs). Closing the window means "theirs": the file on disk is the truth."""
         win = tk.Toplevel(self)
         win.title("File changed on disk")
@@ -364,8 +368,8 @@ class FollowMixin:
         def pick(v):
             result["v"] = v
             win.destroy()
-        for label, v in (("Keep mine (overwrite the file)", "mine"), ("Take theirs (drop my edit)", "theirs"),
-                         ("Save mine as a copy, take theirs", "copy")):
+        for label, v in (("Merge (keep both changes)", "merge"), ("Keep mine (overwrite the file)", "mine"),
+                         ("Take theirs (drop my edit)", "theirs"), ("Save mine as a copy, take theirs", "copy")):
             tk.Button(row, text=label, command=lambda v=v: pick(v)).pack(side="left", padx=4)
         win.protocol("WM_DELETE_WINDOW", lambda: pick("theirs"))
         win.grab_set()
@@ -377,6 +381,11 @@ class FollowMixin:
         written with this version."""
         state = tab["follow_state"]
         choice = self.ask_follow_conflict(rel)
+        if choice == "merge":
+            done = self._follow_merge(tab, rel, info, new_chunks)
+            if done is not None:
+                return done
+            return False                                 # cancelled: the file and the edit stay as they are
         if choice == "mine":
             return self._follow_store(tab, rel, info, state, new_chunks, current)
         if choice == "copy":
@@ -395,6 +404,141 @@ class FollowMixin:
         self.show_change_bar(f"{rel} changed on disk first, so your edit was not written. Showing the file as it is now.",
                              undo=False)
         return False
+
+    # ---- merging (phase A of docs/team-editing.md) -------------------------------
+    def _follow_merge(self, tab, rel, info, new_chunks):
+        """Merge my edit with the file as it is on disk, node by node. Conflicting nodes are asked about (or written as
+        conflict markers). True when the merged file was written and read back; None when the user cancelled."""
+        state = tab["follow_state"]
+        src, why = source_writeback.read_source(info["path"])
+        if src is None:
+            self.show_change_bar(f"{rel} could not be merged ({why}).", undo=False)
+            return None
+        theirs = portable.split_top_level(src.text) or [(os.path.splitext(os.path.basename(rel))[0] or "main", src.text)]
+        ids = portable.unique_ids(n for n, _c in theirs)
+        chunks, conflicts = source_merge.merge(state["chunks"], new_chunks, [(i, c) for i, (_n, c) in zip(ids, theirs)])
+        text = source_writeback.join(chunks)
+        note = "Merged your edit with the change on disk."
+        if conflicts:
+            answer = self.ask_follow_resolve(rel, source_merge.conflict_regions(text), allow_markers=True)
+            if answer is None:
+                return None
+            if answer != "markers":
+                text = source_merge.resolve(text, answer)
+                note = f"Merged {rel}; {len(conflicts)} conflict(s) resolved."
+            else:
+                note = (f"Merged {rel} with {len(conflicts)} conflict(s) written as markers: the file is read-only here "
+                        "until they are resolved (File > Resolve Conflicts...).")
+        try:
+            size, mtime, digest = source_writeback.write_source(
+                info["path"], text, source_writeback.Source(text, src.eol, src.bom))
+        except OSError as exc:
+            self.show_change_bar(f"{rel} could not be written ({exc.strerror or exc}).", undo=False)
+            return None
+        info.update(size=size, mtime=mtime, hash=digest)
+        self._follow_cancel_write(tab)
+        tab.pop("follow_pending", None)
+        self._follow_reload(tab, rel, info)
+        self.refresh_tab_bar()
+        self.show_change_bar(note, undo=False)
+        return True
+
+    def ask_follow_resolve(self, rel, regions, allow_markers=False):
+        """One window for the conflicts of a file: pick mine / theirs / both for each. Returns the list of choices (in file
+        order), "markers" (only when allowed: write them as conflict markers instead) or None (cancelled)."""
+        win = tk.Toplevel(self)
+        win.title(f"Resolve conflicts - {rel}")
+        win.transient(self)
+        result = {"v": None}
+        choices = ["both"] * len(regions)
+        top = tk.Frame(win, padx=10, pady=8)
+        top.pack(fill="both", expand=True)
+        lb = tk.Listbox(top, height=min(8, max(3, len(regions))), exportselection=False)
+        lb.grid(row=0, column=0, rowspan=2, sticky="ns", padx=(0, 8))
+        panes = {}
+        for col, key, title in ((1, "theirs", "Theirs (on disk)"), (2, "mine", "Mine (Blockliner)")):
+            tk.Label(top, text=title).grid(row=0, column=col, sticky="w")
+            t = tk.Text(top, width=44, height=12, wrap="none")
+            t.grid(row=1, column=col, padx=4, sticky="nsew")
+            panes[key] = t
+        var = tk.StringVar(value="both")
+        sel = {"i": 0}
+        bar = tk.Frame(win, padx=10)
+        bar.pack(fill="x")
+
+        def refresh_list():
+            lb.delete(0, "end")
+            for i, c in enumerate(choices):
+                first = (regions[i][1] or regions[i][0]).strip().split("\n")[0][:40]
+                lb.insert("end", f"{i + 1}. {first}  [{c}]")
+            lb.selection_set(sel["i"])
+
+        def show(_e=None):
+            cur = lb.curselection()
+            if not cur:
+                return
+            sel["i"] = cur[0]
+            for key, idx in (("mine", 0), ("theirs", 1)):
+                panes[key].configure(state="normal")
+                panes[key].delete("1.0", "end")
+                panes[key].insert("1.0", regions[sel["i"]][idx])
+                panes[key].configure(state="disabled")
+            var.set(choices[sel["i"]])
+
+        def choose():
+            choices[sel["i"]] = var.get()
+            refresh_list()
+
+        lb.bind("<<ListboxSelect>>", show)
+        for label, v in (("Theirs", "theirs"), ("Mine", "mine"), ("Both (theirs, then mine)", "both")):
+            tk.Radiobutton(bar, text=label, value=v, variable=var, command=choose).pack(side="left", padx=4)
+        end = tk.Frame(win, padx=10, pady=10)
+        end.pack(fill="x")
+
+        def done(v):
+            result["v"] = v
+            win.destroy()
+        tk.Button(end, text="Apply choices", command=lambda: done(list(choices))).pack(side="left", padx=4)
+        if allow_markers:
+            tk.Button(end, text="Write conflict markers instead", command=lambda: done("markers")).pack(side="left", padx=4)
+        tk.Button(end, text="Cancel", command=lambda: done(None)).pack(side="right", padx=4)
+        win.protocol("WM_DELETE_WINDOW", lambda: done(None))
+        refresh_list()
+        show()
+        win.grab_set()
+        self.wait_window(win)
+        return result["v"]
+
+    def follow_resolve_conflicts(self):
+        """File > Resolve Conflicts...: the followed files that contain conflict markers, one after the other."""
+        f = self._follow
+        if f is None:
+            self.show_change_bar("Not following a folder.", undo=False)
+            return 0
+        fixed = 0
+        for rel, info in sorted(f["snap"].items()):
+            src, _why = source_writeback.read_source(info["path"])
+            if src is None or not source_merge.has_conflicts(src.text):
+                continue
+            answer = self.ask_follow_resolve(rel, source_merge.conflict_regions(src.text))
+            if not answer:
+                continue
+            text = source_merge.resolve(src.text, answer)
+            try:
+                size, mtime, digest = source_writeback.write_source(
+                    info["path"], text, source_writeback.Source(text, src.eol, src.bom))
+            except OSError as exc:
+                self.show_change_bar(f"{rel} could not be written ({exc.strerror or exc}).", undo=False)
+                continue
+            info.update(size=size, mtime=mtime, hash=digest)
+            tab = self._follow_tab(rel)
+            if tab is not None:
+                self._follow_reload(tab, rel, info)
+            fixed += 1
+        self.refresh_tab_bar()
+        self.show_change_bar(f"Resolved the conflicts in {fixed} file{'s' if fixed != 1 else ''}." if fixed
+                             else "No unresolved conflicts to resolve.", undo=False)
+        return fixed
 
     # ---- remembering the folder ----------------------------------------------
     def remember_follow(self, folder, write=False):

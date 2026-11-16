@@ -143,10 +143,10 @@ def main():
                         btns[index].invoke()
                 app.after(150, go)
             got = []
-            for i in (0, 1, 2):
+            for i in (0, 1, 2, 3):
                 press(i)
                 got.append(real_ask("app.py"))
-            check("the dialog's three buttons answer mine / theirs / copy", got == ["mine", "theirs", "copy"])
+            check("the dialog's four buttons answer merge / mine / theirs / copy", got == ["merge", "mine", "theirs", "copy"])
 
             # phase 3: keep mine overwrites the file with my version
             edit_node(app, tab, "shout", "def shout(name):\n    print('mine')\n")

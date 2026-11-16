@@ -370,6 +370,38 @@ class CodegenMixin:
         from ui_common import normalize_save_format
         return normalize_save_format(self.settings.get("save_format")) == "embedded"
 
+    def nodes_from_portable_text(self, text, lang, sidecar_meta=None, sidecar_notes=()):
+        """Nodes (with their code turned into blocks) from a portable file's text, for language `lang`.
+        Returns (nodes, active_id, diagnostics). Shared by opening a file as a new tab and by re-reading a
+        followed file (see ui_follow)."""
+        wrapper = self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
+        nodes, active, diagnostics = portable.rebuild_nodes(
+            text, lang, self.WRAPPER_INDENT.get(lang, ""), wrapper, meta_override=sidecar_meta)
+        diagnostics = list(sidecar_notes) + diagnostics
+
+        can_import = self.get_raw_code_block_id(lang) is not None
+        if not can_import:
+            diagnostics.append(f"no Raw Code block for '{lang}' - node code could not be turned into blocks")
+
+        codes = {}
+
+        def collect(level):
+            for node in level:
+                codes[node["id"]] = node.get("code", "")
+                collect(node["child_nodes"])
+        collect(nodes)
+
+        def fill(level):
+            for node in level:
+                code = node.pop("code", "")
+                if can_import and code.strip():
+                    node["blocks"] = self.import_code_to_blocks(code)[0]
+                fill(node["child_nodes"])
+        fill(nodes)
+        self.reconcile_imported_ui_nodes(nodes, codes)
+
+        return nodes, active, diagnostics
+
     def load_portable_text(self, text, title="Imported", sidecar_text=None, language=None):
         """Open a portable file's text as a NEW tab: nodes, nesting, order
         and layout from its metadata when present, otherwise a flat
@@ -397,32 +429,7 @@ class CodegenMixin:
         })
         self.switch_to_tab(len(self.tabs) - 1)  # loads the language + palette
 
-        wrapper = self.generate_code_for_tab({"language": lang, "nodes": []}, lang)
-        nodes, active, diagnostics = portable.rebuild_nodes(
-            text, lang, self.WRAPPER_INDENT.get(lang, ""), wrapper, meta_override=sidecar_meta)
-        diagnostics = sidecar_notes + diagnostics
-
-        can_import = self.get_raw_code_block_id(lang) is not None
-        if not can_import:
-            diagnostics.append(f"no Raw Code block for '{lang}' - node code could not be turned into blocks")
-
-        codes = {}
-
-        def collect(level):
-            for node in level:
-                codes[node["id"]] = node.get("code", "")
-                collect(node["child_nodes"])
-        collect(nodes)
-
-        def fill(level):
-            for node in level:
-                code = node.pop("code", "")
-                if can_import and code.strip():
-                    node["blocks"] = self.import_code_to_blocks(code)[0]
-                fill(node["child_nodes"])
-        fill(nodes)
-        self.reconcile_imported_ui_nodes(nodes, codes)
-
+        nodes, active, diagnostics = self.nodes_from_portable_text(text, lang, sidecar_meta, sidecar_notes)
         if not nodes:
             nodes = [make_node("main", node_id="main", blocks=[])]
             active = "main"

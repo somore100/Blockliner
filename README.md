@@ -201,7 +201,8 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 
 **Next**
 
-- [ ] Source-first mode: link a folder, follow outside edits (AI tools, other editors), create nodes automatically ([design](docs/source-first-mode.md))
+- [x] Source-first mode, phase 1: File > Follow a Folder (read-only) - nodes made automatically, layers follow outside edits ([design](docs/source-first-mode.md))
+- [ ] Source-first mode, phase 2+: write edits back to the file, conflicts, more languages
 - [ ] Per-language program skeletons so C, Go and Rust output compiles
 - [ ] Calmer zoom on the Nodes layer: node boxes visibly resize as you zoom, which gets distracting with many nodes
 - [ ] More blocks for every language (the palettes are still small)

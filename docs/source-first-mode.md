@@ -1,4 +1,6 @@
-# Source-first mode (idea, 2026-11-11) - not built
+# Source-first mode (idea, 2026-11-11) - phase 1 built (2026-11-16)
+
+**Phase 1 is in:** File > Follow a Folder (read-only). `source_follow.py` (snapshot/diff/carry layout, pure), `ui_follow.py` (timer every 1.5 s, slower on big folders), tests `test_source_follow.py`, `test_follow_ui.py`. Python and the other languages share the same path (nodes from `portable.split_top_level`); only Python has real structure splitting. Nodes keep their place across reloads (matched by id, then name); layout is in memory only (nothing is written to the folder, so the sidecar-location question is still open for phase 2). Edits made in Blockliner are replaced at the next change on disk; there is no per-tab read-only lock yet. Known gaps: a renamed function gets a new node at an auto position; the folder is re-scanned by walking all files each tick (fine to a few hundred files); following is not remembered between runs.
 
 ## The idea
 Today Blockliner is **blocks-first**: a saved project is blocks and nodes (JSON); the code is generated from them, and

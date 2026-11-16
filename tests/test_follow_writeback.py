@@ -63,6 +63,9 @@ def main():
     app = BlocklinerUI(initial_lang="python", languages_path="languages")
     app.geometry("1400x900+0+0")
     app.show_change_bar = lambda text, undo=True: shown.append(text)
+    answers = []
+    real_ask = app.ask_follow_conflict
+    app.ask_follow_conflict = lambda rel: answers.pop(0) if answers else "theirs"
     try:
         settle(app, 0.3)
         with tempfile.TemporaryDirectory() as d:
@@ -120,12 +123,68 @@ def main():
             put(p_app, theirs)
             before = hashlib.sha1(theirs).hexdigest()
             shown.clear()
+            answers[:] = ["theirs"]
             wrote = app.follow_write_back(tab)
             tab = app._follow_tab("app.py")
             check("an outside change wins over a pending edit", wrote is False
                   and hashlib.sha1(raw(p_app)).hexdigest() == before and b"mine" not in raw(p_app))
             check("and the user is told", any("changed on disk first" in s for s in shown))
             check("the tab shows their version", "extra" in [n["name"] for n in tab["nodes"]])
+
+            # the real dialog: each button answers, closing the window means theirs
+            def press(index):
+                def go():
+                    top = [w for w in app.winfo_children() if w.winfo_class() == "Toplevel"][-1]
+                    btns = [b for fr in top.winfo_children() for b in fr.winfo_children()]
+                    if index is None:
+                        top.event_generate("<Destroy>")
+                        top.destroy()
+                    else:
+                        btns[index].invoke()
+                app.after(150, go)
+            got = []
+            for i in (0, 1, 2):
+                press(i)
+                got.append(real_ask("app.py"))
+            check("the dialog's three buttons answer mine / theirs / copy", got == ["mine", "theirs", "copy"])
+
+            # phase 3: keep mine overwrites the file with my version
+            edit_node(app, tab, "shout", "def shout(name):\n    print('mine')\n")
+            put(p_app, raw(p_app) + b"\n# outside\n")
+            answers[:] = ["mine"]
+            check("keep mine writes my edit over their change", app.follow_write_back(tab) is True
+                  and b"'mine'" in raw(p_app) and b"# outside" not in raw(p_app))
+            check("and that write is not taken for an outside change", app.follow_check_now() == ([], [], []))
+
+            # save as a copy: my version goes to the chosen file, theirs is shown
+            edit_node(app, tab, "shout", "def shout(name):\n    print('copy me')\n")
+            put(p_app, raw(p_app) + b"\n# outside 2\n")
+            mine_copy = os.path.join(d, "mine.txt")
+            ui_follow.filedialog.asksaveasfilename = lambda **k: mine_copy
+            answers[:] = ["copy"]
+            check("save as copy does not write the file", app.follow_write_back(tab) is False
+                  and b"copy me" not in raw(p_app) and b"# outside 2" in raw(p_app))
+            check("the copy holds my version", os.path.exists(mine_copy) and b"copy me" in raw(mine_copy))
+            tab = app._follow_tab("app.py")
+
+            # an outside change while an edit still waits for its write: asked by the watcher too
+            app.switch_to_tab(app.tabs.index(tab))
+            settle(app, 0.2)
+            edit_node(app, tab, "shout", "def shout(name):\n    print('pending')\n")
+            app.mark_active_tab_dirty()
+            put(p_app, raw(p_app) + b"\n# outside 3\n")
+            answers[:] = ["mine"]
+            app.follow_check_now()
+            check("the watcher asks and keep mine wins", b"'pending'" in raw(p_app) and not answers)
+            tab = app._follow_tab("app.py")
+            edit_node(app, tab, "shout", "def shout(name):\n    print('pending 2')\n")
+            app.mark_active_tab_dirty()
+            put(p_app, raw(p_app) + b"\n# outside 4\n")
+            answers[:] = ["theirs"]
+            app.follow_check_now()
+            settle(app, ui_follow.WRITE_DELAY_MS / 1000 + 0.3)
+            check("the watcher asks and take theirs drops the edit", b"pending 2" not in raw(p_app)
+                  and b"# outside 4" in raw(p_app) and not answers)
 
             # a node deleted here is dropped from the file
             app.follow_check_now()

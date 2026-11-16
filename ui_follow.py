@@ -6,7 +6,8 @@ layers update by themselves, keeping the nodes where they were.
 
 Phase 2 (opt-in when following): an edit made to a block is written back into the file a moment later, as a splice -
 only the nodes that were really edited are replaced (see source_writeback), the rest of the file stays byte for byte,
-and a file another program changed in the meantime is never overwritten. Without it the mode is read-only: nothing is
+and a file another program changed in the meantime is never overwritten without asking (phase 3: keep mine, take
+theirs, or save mine as a copy). Without it the mode is read-only: nothing is
 written, and edits stay in Blockliner until the file changes on disk."""
 import os
 import time
@@ -175,10 +176,10 @@ class FollowMixin:
         if new_chunks == state["chunks"]:
             return False                                 # nothing was edited: the file is not touched
         if source_writeback.hash_file(info["path"]) != info["hash"]:
-            self.follow_check_now()                      # someone else wrote first: their version wins (phase 3 asks)
-            self.show_change_bar(f"{rel} changed on disk first, so your edit was not written. Showing the file as it is now.",
-                                 undo=False)
-            return False
+            return self._follow_conflict(tab, rel, info, new_chunks, current)
+        return self._follow_store(tab, rel, info, state, new_chunks, current)
+
+    def _follow_store(self, tab, rel, info, state, new_chunks, current):
         text = source_writeback.join(new_chunks)
         src = source_writeback.Source(text, state["eol"], state["bom"])
         try:
@@ -194,6 +195,55 @@ class FollowMixin:
         tab["dirty"] = False
         self.show_change_bar(f"Saved to {rel}", undo=False)
         return True
+
+    # ---- the file changed on disk under an edit (phase 3) -----------------------
+    def ask_follow_conflict(self, rel):
+        """Ask what to do when a file changed on disk while an edit of it is waiting. Returns "mine" (overwrite the file
+        with this version), "theirs" (take the file as it is now, drop the edit) or "copy" (save my version as a copy
+        somewhere, then take theirs). Closing the window means "theirs": the file on disk is the truth."""
+        win = tk.Toplevel(self)
+        win.title("File changed on disk")
+        win.transient(self)
+        result = {"v": "theirs"}
+        tk.Label(win, text=f"{rel} was changed by another program while you were editing it.\n\n"
+                           "Which version do you want?", justify="left", padx=16, pady=14).pack()
+        row = tk.Frame(win, padx=12, pady=10)
+        row.pack()
+
+        def pick(v):
+            result["v"] = v
+            win.destroy()
+        for label, v in (("Keep mine (overwrite the file)", "mine"), ("Take theirs (drop my edit)", "theirs"),
+                         ("Save mine as a copy, take theirs", "copy")):
+            tk.Button(row, text=label, command=lambda v=v: pick(v)).pack(side="left", padx=4)
+        win.protocol("WM_DELETE_WINDOW", lambda: pick("theirs"))
+        win.grab_set()
+        self.wait_window(win)
+        return result["v"]
+
+    def _follow_conflict(self, tab, rel, info, new_chunks, current, recheck=True):
+        """The file on disk is not what was read and there is an edit to write. Ask, then act. True when the file was
+        written with this version."""
+        state = tab["follow_state"]
+        choice = self.ask_follow_conflict(rel)
+        if choice == "mine":
+            return self._follow_store(tab, rel, info, state, new_chunks, current)
+        if choice == "copy":
+            target = filedialog.asksaveasfilename(
+                title="Save my version as", initialfile=os.path.basename(info["path"]) + ".mine",
+                initialdir=os.path.dirname(info["path"]))
+            if target:
+                text = source_writeback.join(new_chunks)
+                try:
+                    source_writeback.write_source(target, text, source_writeback.Source(text, state["eol"], state["bom"]))
+                except OSError as exc:
+                    messagebox.showerror("Save a copy", f"Could not save the copy: {exc.strerror or exc}")
+        self._follow_cancel_write(tab)
+        if recheck:
+            self.follow_check_now()                      # their version is shown
+        self.show_change_bar(f"{rel} changed on disk first, so your edit was not written. Showing the file as it is now.",
+                             undo=False)
+        return False
 
     # ---- remembering the folder ----------------------------------------------
     def remember_follow(self, folder, write=False):
@@ -262,6 +312,8 @@ class FollowMixin:
             tab = self._follow_tab(rel)
             if tab is None:
                 self._follow_open_file(rel, new[rel])
+            elif self._follow_pending_edit(tab, rel, new[rel]):
+                continue                                 # the user chose to keep their edit (and wrote it)
             else:
                 self._follow_reload(tab, rel, new[rel])
         for rel in removed:
@@ -273,6 +325,23 @@ class FollowMixin:
             self.switch_to_tab(self.tabs.index(keep))
         self.refresh_tab_bar()
         return added, changed, removed
+
+    def _follow_pending_edit(self, tab, rel, info):
+        """An outside change arrived while an edit of this tab waits for its write: ask. True when the edit was kept and
+        written over the new file (the tab stays as it is); False when their version should be read in."""
+        state = tab.get("follow_state")
+        f = self._follow
+        if tab.get("follow_job") is None or not f.get("write") or not state or not state.get("writable"):
+            return False
+        self._follow_cancel_write(tab)
+        if self.tabs[self.active_tab_index] is tab:
+            self.sync_active_tab_state()
+        lang = info["language"]
+        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
+        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current)
+        if new_chunks == state["chunks"]:
+            return False
+        return self._follow_conflict(tab, rel, info, new_chunks, current, recheck=False)
 
     # ---- one file ---------------------------------------------------------
     def _follow_tab(self, rel):

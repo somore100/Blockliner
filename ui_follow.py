@@ -18,6 +18,7 @@ from tkinter import filedialog, messagebox
 import portable
 import project_scan
 import source_follow
+import source_rename
 import source_writeback
 from nodes_model import normalize_orders
 from ui_common import LANGUAGE_EXTENSIONS
@@ -186,18 +187,18 @@ class FollowMixin:
         lang = info["language"]
         current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
         chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
-        if lang == "python":
-            old_text = dict(state["chunks"])
-            renames = {}
-            for n in tab["nodes"]:
-                was = state["names"].get(n["id"])
-                if was and was != n["name"] and re.match(r"\s*(async\s+def|def|class)\s+" + re.escape(was) + r"\b",
-                                                         old_text.get(n["id"], "")):
-                    renames[n["id"]] = (was, n["name"])
-            if renames:
-                chunks, skipped = source_writeback.apply_renames(chunks, renames, state["chunks"])
-                if skipped:
-                    self.show_change_bar("Not renamed in the file: " + "; ".join(skipped) + ".", undo=False)
+        old_text = dict(state["chunks"])
+        renames = {}
+        for n in tab["nodes"]:
+            was = state["names"].get(n["id"])
+            if was and was != n["name"] and source_rename.declares(old_text.get(n["id"], ""), was, lang):
+                renames[n["id"]] = (was, n["name"])
+        tab["follow_renames"] = []
+        if renames and lang in ("python",) + source_rename.CLIKE:
+            chunks, skipped, applied = source_rename.apply_renames(chunks, renames, state["chunks"], lang)
+            tab["follow_renames"] = applied
+            if skipped:
+                self.show_change_bar("Not renamed in the file: " + "; ".join(skipped) + ".", undo=False)
         return chunks, current
 
     def _follow_order(self, tab):
@@ -226,7 +227,47 @@ class FollowMixin:
         tab["follow_codes"] = {cid: t for cid, t in new_chunks}
         tab["dirty"] = False
         self.show_change_bar(f"Saved to {rel}", undo=False)
+        applied, tab["follow_renames"] = tab.get("follow_renames") or [], []
+        if applied and info["language"] == "python":
+            self._follow_rename_elsewhere(rel, applied)
         return True
+
+    def _follow_rename_elsewhere(self, rel, applied):
+        """A Python function/class was renamed in `rel`: fix the import of it (and the uses that follow from the import)
+        in the other Python files of the followed folder. Those files are then read again by the watcher."""
+        f = self._follow
+        module = source_rename.module_name(rel)
+        fixed, failed = [], []
+        for other, oinfo in f["snap"].items():
+            if other == rel or oinfo["language"] != "python":
+                continue
+            otab = self._follow_tab(other)
+            if otab is not None and otab.get("follow_job") is not None and otab.get("follow_state", {}).get("writable"):
+                if self._follow_plan(otab, oinfo)[0] != otab["follow_state"]["chunks"]:
+                    failed.append(f"{other} (an edit of it is waiting)")
+                    continue                            # a real edit of theirs is waiting: not under it
+            src, _why = source_writeback.read_source(oinfo["path"])
+            if src is None or portable.NODE_MARKER_RE.search(src.text):
+                continue
+            for old, new in applied:
+                text, count = source_rename.rename_imports(src.text, other, module, old, new)
+                if text is None:
+                    failed.append(f"{other} ({count})")
+                elif count:
+                    src = source_writeback.Source(text, src.eol, src.bom)
+                    fixed.append(other)
+            if other in fixed:
+                try:
+                    source_writeback.write_source(oinfo["path"], src.text, src)
+                except OSError:
+                    failed.append(f"{other} (could not be written)")
+        if fixed or failed:
+            msg = f"Renamed also in {', '.join(sorted(set(fixed)))}." if fixed else ""
+            if failed:
+                msg += (" " if msg else "") + "Not changed: " + ", ".join(failed) + "."
+            self.show_change_bar(msg, undo=False)
+        if fixed:
+            self.follow_check_now()
 
     # ---- the file changed on disk under an edit (phase 3) -----------------------
     def ask_follow_conflict(self, rel):

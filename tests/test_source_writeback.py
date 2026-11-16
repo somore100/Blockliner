@@ -113,16 +113,51 @@ moved = sw.join(sw.plan(ch, base, cur, ["c", "a", "b"]))
 check("a moved node moves its text, gaps stay alike",
       moved == "def c():\n    pass\n\n\ndef a():\n    pass\n\n\ndef b():\n    pass\n")
 
+import source_rename as sr
 code = "def old(x):\n    return x  # old\n\n\nprint('old', old(1), obj.old, f(old=2))\n"
-out, n = sw.rename_python(code, "old", "new")
+out, n = sr.rename_in_text(code, "old", "new")
 check("rename touches the definition and calls, not strings, comments, attributes or keyword names",
       out == "def new(x):\n    return x  # old\n\n\nprint('old', new(1), obj.old, f(old=2))\n" and n == 2)
-rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n"), ("b", "old()\n")], {"a": ("old", "new")})
-check("apply_renames renames across chunks", rc == [("a", "def new():\n    pass\n"), ("b", "new()\n")] and not skipped)
-rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n"), ("b", "new = 1\n")], {"a": ("old", "new")})
+rc, skipped, applied = sr.apply_renames([("a", "def old():\n    pass\n"), ("b", "old()\n")], {"a": ("old", "new")})
+check("apply_renames renames across chunks", rc == [("a", "def new():\n    pass\n"), ("b", "new()\n")] and not skipped
+      and applied == [("old", "new")])
+rc, skipped, _a = sr.apply_renames([("a", "def old():\n    pass\n"), ("b", "new = 1\n")], {"a": ("old", "new")})
 check("a name already in use is refused", skipped and rc[0][1].startswith("def old"))
-rc, skipped = sw.apply_renames([("a", "def old():\n    pass\n")], {"a": ("old", "class")})
+rc, skipped, _a = sr.apply_renames([("a", "def old():\n    pass\n")], {"a": ("old", "class")})
 check("a keyword is refused", skipped)
+
+js = 'function old(a) {\n  // old here\n  return "old" + obj.old + `old ${a}` + old(a);\n}\nconst o = {old: 1, k: old};\n'
+out, n = sr.rename_in_text(js, "old", "nu", "javascript")
+check("JS: definition, calls and values are renamed; comments, strings, members and object keys are not",
+      out == 'function nu(a) {\n  // old here\n  return "old" + obj.old + `old ${a}` + nu(a);\n}\nconst o = {old: 1, k: nu};\n' and n == 3)
+rs = "fn old<'a>(x: &'a str) -> char { let c = 'o'; Self::old(x); old(x); c }\n"
+out, n = sr.rename_in_text(rs, "old", "nu", "rust")
+check("Rust: lifetimes are not strings, paths are members",
+      out == "fn nu<'a>(x: &'a str) -> char { let c = 'o'; Self::old(x); nu(x); c }\n" and n == 2)
+go = 'func old() {\n\t/* old\n\told */ x := "a\\"old"; old()\n}\n'
+out, n = sr.rename_in_text(go, "old", "nu", "go")
+check("Go: block comments and escaped quotes", out == 'func nu() {\n\t/* old\n\told */ x := "a\\"old"; nu()\n}\n' and n == 2)
+check("declares() sees the declaration line", sr.declares("// c\nfunc old() {}\n", "old", "go")
+      and not sr.declares("x := old()\n", "old", "go") and sr.declares("async def old():\n  pass", "old", "python"))
+check("a name that is not valid in the language is refused", not sr.valid_name("a-b", "javascript")
+      and not sr.valid_name("class", "python") and sr.valid_name("$x1", "javascript"))
+
+check("module names", sr.module_name("pkg/utils.py") == "pkg.utils" and sr.module_name("pkg/__init__.py") == "pkg"
+      and sr.module_name("u.py") == "u")
+t, n = sr.rename_imports("from utils import old, keep\nold()\nobj.old()\n", "main.py", "utils", "old", "nu")
+check("from-import: the import and the bare uses", t == "from utils import nu, keep\nnu()\nobj.old()\n" and n == 2)
+t, n = sr.rename_imports("from utils import old as o\no()\n", "main.py", "utils", "old", "nu")
+check("an aliased import only changes the imported name", t == "from utils import nu as o\no()\n" and n == 1)
+t, n = sr.rename_imports("import utils\nutils.old()\nold()\n", "main.py", "utils", "old", "nu")
+check("module import: attribute uses only", t == "import utils\nutils.nu()\nold()\n" and n == 1)
+t, n = sr.rename_imports("from . import utils as u\nu.old()\n", "pkg/main.py", "pkg.utils", "old", "nu")
+check("relative imports are resolved", t == "from . import utils as u\nu.nu()\n" and n == 1)
+t, n = sr.rename_imports("from .utils import old\nold()\n", "pkg/main.py", "pkg.utils", "old", "nu")
+check("relative from-import", n == 2 and "nu()" in t)
+t, n = sr.rename_imports("import os\nold()\n", "main.py", "utils", "old", "nu")
+check("a file that does not import the module is left alone", n == 0 and t.startswith("import os"))
+t, n = sr.rename_imports("from utils import old\nnu = 1\n", "main.py", "utils", "old", "nu")
+check("a clash in the importer is refused", t is None)
 
 print("ALL OK" if not FAILURES else f"{len(FAILURES)} FAILED")
 sys.exit(1 if FAILURES else 0)

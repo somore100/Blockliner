@@ -101,12 +101,13 @@ def restyle(code, original):
     return "\n".join(out)
 
 
-def plan(chunks, baseline, current):
+def plan(chunks, baseline, current, order=None):
     """The file's new chunks.
 
     chunks   [(id, original text)] in file order
     baseline {id: code generated when the file was read}
     current  [(id, code generated now)] in node order
+    order    ids in the order the nodes should have in the file (execution order); None keeps the file's order
     Returns [(id, text)]. Equal to `chunks` when nothing was edited."""
     now = dict(current)
     out = []
@@ -120,6 +121,7 @@ def plan(chunks, baseline, current):
         body, keep = _split_tail(text)
         new_body = restyle(gen, body).rstrip("\n")
         out.append((cid, (new_body + "\n" + keep) if new_body else keep))
+    out = _reorder(out, order)
     known = {cid for cid, _t in chunks}
     added = [(cid, gen.rstrip("\n") + "\n") for cid, gen in current if cid not in known and gen.strip()]
     if out and added and not out[-1][1].endswith("\n\n"):
@@ -128,6 +130,31 @@ def plan(chunks, baseline, current):
     # joining must never glue lines together: a chunk that lost its final newline gets one when something follows
     return [(cid, text + "\n" if text and not text.endswith("\n") and i < len(out) - 1 else text)
             for i, (cid, text) in enumerate(out)]
+
+
+def _reorder(out, order):
+    """`out` [(id, text)] with its nodes in `order` (ids not listed keep their relative place at the end). When the
+    order really changes, the blank lines between chunks are made alike: every chunk but the last ends the way the first
+    chunk that was followed by a gap did, and the last ends with one line break."""
+    if not order or len(out) < 2:
+        return out
+    rank = {cid: i for i, cid in enumerate(order)}
+    new = sorted(out, key=lambda it: rank.get(it[0], len(rank)))          # stable
+    if [c for c, _t in new] == [c for c, _t in out]:
+        return out
+    gap = ""
+    for _cid, text in out[:-1]:
+        if text.endswith("\n"):
+            gap = _split_tail(text)[1]
+            break
+    fixed = []
+    for i, (cid, text) in enumerate(new):
+        body, _keep = _split_tail(text)
+        if not body:
+            fixed.append((cid, text))
+        else:
+            fixed.append((cid, body + "\n" + (gap if i < len(new) - 1 else "")))
+    return fixed
 
 
 def join(chunks):

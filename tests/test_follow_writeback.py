@@ -186,6 +186,19 @@ def main():
             check("the watcher asks and take theirs drops the edit", b"pending 2" not in raw(p_app)
                   and b"# outside 4" in raw(p_app) and not answers)
 
+            # execution order changed here -> the nodes change places in the file
+            tab = app._follow_tab("app.py")
+            names = [n["name"] for n in tab["nodes"]]
+            first, last = [n for n in tab["nodes"] if n["name"] == names[0]][0], [n for n in tab["nodes"] if n["name"] == names[-1]][0]
+            ok, _m, _h = app.set_node_order(tab, last, 1, on_conflict="swap")
+            before = raw(p_app)
+            want = app._follow_order(tab)
+            check("a changed execution order is written", ok and app.follow_write_back(tab) is True
+                  and raw(p_app) != before)
+            check("the file's nodes come back in that order", [i for i, _c in tab["follow_state"]["chunks"]] == want)
+            app.follow_check_now()
+            tab = app._follow_tab("app.py")
+
             # a node deleted here is dropped from the file
             app.follow_check_now()
             tab = app._follow_tab("app.py")

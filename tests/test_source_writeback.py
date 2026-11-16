@@ -105,5 +105,13 @@ with tempfile.TemporaryDirectory() as d:
     check("write_source reports what is on disk", size == 3 and digest == sw.hash_file(p)
           and not [n for n in os.listdir(d) if n.endswith(".tmp")])
 
+ch = [("a", "def a():\n    pass\n\n\n"), ("b", "def b():\n    pass\n\n\n"), ("c", "def c():\n    pass\n")]
+base = {"a": "A", "b": "B", "c": "C"}
+cur = [("a", "A"), ("b", "B"), ("c", "C")]
+check("no new order -> same chunks", sw.plan(ch, base, cur) == ch and sw.plan(ch, base, cur, ["a", "b", "c"]) == ch)
+moved = sw.join(sw.plan(ch, base, cur, ["c", "a", "b"]))
+check("a moved node moves its text, gaps stay alike",
+      moved == "def c():\n    pass\n\n\ndef a():\n    pass\n\n\ndef b():\n    pass\n")
+
 print("ALL OK" if not FAILURES else f"{len(FAILURES)} FAILED")
 sys.exit(1 if FAILURES else 0)

@@ -18,6 +18,7 @@ import portable
 import project_scan
 import source_follow
 import source_writeback
+from nodes_model import normalize_orders
 from ui_common import LANGUAGE_EXTENSIONS
 
 FOLLOW_MS = 1500
@@ -172,12 +173,22 @@ class FollowMixin:
         lang = info["language"]
         nodes = tab["nodes"]
         current = [(n["id"], self.generate_code_for_node(n, lang)) for n in nodes]
-        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current)
+        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
         if new_chunks == state["chunks"]:
             return False                                 # nothing was edited: the file is not touched
         if source_writeback.hash_file(info["path"]) != info["hash"]:
             return self._follow_conflict(tab, rel, info, new_chunks, current)
         return self._follow_store(tab, rel, info, state, new_chunks, current)
+
+    def _follow_order(self, tab):
+        """Node ids in execution order: the order the nodes have in the file once written (a node's execution order
+        number is what Blockliner generates code by). None when the nodes are not all plain top-level functions."""
+        nodes = tab.get("nodes") or []
+        normalize_orders(nodes)
+        keyed = sorted(enumerate(nodes), key=lambda it: (not isinstance(it[1].get("order"), int),
+                                                         it[1].get("order") if isinstance(it[1].get("order"), int) else 0,
+                                                         it[0]))
+        return [n["id"] for _i, n in keyed]
 
     def _follow_store(self, tab, rel, info, state, new_chunks, current):
         text = source_writeback.join(new_chunks)
@@ -338,7 +349,7 @@ class FollowMixin:
             self.sync_active_tab_state()
         lang = info["language"]
         current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
-        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current)
+        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
         if new_chunks == state["chunks"]:
             return False
         return self._follow_conflict(tab, rel, info, new_chunks, current, recheck=False)

@@ -1,5 +1,6 @@
 ## Next
 
+- Following a folder with write-back: changing a node's execution order moves it in the file too.
 - Following a folder with write-back: when a file changes on disk while you have an edit waiting, a dialog asks: keep mine (overwrite the file), take theirs (drop my edit) or save mine as a copy.
 
 ## What's new in 2.6.0

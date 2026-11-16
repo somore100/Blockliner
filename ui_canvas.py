@@ -16,6 +16,28 @@ SELECT_COLOR = "#00e5ff"  # cyan: selected file / node / block
 GRAY_BOX = "#5a5a5a"      # "plain gray boxes" zoomed-out look
 
 
+class NodeBox(tk.Frame):
+    """A Nodes-layer box. Its resize strips (see _add_node_resize_edges) are laid over its outer edge; they follow the
+    ring colour whenever it changes, so selecting or flagging a box still shows."""
+
+    def __init__(self, *a, **k):
+        self._strips = []
+        super().__init__(*a, **k)
+
+    def configure(self, cnf=None, **kw):
+        res = super().configure(cnf, **kw)
+        color = (cnf or {}).get("highlightbackground") if isinstance(cnf, dict) else None
+        color = kw.get("highlightbackground", color)
+        if color is not None:
+            for st in self._strips:
+                try:
+                    st.configure(bg=color)
+                except tk.TclError:
+                    pass
+        return res
+    config = configure
+
+
 class CanvasMixin:
 
     def render_files_view(self):
@@ -350,7 +372,7 @@ class CanvasMixin:
         skipped = bool(node.get("skipped"))
         if skipped:
             box_color, text_fg = "#7b3fb0", "#ffffff"
-        box = tk.Frame(
+        box = NodeBox(
             self.workspace_canvas, bg=BLOCK_BG, highlightthickness=2,
             highlightbackground=DARK_BORDER
         )
@@ -555,7 +577,7 @@ class CanvasMixin:
             port.bind("<ButtonRelease-1>", self._port_release)
 
     # ---- resizing a node box (all edges and corners) -----------------------
-    RESIZE_EDGE = 5           # px strip along each side that grabs the edge
+    RESIZE_EDGE = 3           # px strip along each side that grabs the edge (laid over the box's own 2 px ring)
     RESIZE_CURSORS = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow", "e": "sb_h_double_arrow",
                       "w": "sb_h_double_arrow", "nw": "top_left_corner", "ne": "top_right_corner",
                       "sw": "bottom_left_corner", "se": "bottom_right_corner"}
@@ -617,11 +639,14 @@ class CanvasMixin:
         def hover(ev, side, strip):
             strip.configure(cursor=self.RESIZE_CURSORS.get(edges_at(side, ev), "fleur"))
 
+        # the strips sit on the box's outer edge (over its ring) in the ring's colour, so the box looks like any other
+        # box (a Files-layer box has the same 2 px ring); NodeBox keeps their colour in step with the ring (selected, error)
         places = {"n": dict(relx=0, rely=0, relwidth=1, height=e), "s": dict(relx=0, rely=1, relwidth=1, height=e, anchor="sw"),
                   "w": dict(relx=0, rely=0, relheight=1, width=e), "e": dict(relx=1, rely=0, relheight=1, width=e, anchor="ne")}
         for side, opts in places.items():
             strip = tk.Frame(box, bg=box.cget("highlightbackground"))
-            strip.place(**opts)
+            strip.place(bordermode="outside", **opts)
+            box._strips.append(strip)
             strip.bind("<ButtonPress-1>", lambda ev, s=side: press(ev, s))
             strip.bind("<B1-Motion>", motion)
             strip.bind("<ButtonRelease-1>", release)

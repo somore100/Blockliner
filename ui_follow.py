@@ -25,7 +25,8 @@ from ui_common import LANGUAGE_EXTENSIONS
 
 FOLLOW_MS = 1500
 NOTICE_SECONDS = 20
-WRITE_DELAY_MS = 600          # an edit is written this long after the last change (typing makes many)
+WRITE_DELAY_MS = 600          # default: an edit is written this long after the last change (typing makes many)
+MAX_DELAY_S = 300
 
 
 class FollowMixin:
@@ -97,7 +98,11 @@ class FollowMixin:
         state = tab.get("follow_state")
         if f is not None and f.get("write") and state and state.get("writable"):
             self._follow_cancel_write(tab)
-            tab["follow_job"] = self.after(WRITE_DELAY_MS, lambda t=tab: self._follow_write_job(t))
+            if self.follow_sync_manual():
+                tab["follow_pending"] = True             # written when the user chooses File > Update Source Files
+                self._follow_manual_notice()
+            else:
+                tab["follow_job"] = self.after(self.follow_delay_ms(), lambda t=tab: self._follow_write_job(t))
             return False
         now = time.time()
         if now - tab.get("follow_notice_at", 0) < NOTICE_SECONDS:
@@ -111,6 +116,66 @@ class FollowMixin:
             self.show_change_bar("Following this folder: the file on disk is the truth. This change is not saved to it "
                                  "and is replaced when the file changes.", undo=False)
         return True
+
+    # ---- when edits are written: automatically after a pause, or only on request ------------
+    def follow_sync_manual(self):
+        return self.settings.get("follow_sync_mode") == "manual"
+
+    def follow_delay_ms(self):
+        """How long after the last edit it is written, from Settings (seconds; 0.6 by default)."""
+        try:
+            sec = float(self.settings.get("follow_sync_seconds", WRITE_DELAY_MS / 1000))
+        except (TypeError, ValueError):
+            sec = WRITE_DELAY_MS / 1000
+        return int(max(0.1, min(MAX_DELAY_S, sec)) * 1000)
+
+    def follow_waiting_tabs(self):
+        """Followed tabs whose file differs from what Blockliner would write now (real edits, not just a tab switch)."""
+        f = self._follow
+        out = []
+        if f is None or not f.get("write"):
+            return out
+        for tab in list(getattr(self, "tabs", [])):
+            state, rel = tab.get("follow_state"), tab.get("followed")
+            info = f["snap"].get(rel) if rel else None
+            if not (state and state.get("writable") and info) or tab.get("title", "").endswith(" (missing)"):
+                continue
+            if self.tabs[self.active_tab_index] is tab:
+                self.sync_active_tab_state()
+            try:
+                if self._follow_plan(tab, info)[0] != state["chunks"]:
+                    out.append(tab)
+            except Exception:
+                pass
+        return out
+
+    def _follow_manual_notice(self):
+        now = time.time()
+        if now - getattr(self, "_follow_manual_at", 0) < NOTICE_SECONDS:
+            return
+        self._follow_manual_at = now
+        self.show_change_bar("Edits to followed files are written when you choose File > Update Source Files "
+                             "(or switch to automatic in Settings).", undo=False)
+
+    def follow_update_now(self):
+        """File > Update Source Files: write every waiting edit now. Returns the number of files written."""
+        f = self._follow
+        if f is None:
+            self.show_change_bar("Not following a folder.", undo=False)
+            return 0
+        if not f.get("write"):
+            self.show_change_bar("This folder is followed read-only (File > Follow a Folder... and answer Yes to write edits back).",
+                                 undo=False)
+            return 0
+        wrote = 0
+        for tab in self.follow_waiting_tabs():
+            self._follow_cancel_write(tab)
+            tab.pop("follow_pending", None)
+            if self.follow_write_back(tab):
+                wrote += 1
+        self.show_change_bar(f"Updated {wrote} source file{'s' if wrote != 1 else ''}." if wrote else
+                             "Nothing to update: the files already match.", undo=False)
+        return wrote
 
     # ---- write-back (phase 2) ---------------------------------------------------
     def _follow_cancel_write(self, tab):
@@ -129,7 +194,17 @@ class FollowMixin:
             print(f"follow write-back: {exc}")
 
     def follow_flush(self):
-        """Write now every edit that is still waiting for its short delay."""
+        """Write now every edit that is still waiting for its short delay. With "only on request" nothing is written
+        by itself: the user is asked once about the edits that are still waiting."""
+        if self.follow_sync_manual():
+            waiting = self.follow_waiting_tabs()
+            if waiting and messagebox.askyesno(
+                    "Update the source files?",
+                    f"{len(waiting)} followed file{'s have' if len(waiting) != 1 else ' has'} edits that were not written yet.\n\n"
+                    "Write them into the files now?"):
+                for tab in waiting:
+                    self.follow_write_back(tab)
+            return
         for tab in list(getattr(self, "tabs", [])):
             if tab.get("follow_job") is not None:
                 self._follow_cancel_write(tab)
@@ -244,7 +319,8 @@ class FollowMixin:
             if other == rel or not source_rename.same_family(lang, oinfo["language"]):
                 continue
             otab = self._follow_tab(other)
-            if otab is not None and otab.get("follow_job") is not None and otab.get("follow_state", {}).get("writable"):
+            if otab is not None and (otab.get("follow_job") is not None or otab.get("follow_pending")) \
+                    and otab.get("follow_state", {}).get("writable"):
                 if self._follow_plan(otab, oinfo)[0] != otab["follow_state"]["chunks"]:
                     failed.append(f"{other} (an edit of it is waiting)")
                     continue                            # a real edit of theirs is waiting: not under it
@@ -406,9 +482,11 @@ class FollowMixin:
         written over the new file (the tab stays as it is); False when their version should be read in."""
         state = tab.get("follow_state")
         f = self._follow
-        if tab.get("follow_job") is None or not f.get("write") or not state or not state.get("writable"):
+        if (tab.get("follow_job") is None and not tab.get("follow_pending")) or not f.get("write") or not state \
+                or not state.get("writable"):
             return False
         self._follow_cancel_write(tab)
+        tab.pop("follow_pending", None)
         if self.tabs[self.active_tab_index] is tab:
             self.sync_active_tab_state()
         new_chunks, current = self._follow_plan(tab, info)

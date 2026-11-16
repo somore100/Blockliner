@@ -1324,6 +1324,8 @@ class CanvasMixin:
         (one of its entries or a cascade) must not, or the entry's command
         never runs (the menu is unposted before the button is released)."""
         widget = getattr(e, "widget", None)
+        if isinstance(widget, str):          # Tk hands over only a path name for a widget Python does not know (a combobox popdown)
+            widget = None
         if isinstance(widget, tk.Menu):
             return
         # The press that OPENED a menu (a top-bar menu button, the Run arrow) reaches this

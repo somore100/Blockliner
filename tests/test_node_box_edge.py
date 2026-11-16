@@ -47,6 +47,14 @@ def main():
         box["highlightbackground"] = "#112233"
         check("also when set by item assignment", all(s.cget("bg") == "#112233" for s in box._strips))
 
+        from types import SimpleNamespace
+        try:
+            app._on_any_press(SimpleNamespace(widget=".!combobox.popdown.f.l"))
+            ok = True
+        except AttributeError:
+            ok = False
+        check("a click on a widget Python does not know (a combobox popdown) is not an error", ok)
+
         node = app.tabs[app.active_tab_index]["nodes"][0]
         w0 = box.winfo_width()
         east = box._strips[3]

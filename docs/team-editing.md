@@ -74,8 +74,31 @@ missing, if any, is "mark a node box" and "show a bar"; check `extensions_api.py
 3. docs and a manual test recipe with two folders and a scripted "other side"
 4. presence extension (only after 1-3 prove useful)
 
-## Open questions for the user
+## Decisions (from the user)
 
-- Do teams here share a live folder, or only commits? (decides whether Phase B is worth it)
-- On a per-node conflict, is "both, theirs then mine, with a marker comment" acceptable, or should Blockliner write
-  git-style conflict markers? (markers break the file until fixed; the choice dialog never does)
+- **Teams share a live folder** (Blockliner builds its visuals on top of the source files), so Phase B (presence) is
+  worth building, not just Phase A.
+- **Show what each person is editing, down to the current line**, not only the node. Presence therefore carries a
+  line number and, for a node open in the Blocks layer, the index of the block being edited:
+  `editing: {rel: {node id: {"line": 42, "block": 3}}}`. The node box shows the person's colour; in the code panel and
+  Blocks layer a small marker sits on that line/block with the name. Updated at most every ~1 s while they type.
+- **Conflicts are written as git-style markers**, so git, editors and merge tools already understand them:
+
+      <<<<<<< mine (Blockliner, <user>)
+      ...my version of the node...
+      =======
+      ...their version...
+      >>>>>>> theirs (disk)
+
+  Rules: only the conflicting node gets markers (the rest of the file is merged cleanly); a file that contains markers
+  is opened **read-only with the reason "has unresolved conflicts"** (the same mechanism as other non-writable
+  files) and the node shows a conflict badge; **File > Resolve Conflicts...** steps through them with mine / theirs /
+  both; when the markers are gone (resolved here or in an editor) the file is writable again. The per-node choice
+  dialog stays as the way to avoid markers ("resolve now"); markers are the way to postpone ("write markers"), so
+  the user picks one in the conflict dialog.
+- Marker lines use `portable`'s comment token for the language when the language needs the file to stay parseable
+  (not needed: markers are expected to break the file until resolved, like git).
+
+## Still open
+
+- Should presence files be committed or ignored? Proposed: ignored (added to `.git/info/exclude` on first use).

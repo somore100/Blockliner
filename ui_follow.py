@@ -1,9 +1,13 @@
-"""File > Follow a folder (read-only): source-first mode, phase 1 (docs/source-first-mode.md).
+"""File > Follow a folder: source-first mode, phases 1 and 2 (docs/source-first-mode.md).
 
 The files in the folder are the truth. Every source file becomes a file tab with nodes made from its structure; a timer
 looks at the folder every couple of seconds, and when an outside tool (an editor, an AI agent) adds or changes a file the
-layers update by themselves, keeping the nodes where they were. Nothing is ever written to the folder: edits made in
-Blockliner stay in Blockliner and are replaced the next time the file changes on disk."""
+layers update by themselves, keeping the nodes where they were.
+
+Phase 2 (opt-in when following): an edit made to a block is written back into the file a moment later, as a splice -
+only the nodes that were really edited are replaced (see source_writeback), the rest of the file stays byte for byte,
+and a file another program changed in the meantime is never overwritten. Without it the mode is read-only: nothing is
+written, and edits stay in Blockliner until the file changes on disk."""
 import os
 import time
 import tkinter as tk
@@ -12,17 +16,21 @@ from tkinter import filedialog, messagebox
 import portable
 import project_scan
 import source_follow
+import source_writeback
 from ui_common import LANGUAGE_EXTENSIONS
 
 FOLLOW_MS = 1500
 NOTICE_SECONDS = 20
+WRITE_DELAY_MS = 600          # an edit is written this long after the last change (typing makes many)
 
 
 class FollowMixin:
     _follow = None             # {"folder", "snap": {rel: info}, "job"} while a folder is followed
 
-    def follow_folder(self, folder=None):
-        """Pick a folder and start following it. Returns how many files were opened (0 = nothing started)."""
+    def follow_folder(self, folder=None, write=None):
+        """Pick a folder and start following it. `write` True lets edits made here be written back into the files
+        (only the nodes that were edited); False keeps it read-only; None asks. Returns how many files were opened
+        (0 = nothing started)."""
         if self._follow is not None:
             self.stop_following()
         if folder is None:
@@ -33,7 +41,16 @@ class FollowMixin:
         if not snap:
             messagebox.showinfo("Follow a folder", "There are no source files Blockliner can read in that folder.")
             return 0
-        self._follow = {"folder": os.path.abspath(folder), "snap": {}, "job": None}
+        if write is None:
+            write = messagebox.askyesno(
+                "Write edits back to the files?",
+                "Following a folder: the files on disk are the truth and Blockliner shows them as blocks.\n\n"
+                "Yes - when you edit a block here, only the node you changed is rewritten in its file. Everything else "
+                "in the file stays exactly as it was. (A file changed by another program in the meantime is never "
+                "overwritten: you get that version.)\n\n"
+                "No - read-only. Nothing is written to the folder; what you change here is replaced the next time the "
+                "file changes on disk.")
+        self._follow = {"folder": os.path.abspath(folder), "snap": {}, "job": None, "write": bool(write)}
         opened = 0
         for rel in sorted(snap):
             if self._follow_open_file(rel, snap[rel]):
@@ -42,17 +59,19 @@ class FollowMixin:
         if opened:
             self.goto_layer("files")
         self._follow_schedule()
-        self.remember_follow(self._follow["folder"])
+        self.remember_follow(self._follow["folder"], bool(write))
+        mode = ("Edits you make to a block are written back into that file (only the nodes you change)."
+                if write else "This is read-only: Blockliner never writes to these files, and what you change here is "
+                              "replaced the next time the file changes on disk.")
         messagebox.showinfo(
             "Following a folder",
             f"Following {os.path.basename(self._follow['folder']) or folder}: {opened} file(s).\n\n"
             "The files on disk are the truth. When another program changes a file, Blockliner updates by itself.\n"
-            "This mode is read-only for now: Blockliner never writes to these files, and what you change here is "
-            "replaced the next time the file changes on disk.\n\nNext time Blockliner starts it will offer to follow "
-            "this folder again.")
+            f"{mode}\n\nNext time Blockliner starts it will offer to follow this folder again.")
         return opened
 
     def stop_following(self, forget=False):
+        self.follow_flush()                              # an edit still waiting to be written is written first
         f, self._follow = self._follow, None
         if forget:
             self.remember_follow(None)
@@ -63,26 +82,128 @@ class FollowMixin:
                 pass
         for tab in getattr(self, "tabs", []):
             tab.pop("followed", None)
+            tab.pop("follow_state", None)
 
     def follow_edit_notice(self, tab):
-        """Called when a followed tab is edited here: it stays clean (nothing is saved to the file) and the user is
-        told once in a while that the change is only on screen. Returns True when a notice was shown."""
+        """Called when a followed tab is edited here. With write-back on (and the file writable) the edit is written
+        into the file a moment later; otherwise the tab stays clean and the user is told once in a while that the
+        change is only on screen. Returns True when a notice was shown."""
         tab["dirty"] = False
+        f = self._follow
+        state = tab.get("follow_state")
+        if f is not None and f.get("write") and state and state.get("writable"):
+            self._follow_cancel_write(tab)
+            tab["follow_job"] = self.after(WRITE_DELAY_MS, lambda t=tab: self._follow_write_job(t))
+            return False
         now = time.time()
         if now - tab.get("follow_notice_at", 0) < NOTICE_SECONDS:
             return False
         tab["follow_notice_at"] = now
-        self.show_change_bar("Following this folder: the file on disk is the truth. This change is not saved to it and "
-                             "is replaced when the file changes.", undo=False)
+        if f is not None and f.get("write") and state:
+            why = state.get("why") or "it could not be written back exactly"
+            self.show_change_bar(f"This file is read-only here ({why}). The change is only on screen and is replaced "
+                                 "when the file changes.", undo=False)
+        else:
+            self.show_change_bar("Following this folder: the file on disk is the truth. This change is not saved to it "
+                                 "and is replaced when the file changes.", undo=False)
+        return True
+
+    # ---- write-back (phase 2) ---------------------------------------------------
+    def _follow_cancel_write(self, tab):
+        job = tab.pop("follow_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
+
+    def _follow_write_job(self, tab):
+        tab.pop("follow_job", None)
+        try:
+            self.follow_write_back(tab)
+        except Exception as exc:                        # never take the window down over a file
+            print(f"follow write-back: {exc}")
+
+    def follow_flush(self):
+        """Write now every edit that is still waiting for its short delay."""
+        for tab in list(getattr(self, "tabs", [])):
+            if tab.get("follow_job") is not None:
+                self._follow_cancel_write(tab)
+                self._follow_write_job(tab)
+
+    def _follow_arm(self, tab, rel, info):
+        """Remember how a followed file looked when it was read (its chunks, what each node generates, its line ends),
+        so a later edit can be written back as a splice. Sets tab["follow_state"]; "writable" False says why not."""
+        lang = info["language"]
+        state = {"writable": False, "why": "", "chunks": [], "baseline": {}, "eol": "\n", "bom": False}
+        tab["follow_state"] = state
+        src, why = source_writeback.read_source(info["path"])
+        if src is None:
+            state["why"] = why
+            return state
+        if portable.NODE_MARKER_RE.search(src.text):
+            state["why"] = "it has Blockliner node markers"
+            return state
+        chunks = portable.split_top_level(src.text) or [
+            (os.path.splitext(os.path.basename(rel))[0] or "main", src.text)]
+        ids = portable.unique_ids(n for n, _c in chunks)
+        nodes = tab.get("nodes") or []
+        if any(n.get("child_nodes") for n in nodes) or sorted(n["id"] for n in nodes) != sorted(ids):
+            state["why"] = "its nodes do not line up with the file's top-level parts"
+            return state
+        state.update(writable=True, chunks=[(i, c) for i, (_n, c) in zip(ids, chunks)], eol=src.eol, bom=src.bom,
+                     baseline={n["id"]: self.generate_code_for_node(n, lang) for n in nodes})
+        return state
+
+    def follow_write_back(self, tab):
+        """Write the edits made to this followed tab into its file. Returns True when the file was written.
+        Only edited nodes are replaced; a file that changed on disk since it was read is never overwritten."""
+        f = self._follow
+        rel = tab.get("followed")
+        state = tab.get("follow_state")
+        if f is None or not f.get("write") or rel is None or not state or not state.get("writable"):
+            return False
+        info = f["snap"].get(rel)
+        if info is None or tab.get("title", "").endswith(" (missing)"):
+            return False
+        if self.tabs[self.active_tab_index] is tab:
+            self.sync_active_tab_state()                 # the blocks on screen into the node
+        lang = info["language"]
+        nodes = tab["nodes"]
+        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in nodes]
+        new_chunks = source_writeback.plan(state["chunks"], state["baseline"], current)
+        if new_chunks == state["chunks"]:
+            return False                                 # nothing was edited: the file is not touched
+        if source_writeback.hash_file(info["path"]) != info["hash"]:
+            self.follow_check_now()                      # someone else wrote first: their version wins (phase 3 asks)
+            self.show_change_bar(f"{rel} changed on disk first, so your edit was not written. Showing the file as it is now.",
+                                 undo=False)
+            return False
+        text = source_writeback.join(new_chunks)
+        src = source_writeback.Source(text, state["eol"], state["bom"])
+        try:
+            size, mtime, digest = source_writeback.write_source(info["path"], text, src)
+        except OSError as exc:
+            self.show_change_bar(f"{rel} could not be written ({exc.strerror or exc}). The change is only on screen.",
+                                 undo=False)
+            return False
+        info.update(size=size, mtime=mtime, hash=digest)    # our own write: not an outside change
+        state["chunks"] = new_chunks
+        state["baseline"] = dict(current)
+        tab["follow_codes"] = {cid: t for cid, t in new_chunks}
+        tab["dirty"] = False
+        self.show_change_bar(f"Saved to {rel}", undo=False)
         return True
 
     # ---- remembering the folder ----------------------------------------------
-    def remember_follow(self, folder):
+    def remember_follow(self, folder, write=False):
         """Keep (or forget, with None) the followed folder in the settings so it can be offered at the next start."""
         if folder:
             self.settings["follow_folder"] = folder
+            self.settings["follow_write"] = bool(write)
         else:
             self.settings.pop("follow_folder", None)
+            self.settings.pop("follow_write", None)
         try:
             self.save_app_settings()
         except Exception:
@@ -96,13 +217,15 @@ class FollowMixin:
         if not os.path.isdir(folder):
             self.remember_follow(None)
             return False
+        write = bool(self.settings.get("follow_write"))
+        how = ("Edits you make will be written back into those files." if write
+               else "Read-only: Blockliner never writes to those files.")
         if not messagebox.askyesno(
                 "Follow the folder again?",
-                f"Last time you were following:\n\n  {folder}\n\nFollow it again? (Read-only: Blockliner never "
-                "writes to those files.)"):
+                f"Last time you were following:\n\n  {folder}\n\nFollow it again? ({how})"):
             self.remember_follow(None)
             return False
-        return bool(self.follow_folder(folder))
+        return bool(self.follow_folder(folder, write=write))
 
     # ---- the watcher ----------------------------------------------------
     def _follow_schedule(self, took=0.0):
@@ -173,6 +296,7 @@ class FollowMixin:
             tab["follow_codes"] = source_follow.chunk_codes(self._follow_chunks(rel, info))
         except OSError:
             tab["follow_codes"] = {}
+        self._follow_arm(tab, rel, info)
         return True
 
     def _follow_chunks(self, rel, info):
@@ -204,6 +328,8 @@ class FollowMixin:
         tab["follow_codes"] = new_codes
         tab["nodes"], tab["active_node_id"], tab["dirty"] = nodes, active, False
         tab["title"] = project_scan.node_title(rel)
+        self._follow_cancel_write(tab)                   # the file changed under it: what is on disk wins
+        self._follow_arm(tab, rel, info)
         self.project_blocks = self.get_active_node(tab)["blocks"]
         self.refresh_workspace()
         return True

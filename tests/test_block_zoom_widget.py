@@ -77,6 +77,13 @@ def main():
         settle(app)
         wheel(app, up=True, state=0)
         check("swapped: the plain wheel zooms", app.block_scale > 1.0)
+        # the zoomed blocks are redrawn a moment after the last wheel step; on a slow machine that can come later
+        # than the fixed pause above, and scrolling a canvas that is not tall yet does nothing - so wait for it
+        end = time.time() + 5
+        while time.time() < end and app.workspace_canvas.yview() == (0.0, 1.0):
+            settle(app, 0.1)
+        app.workspace_canvas.yview_moveto(0.0)           # start from the top: a canvas already at its end cannot scroll
+        settle(app, 0.1)
         top = app.workspace_canvas.yview()[0]
         wheel(app, up=False, state=CTRL)
         check("swapped: Ctrl+wheel scrolls", app.block_scale > 1.0 and app.workspace_canvas.yview()[0] > top)

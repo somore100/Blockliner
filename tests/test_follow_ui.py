@@ -58,7 +58,7 @@ def main():
             write(os.path.join(d, "readme.txt"), "ignored")
             before = tree_state(d)
             n0 = len(app.tabs)
-            opened = app.follow_folder(d)
+            opened = app.follow_folder(d, write=False)
             settle(app, 0.3)
             check("two source files opened as tabs", opened == 2 and len(app.tabs) == n0 + 2)
             tab = app._follow_tab("app.py")
@@ -138,7 +138,7 @@ def main():
             app.settings["follow_folder"] = os.path.join(d, "gone")
             check("a folder that no longer exists is dropped quietly", app.offer_follow_again() is False
                   and "follow_folder" not in app.settings)
-            app.follow_folder(d)
+            app.follow_folder(d, write=False)
             app.stop_following(forget=True)
             check("Stop Following forgets the folder", "follow_folder" not in app.settings)
 

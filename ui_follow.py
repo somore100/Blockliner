@@ -155,8 +155,10 @@ class FollowMixin:
         if any(n.get("child_nodes") for n in nodes) or sorted(n["id"] for n in nodes) != sorted(ids):
             state["why"] = "its nodes do not line up with the file's top-level parts"
             return state
+        with self._language_scope(lang):
+            baseline = {n["id"]: self.generate_code_for_node(n, lang) for n in nodes}
         state.update(writable=True, chunks=[(i, c) for i, (_n, c) in zip(ids, chunks)], eol=src.eol, bom=src.bom,
-                     baseline={n["id"]: self.generate_code_for_node(n, lang) for n in nodes},
+                     baseline=baseline,
                      names={n["id"]: n["name"] for n in nodes})
         return state
 
@@ -185,7 +187,8 @@ class FollowMixin:
         in execution order and, in Python, a renamed function/class renamed everywhere in the file."""
         state = tab["follow_state"]
         lang = info["language"]
-        current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
+        with self._language_scope(lang):                 # the tab may not be the one on screen: use its own block pack
+            current = [(n["id"], self.generate_code_for_node(n, lang)) for n in tab["nodes"]]
         chunks = source_writeback.plan(state["chunks"], state["baseline"], current, self._follow_order(tab))
         old_text = dict(state["chunks"])
         renames = {}
@@ -228,18 +231,17 @@ class FollowMixin:
         tab["dirty"] = False
         self.show_change_bar(f"Saved to {rel}", undo=False)
         applied, tab["follow_renames"] = tab.get("follow_renames") or [], []
-        if applied and info["language"] == "python":
-            self._follow_rename_elsewhere(rel, applied)
+        if applied:
+            self._follow_rename_elsewhere(rel, applied, info["language"])
         return True
 
-    def _follow_rename_elsewhere(self, rel, applied):
-        """A Python function/class was renamed in `rel`: fix the import of it (and the uses that follow from the import)
-        in the other Python files of the followed folder. Those files are then read again by the watcher."""
+    def _follow_rename_elsewhere(self, rel, applied, lang="python"):
+        """A function/class was renamed in `rel`: fix the other files of the followed folder that use it from there (the
+        import and the uses that follow from it, see source_rename.rename_elsewhere). The watcher then reads them again."""
         f = self._follow
-        module = source_rename.module_name(rel)
         fixed, failed = [], []
         for other, oinfo in f["snap"].items():
-            if other == rel or oinfo["language"] != "python":
+            if other == rel or not source_rename.same_family(lang, oinfo["language"]):
                 continue
             otab = self._follow_tab(other)
             if otab is not None and otab.get("follow_job") is not None and otab.get("follow_state", {}).get("writable"):
@@ -250,7 +252,7 @@ class FollowMixin:
             if src is None or portable.NODE_MARKER_RE.search(src.text):
                 continue
             for old, new in applied:
-                text, count = source_rename.rename_imports(src.text, other, module, old, new)
+                text, count = source_rename.rename_elsewhere(oinfo["language"], src.text, other, rel, old, new)
                 if text is None:
                     failed.append(f"{other} ({count})")
                 elif count:

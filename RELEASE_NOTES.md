@@ -1,6 +1,7 @@
 ## Next
 
-- Following a folder with write-back: renaming a function or class node renames it in the file, including its calls (strings, comments and members are left alone) - Python, JavaScript/TypeScript, Go, Rust, Java, C# and C/C++. In Python the other files that import it are fixed too.
+- Following a folder with write-back: renaming a function or class node renames it in the file, including its calls (strings, comments and members are left alone) - Python, JavaScript/TypeScript, Go, Rust, Java, C# and C/C++. The other followed files that use it (imports, same-package files, includes) are fixed too.
+- Fixed: writing back a followed file whose tab was not the one on screen used the wrong language's block pack, which could write code in another language into the file.
 - Following a folder with write-back: changing a node's execution order moves it in the file too.
 - Following a folder with write-back: when a file changes on disk while you have an edit waiting, a dialog asks: keep mine (overwrite the file), take theirs (drop my edit) or save mine as a copy.
 

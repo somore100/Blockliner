@@ -54,6 +54,10 @@ def main():
             put(p_main, "import pkg.lib as lib\nfrom pkg.lib import util\n\nprint(lib.util(1), util(2), 'util')\n")
             put(p_from, "from .lib import util as u\nfrom . import lib\n\nu(1)\nlib.util(3)\n")
             put(p_js, "function old(a) {\n  return a + 1;\n}\n\nconsole.log(old(1), \"old\");\n")
+            p_js2, p_go1, p_go2 = (os.path.join(d, n) for n in ("use.js", "a.go", "b.go"))
+            put(p_js2, "import {old} from './app.js';\nold(2);\n")
+            put(p_go1, "package m\n\nfunc Helper() int {\n\treturn 1\n}\n")
+            put(p_go2, "package m\n\nfunc Run() int {\n\treturn Helper()\n}\n")
             app.follow_folder(d, write=True)
             settle(app, 0.4)
             tab = app._follow_tab("pkg/lib.py")
@@ -94,6 +98,16 @@ def main():
             js = get(p_js)
             check("JS: definition and call renamed, the string is not", "function fresh(a)" in js
                   and "console.log(fresh(1)" in js and '"old"' in js)
+            check("JS: the importing file is fixed too", get(p_js2) == "import {fresh} from './app.js';\nfresh(2);\n")
+
+            gt = app._follow_tab("a.go")
+            check("the Go file is writable", gt is not None and gt["follow_state"]["writable"])
+            app.switch_to_tab(app.tabs.index(gt))
+            settle(app, 0.2)
+            node = [n for n in gt["nodes"] if n["name"] == "Helper"][0]
+            app.rename_node(gt, node, "Assist")
+            check("a Go rename is written", app.follow_write_back(gt) is True and "func Assist()" in get(p_go1))
+            check("Go: the file of the same package is fixed too", "return Assist()" in get(p_go2))
     finally:
         app.destroy()
     print("ALL OK" if not FAILURES else f"FAILURES: {FAILURES}")

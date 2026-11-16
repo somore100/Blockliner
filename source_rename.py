@@ -9,6 +9,7 @@ import re
 import tokenize
 
 CLIKE = ("javascript", "typescript", "go", "rust", "java", "csharp", "c", "cpp")
+FAMILY = {"c": ("c", "cpp"), "cpp": ("c", "cpp")}      # a C header and a C++ source can talk to each other
 _IDENT = re.compile(r"[A-Za-z_$][\w$]*")
 _KEYWORDS = set("""abstract as async await break case catch char class const continue default defer do double else
 enum export extends false fn final finally float for func function go if implements import in instanceof int interface
@@ -251,3 +252,148 @@ def rename_imports(text, importer_rel, module, old, new):
             lines[ln - 1] = row[:col] + new + row[col + len(old):]
             count += 1
     return "\n".join(lines), count
+
+
+# ---- the other languages: files that use the renamed name from another file ----------------------------
+import posixpath
+
+
+def same_family(a, b):
+    return b in FAMILY.get(a, (a,))
+
+
+def _stem(rel):
+    base = posixpath.basename(rel.replace("\\", "/"))
+    return base.rsplit(".", 1)[0]
+
+
+def _hits_to_text(text, lang, hits):
+    lines = text.split("\n")
+    count = 0
+    for ln, col, old, new in sorted(hits, reverse=True):
+        row = lines[ln - 1]
+        if row[col:col + len(old)] == old:
+            lines[ln - 1] = row[:col] + new + row[col + len(old):]
+            count += 1
+    return "\n".join(lines), count
+
+
+def _scan(text, lang, old, new, bare, member_of=()):
+    """Rename tokens: `bare` True -> every non-member use of `old`; `member_of` -> `X.old` / `X::old` uses for those X.
+    Returns (text, count) or (None, reason)."""
+    found = names(text, lang)
+    if found is None:
+        return None, "it does not tokenize"
+    if any(n == new for _l, _c, n, *_r in found):
+        return None, f"{new!r} is already used there"
+    hits = []
+    for ln, col, name, prev, nxt, depth, prev2 in found:
+        if name != old:
+            continue
+        if _is_member(prev):
+            if prev2 in member_of:
+                hits.append((ln, col, old, new))
+        elif bare and not _is_key_or_kwarg(lang, prev, nxt, depth):
+            hits.append((ln, col, old, new))
+    return _hits_to_text(text, lang, hits)
+
+
+def _js_resolves(importer_rel, spec, renamed_rel):
+    if not spec.startswith("."):
+        return False
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(importer_rel.replace("\\", "/")), spec))
+    me = renamed_rel.replace("\\", "/")
+    noext = me.rsplit(".", 1)[0]
+    return target in (me, noext) or (noext.endswith("/index") and target == noext[:-6]) or noext == target + "/index"
+
+
+def _js(text, importer_rel, renamed_rel, old, new):
+    direct, spaces = False, set()
+    ent = r"(?:[\w$]+\s+as\s+)?[\w$]+"
+    for m in re.finditer(r"import\s*\{([^}]*)\}\s*from\s*['\"]([^'\"]+)['\"]", text):
+        if _js_resolves(importer_rel, m.group(2), renamed_rel):
+            direct = direct or any(e.strip() == old for e in m.group(1).split(","))
+    for m in re.finditer(r"(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
+        if _js_resolves(importer_rel, m.group(2), renamed_rel):
+            direct = direct or any(e.strip() == old for e in m.group(1).split(","))
+    for m in re.finditer(r"import\s*\*\s*as\s+([\w$]+)\s+from\s*['\"]([^'\"]+)['\"]", text):
+        if _js_resolves(importer_rel, m.group(2), renamed_rel):
+            spaces.add(m.group(1))
+    for m in re.finditer(r"(?:const|let|var)\s+([\w$]+)\s*=\s*require\(\s*['\"]([^'\"]+)['\"]\s*\)", text):
+        if _js_resolves(importer_rel, m.group(2), renamed_rel):
+            spaces.add(m.group(1))
+    aliased = False
+    for m in re.finditer(r"(?:import|const|let|var)\s*\{([^}]*)\}\s*(?:from|=)\s*(?:require\(\s*)?['\"]([^'\"]+)['\"]", text):
+        if _js_resolves(importer_rel, m.group(2), renamed_rel):
+            aliased = aliased or any(re.fullmatch(re.escape(old) + r"\s+as\s+[\w$]+", e.strip()) for e in m.group(1).split(","))
+    if not (direct or spaces or aliased):
+        return text, 0
+    if aliased and not direct:                       # only the imported name changes: `{old as x}` -> `{new as x}`
+        def fix(m):
+            if not _js_resolves(importer_rel, m.group(2), renamed_rel):
+                return m.group(0)
+            body = re.sub(r"(?<![\w$.])" + re.escape(old) + r"(?=\s+as\s)", new, m.group(1))
+            return m.group(0).replace(m.group(1), body, 1)
+        text2 = re.sub(r"(?:import|const|let|var)\s*\{([^}]*)\}\s*(?:from|=)\s*(?:require\(\s*)?['\"]([^'\"]+)['\"]", fix, text)
+        if not spaces:
+            return text2, int(text2 != text)
+        text = text2
+    return _scan(text, "javascript", old, new, bare=direct, member_of=spaces)
+
+
+def _go(text, importer_rel, renamed_rel, old, new):
+    d_me = posixpath.dirname(renamed_rel.replace("\\", "/"))
+    d_it = posixpath.dirname(importer_rel.replace("\\", "/"))
+    if d_me == d_it:
+        return _scan(text, "go", old, new, bare=True)
+    aliases = set()
+    for m in re.finditer(r'(?:^|\n)\s*(?:import\s+)?(?:([\w.]+)\s+)?"([^"\n]+)"', text):
+        path = m.group(2)
+        if (d_me and (path == d_me or path.endswith("/" + d_me))):
+            aliases.add(m.group(1) or posixpath.basename(path))
+    return _scan(text, "go", old, new, bare=False, member_of=aliases) if aliases else (text, 0)
+
+
+def _rust(text, importer_rel, renamed_rel, old, new):
+    stem = _stem(renamed_rel)
+    if stem in ("mod", "lib", "main"):
+        stem = posixpath.basename(posixpath.dirname(renamed_rel.replace("\\", "/"))) if stem == "mod" else ""
+    if not stem:
+        return text, 0
+    direct = bool(re.search(r"\buse\b[^;]*?\b" + re.escape(stem) + r"\s*::\s*(?:" + re.escape(old) + r"\b(?!\s*as\b)|\{[^}]*?(?<![\w])"
+                            + re.escape(old) + r"\b(?!\s+as\b)[^}]*\})", text))
+    return _scan(text, "rust", old, new, bare=direct, member_of=(stem,))
+
+
+def _classy(text, importer_rel, renamed_rel, old, new, lang):
+    stem = _stem(renamed_rel)
+    pat = (r"import\s+static\s+[\w.]*\b" + re.escape(stem) + r"\.(?:" + re.escape(old) + r"|\*)\s*;" if lang == "java"
+           else r"using\s+static\s+[\w.]*\b" + re.escape(stem) + r"\s*;")
+    return _scan(text, lang, old, new, bare=bool(re.search(pat, text)), member_of=(stem,))
+
+
+def _c(text, importer_rel, renamed_rel, old, new, lang):
+    stem = _stem(renamed_rel)
+    d_me = posixpath.dirname(renamed_rel.replace("\\", "/"))
+    d_it = posixpath.dirname(importer_rel.replace("\\", "/"))
+    includes = re.search(r'#\s*include\s+"(?:[^"]*/)?' + re.escape(stem) + r'\.(?:h|hpp|hh)"', text)
+    pair = d_me == d_it and _stem(importer_rel) == stem
+    return _scan(text, lang, old, new, bare=True) if (includes or pair) else (text, 0)
+
+
+def rename_elsewhere(lang, text, importer_rel, renamed_rel, old, new):
+    """A function `old` of `renamed_rel` was renamed `new`: the same rename in another file's `text` where it is used from
+    that file. Returns (text, count); (text, 0) when the file does not use it; (None, reason) when it cannot be done."""
+    if lang == "python":
+        return rename_imports(text, importer_rel, module_name(renamed_rel), old, new)
+    if lang in ("javascript", "typescript"):
+        return _js(text, importer_rel, renamed_rel, old, new)
+    if lang == "go":
+        return _go(text, importer_rel, renamed_rel, old, new)
+    if lang == "rust":
+        return _rust(text, importer_rel, renamed_rel, old, new)
+    if lang in ("java", "csharp"):
+        return _classy(text, importer_rel, renamed_rel, old, new, lang)
+    if lang in ("c", "cpp"):
+        return _c(text, importer_rel, renamed_rel, old, new, lang)
+    return text, 0

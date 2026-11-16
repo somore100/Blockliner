@@ -1,4 +1,4 @@
-## Next
+## What's new in 2.7.0
 
 - Following a folder with write-back: renaming a function or class node renames it in the file, including its calls (strings, comments and members are left alone) - Python, JavaScript/TypeScript, Go, Rust, Java, C# and C/C++. The other followed files that use it (imports, same-package files, includes) are fixed too.
 - Fixed: writing back a followed file whose tab was not the one on screen used the wrong language's block pack, which could write code in another language into the file.

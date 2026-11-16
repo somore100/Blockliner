@@ -236,7 +236,7 @@ Ideas, bug reports and language packs are welcome: open an [issue](https://githu
 To run the tests:
 
 ```bash
-venv/bin/python tests/run_all.py            # everything
+venv/bin/python tests/run_all.py            # everything (git config core.hooksPath githooks runs it before every push)
 venv/bin/python tests/run_all.py --pure     # only the tests that need no window
 venv/bin/python tests/run_all.py tour       # only tests whose file name contains "tour"
 ```

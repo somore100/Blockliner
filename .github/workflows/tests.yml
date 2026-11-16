@@ -2,11 +2,11 @@ name: Tests
 
 # Runs every test script (tests/run_all.py): each in its own process with an empty data folder and
 # dialogs answered, so nothing reads your real settings or waits on a message box.
-# Runs on every push to main, on pull requests, by hand, and before a release build (build.yml calls it).
+# Runs on pull requests, by hand, and before a release build (build.yml calls it when you push a version tag).
+# Pushes to main are not tested here: run tests/run_all.py on your machine first (githooks/pre-push does it for you:
+# `git config core.hooksPath githooks`), so Actions minutes are spent once, at release.
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
   workflow_call:

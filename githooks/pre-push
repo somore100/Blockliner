@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs the whole test suite before a push, so a broken commit is caught on your machine instead of on GitHub Actions.
+# Turn on once with:   git config core.hooksPath githooks
+# Skip for one push:   SKIP_TESTS=1 git push
+[ -n "$SKIP_TESTS" ] && exit 0
+cd "$(git rev-parse --show-toplevel)" || exit 1
+PY=python3
+[ -x venv/bin/python ] && PY=venv/bin/python
+echo "pre-push: running tests (SKIP_TESTS=1 to skip)..."
+if ! "$PY" tests/run_all.py; then
+    echo "pre-push: tests failed, push cancelled."
+    exit 1
+fi

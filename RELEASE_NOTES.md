@@ -1,20 +1,15 @@
-## What's new in 2.5.1
+## What's new in 2.6.0
 
-**Never lose work**
-- Ctrl+S saves straight to the project's file (Ctrl+Shift+S is Save As). Saving is safe against a crash half way: the old file is kept as `.bak`.
-- A recovery copy is written every minute while you have unsaved changes (Settings: how often). If Blockliner or the computer dies, it offers the copy back at the next start. It never overwrites your own file.
-
-**More blocks**
-- Python grows from 23 to 69 blocks: change a variable, try / except / finally, loops over ranges and items, open a file, classes, dictionaries, list and text helpers, math, random, time, imports.
-- JavaScript 52, C++ 43, Java 44, C# 44, Rust 32, Go 32 and C 29 blocks (each had 19). Blocks that need a library or header add it for you.
-- Typed or pasted code is recognised as these blocks when it is read back.
+**Follow a folder** (File > Follow a Folder...)
+- Point Blockliner at a folder of source files and every file becomes a file tab, cut into nodes (works for Python, JavaScript, Go, Rust, Java, C#, C and C++). When another program or an AI tool changes a file, the layers update by themselves and your nodes keep their places, even when a function is renamed.
+- Optional **write-back**: when you follow, choose to let edits made to a block go back into the file. Only the nodes you edited are rewritten; everything else stays exactly as it was, including odd formatting, tabs and Windows line endings. A file another program changed in the meantime is never overwritten. Files that cannot be written back exactly stay read-only, with a notice saying why.
+- The folder is remembered and offered again at the next start. File > Stop Following the Folder forgets it.
 
 **Smoother**
-- Zooming a busy canvas is much calmer: boxes show as flat stand-ins while the wheel turns, then the real ones come back once. Settings > "While zooming, boxes" picks Auto, Live or Fast.
-- A **How it fits** button next to the layers explains file > node > block.
+- Rebuilding a canvas with many nodes shows the new boxes first (120 nodes: about 0.3 s instead of 1.5 s); the old ones are cleaned up in the background.
 
 **Fixes**
-- The tour no longer says blocks convert between languages (they do not).
+- The Ctrl+wheel scroll test no longer fails on slower displays.
 
 Windows and macOS builds have had much less real-world testing than Linux. Please report problems with your system and what you were doing.
 

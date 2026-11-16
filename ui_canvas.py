@@ -285,7 +285,7 @@ class CanvasMixin:
                for i in [i for i in boxes if i not in shown or i in rebuild]]
         for win, _w in old:
             self.workspace_canvas.delete(win)
-        self.after_idle(lambda ws=[w for _i, w in old]: [w.destroy() for w in ws if w.winfo_exists()])
+        self.destroy_boxes([w for _i, w in old])
         self.multi_check()
         self.recompute_references()
         self.update_generated_code()

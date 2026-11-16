@@ -768,7 +768,7 @@ class LayersMixin:
         old_boxes = self._canvas_box_widgets()
         self._fileview_boxes, self._filesview_boxes = {}, {}
         if old_boxes:
-            self.after_idle(lambda ws=old_boxes: [w.destroy() for w in ws if w.winfo_exists()])
+            self.destroy_boxes(old_boxes)
         self.workspace_canvas.delete("fileview")
         self.workspace_canvas.delete("grid")
         self._wire_kinds_seen = set()

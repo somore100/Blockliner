@@ -1,9 +1,29 @@
 """Files/Nodes canvas: wheel zoom, coordinate grid, view anchoring."""
+import time
 import tkinter as tk
 import tkinter.font as tkfont
 from canvas_view import (ZOOM_SETTLE_MS, use_zoom_preview, anchor_view_origin, box_look, clamp_zoom, grid_step, grid_values,
                          lod_mode, zoom_after_wheel, zoom_anchor_point, zoom_factor)
 from nodes_model import find_node_by_id
+
+def fast_destroy(widget):
+    """Destroy a widget and everything in it with ONE Tcl call. The Tcl commands its bindings registered are deleted
+    (nothing leaks) and the widget is taken out of its parent's children, which is all Tkinter's destroy() adds."""
+    stack = [widget]
+    while stack:
+        w = stack.pop()
+        for name in getattr(w, "_tclCommands", None) or ():
+            try:
+                w.tk.deletecommand(name)
+            except tk.TclError:
+                pass
+        w._tclCommands = None
+        stack.extend(w.children.values())
+    master = widget.master
+    if master is not None and master.children.get(widget._name) is widget:
+        del master.children[widget._name]
+    widget.tk.call("destroy", widget._w)
+
 
 GRID_COLOR = "#262626"
 GRID_MAJOR_COLOR = "#2f2f2f"
@@ -96,6 +116,28 @@ class CanvasViewMixin:
         self._zoom_hooks = []
         self._rendered_zoom = self.canvas_zoom
         self._rendered_look = self._look_now()
+
+    def destroy_boxes(self, widgets):
+        """Destroy old box widgets (after the current event). Tkinter's own destroy() walks the tree widget by widget
+        in Python, one Tcl call each (about 25 per node box); this drops the Python-side bookkeeping of the whole tree
+        and lets Tcl destroy it in one call, which is several times faster on a canvas with 100+ nodes."""
+        pending = self.__dict__.setdefault("_boxes_to_destroy", [])
+        pending.extend(widgets)
+
+        def run():
+            # Tk takes ~10 ms per node box to tear down. Doing 100 of them in one go freezes the window for a second
+            # right after the new boxes are drawn, so work in slices of ~15 ms and let the window breathe between them.
+            end = time.perf_counter() + 0.015
+            while pending and time.perf_counter() < end:
+                w = pending.pop()
+                try:
+                    if w.winfo_exists():
+                        fast_destroy(w)
+                except tk.TclError:
+                    pass
+            if pending:
+                self.after(5, run)
+        self.after_idle(run)
 
     def _canvas_box_widgets(self):
         out = [b for _w, b in (getattr(self, "_fileview_boxes", None) or {}).values()]

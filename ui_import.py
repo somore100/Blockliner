@@ -400,6 +400,8 @@ class ImportMixin:
             messagebox.showwarning("No Code", "Type or paste some code into the box first!")
             return
 
+        self.offer_detected_language(remaining)
+
         if self.project_blocks:
             proceed = messagebox.askyesno(
                 "Replace Workspace Blocks?",
@@ -432,6 +434,26 @@ class ImportMixin:
             f"  \u2713 {matched_count} matched to real blocks\n"
             f"  \u26A0 {raw_count} kept as Raw Code (no matching block found)"
         )
+
+    def offer_detected_language(self, code, extension=None):
+        """If the code clearly looks like another language than the current one, offer to switch before it is turned
+        into blocks (matching Rust against Python's blocks gives raw code everywhere). Returns True when it switched."""
+        import language_detect
+        guess = language_detect.detect(code, extension, LANGUAGE_EXTENSIONS)
+        lang = guess.language
+        if not lang or lang == self.current_language or guess.confidence < 0.5:
+            return False
+        if lang not in self.get_available_languages():
+            return False
+        if not messagebox.askyesno(
+                "Switch Language?",
+                f"This code looks like {lang} (you are in {self.current_language}).\n\n"
+                f"Switch to {lang} first, so it matches that language's blocks?\n\n"
+                f"No = convert it as {self.current_language}."):
+            return False
+        self.lang_var.set(lang)
+        self.on_language_pick()
+        return True
 
     def _pick_code_file_content(self):
         """File-picker + language-detection half of the old
@@ -481,6 +503,8 @@ class ImportMixin:
                     f"in Blockliner yet. Loading the text in anyway - use '+ Lang' first if "
                     f"you want proper block matching for it."
                 )
+        elif not detected_lang:
+            self.offer_detected_language(content, ext)             # unknown extension: look at the code
 
         return content
 

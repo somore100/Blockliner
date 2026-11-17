@@ -1,0 +1,59 @@
+{
+  "type": "scale",
+  "label": "Slider",
+  "description": "A slider the user drags to pick a number.",
+  "category": "Input",
+  "icon": "⊷",
+  "container": false,
+  "default_size": [
+    160,
+    32
+  ],
+  "props": [
+    {
+      "key": "min",
+      "label": "From",
+      "kind": "float",
+      "default": 0
+    },
+    {
+      "key": "max",
+      "label": "To",
+      "kind": "float",
+      "default": 100
+    },
+    {
+      "key": "value",
+      "label": "Value",
+      "kind": "float",
+      "default": 0,
+      "omit_when": 0
+    },
+    {
+      "key": "orientation",
+      "label": "Direction",
+      "kind": "enum",
+      "default": "horizontal",
+      "options": [
+        "horizontal",
+        "vertical"
+      ],
+      "omit_when": "horizontal"
+    }
+  ],
+  "events": [
+    {
+      "key": "value",
+      "label": "On move",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(value={handler})"
+    }
+  ],
+  "code": [
+    "{name} = Slider({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "type": "label",
+  "label": "Label",
+  "description": "Text the user reads but cannot edit.",
+  "category": "Basic",
+  "icon": "A",
+  "container": false,
+  "default_size": [
+    80,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Label"
+    },
+    {
+      "key": "font_size",
+      "label": "Text size",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "color",
+      "label": "Text colour (rgba)",
+      "kind": "code",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = Label({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

@@ -156,7 +156,7 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     ui_vals = {"ui": (ui_name, ui_name), "fname": (fname, fname), "root": (tree.root["name"],) * 2}
     imports = []
     for line in list(pack.imports) + list(pack.header):
-        if line not in imports:
+        if line not in imports or not line.strip():          # a blank separator may repeat
             imports.append(line)
     call = [fill(fn["call"], ui_vals)]
     run = [fill(pack.run, ui_vals)] if pack.run else []

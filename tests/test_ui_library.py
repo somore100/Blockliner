@@ -15,7 +15,7 @@ def check(name, cond):
         fails.append(name)
 
 packs, notes = ui_pack.find_packs([ROOT], "python")
-check("both Python libraries load without notes", [p.id for p in packs] == ["python/tkinter", "python/customtkinter"] and not notes)
+check("the Python libraries load without notes", [p.id for p in packs] == ["python/tkinter", "python/customtkinter", "python/kivy"] and not notes)
 check("tkinter stays the default", packs[0].id == "python/tkinter")
 for p in packs:
     check(f"{p.id}: the library has a description", bool(p.description))

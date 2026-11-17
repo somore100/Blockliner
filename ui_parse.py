@@ -86,7 +86,9 @@ def _body_lines(text):
         module = ast.parse(text)
     except SyntaxError:
         return None, []
-    fn = next((n for n in module.body if isinstance(n, ast.FunctionDef)), None)
+    defs = [n for n in module.body if isinstance(n, ast.FunctionDef)]
+    # a pack header may define helpers first (kivy's place()); the build function is the build_* one
+    fn = next((n for n in defs if n.name.startswith("build_")), defs[0] if defs else None)
     if fn is None:
         return None, []
     lines = []
@@ -134,7 +136,7 @@ def parse(text, pack, handler_id=None, previous=None):
             captured = dict(m.groupdict())
             ok = True
             for extra in rest:                        # the creation's further lines, e.g. title, size
-                if i < len(lines) and (m2 := extra.match(lines[i])) and m2.group("name") == name:
+                if i < len(lines) and (m2 := extra.match(lines[i])) and m2.groupdict().get("name", name) == name:
                     captured.update(m2.groupdict())
                     i += 1
                 else:
@@ -146,7 +148,8 @@ def parse(text, pack, handler_id=None, previous=None):
             for p in w["props"]:
                 if p["inline"] and p["key"] in captured:
                     props[p["key"]] = _value(p["kind"], captured[p["key"]])
-            opts = _kwargs(captured.get("opts", "")) if "opts" in captured else {}
+            extra_args = captured.get("opts") if "opts" in captured else captured.get("args")      # {args} packs (kivy) take the same
+            opts = _kwargs(extra_args) if extra_args is not None else {}
             if opts is None or not _set_by_arg(w["props"], opts, props, skip_inline=True):
                 problems.append(f"can't read the options in: {text_line}")
                 made = True

@@ -406,7 +406,7 @@ class UIDesignerEditor:
             if bg:
                 canvas.create_rectangle(x0, y0, x1, y1, fill=bg, outline="")
             canvas.create_text(x0, (y0 + y1) / 2, text=text or "Label", anchor="w", fill=fg, font=font)
-        elif kind == "button":
+        elif kind in ("button", "togglebutton"):
             canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#e1e1e1", outline="#9a9a9a")
             canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=text or "Button", fill=fg, font=font)
         elif kind == "checkbutton":
@@ -450,7 +450,7 @@ class UIDesignerEditor:
                 canvas.create_line((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, fill="#999999")
             else:
                 canvas.create_line(x0, (y0 + y1) / 2, x1, (y0 + y1) / 2, fill="#999999")
-        elif kind == "canvas":
+        elif kind in ("canvas", "image"):
             canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#ffffff", outline="#9a9a9a")
             canvas.create_line(x0 + 6, y1 - 6, x1 - 6, y0 + 6, fill="#cccccc")
         else:                                    # entry, text, listbox, combobox and unknown types

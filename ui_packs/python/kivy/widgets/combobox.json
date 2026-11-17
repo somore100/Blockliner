@@ -1,0 +1,44 @@
+{
+  "type": "combobox",
+  "label": "Dropdown",
+  "description": "A dropdown list: the user picks one of your choices.",
+  "category": "Input",
+  "icon": "▾",
+  "container": false,
+  "default_size": [
+    140,
+    32
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Shown first",
+      "kind": "string",
+      "default": "one"
+    },
+    {
+      "key": "values",
+      "label": "Choices",
+      "kind": "list",
+      "default": [
+        "one",
+        "two"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "key": "text",
+      "label": "On select",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(text={handler})"
+    }
+  ],
+  "code": [
+    "{name} = Spinner({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

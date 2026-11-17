@@ -1,0 +1,29 @@
+Blockliner V2 - Context Handoff #21
+Repo: ~/AI_Workspace/projects/Local/blockliner/Blockliner-python/V2 (also at ~/Documents/Hot/programs/Local/blockliner/Blockliner-python/V2; remote github.com/somore100/Blockliner). Python/Tkinter visual block editor, 9 languages. Dev: Dominko10 (somore100). Fedora (python3 3.14, Tk 9.0.2) + Pop!_OS (3.10), folder shared by Syncthing. Fedora venv: ~/.venvs/blockliner (never recreate venv/ in the repo). Build uses Python 3.11 (no backslashes inside f-string expressions; Pop 3.10 too).
+
+State
+- origin/main = 7f67888 = v2.4.3. Local commit 700f519 (port colours by meaning) - check if pushed.
+- The 2.4.4 patch is ALREADY APPLIED in the files, uncommitted/untagged: wire_rollup.py + rolled wires in ui_canvas.py, Blocks-layer view reset in ui_layers.py (_reveal_block_view), ImportError guard in ui_widgets.py ExpressionSlot._on_focus_out. APP_VERSION = 2.4.4 in about_info.py. Not committed or tagged; tag only after his OK. Never push/tag without his OK.
+- Pure tests pass (engine, portable, port_types, wire_rollup). test_blocks_view_reset: ALL OK on Fedora.
+
+Test status (Fedora, one test at a time)
+- Full-suite run: 35 pass / 18 fail, but run individually most pass: block_reorder, brace_containers, input_port_drop, multi_open, node_ports, node_templates, open_project, port_wire all ok.
+- TIMEOUTS (exit 124, 120 s limit; untested whether slow or hung): lazy_blocks, palette_insert, portable_ui, project_file, save_format, scroll_modes, ux_layers, wire_kinds. Next step: rerun each with a longer timeout (300 s) to see if they are just slow (the laptop overheated, which can cause slowness) or hang (Tk 9 / xvfb).
+- REAL FAILURE: test_selection_ignore - 'Escape closes a posted menu' (probably Tk 9 menu behaviour; check).
+- STALE TEST: test_canvas_view 'Settings (gear) button in the top-left' - Settings moved to the Tools menu (ui_topbar.py:32), no gear button exists. Update or drop that check.
+- Known Tk-9-only failures, skipped: test_box_menus, test_order_conflict. Long runs overheat his laptop: run tests singly with pauses, not the whole suite.
+
+Environment
+- Claude's sandbox mounts the Documents copy read-only and has no git or tkinter, so earlier every change was a copy-paste block. New goal: the new session's working directory is the AI_Workspace copy, so check first whether writing works (touch a file); if so, edit directly and use the real Tk tests.
+
+Next / requests
+1. Fix the stale gear test; investigate the timeouts and the selection_ignore failure.
+2. Real-desktop check of 2.4.x by him is still pending: zoom feel + 3 zoomed-out looks, ports/drags, Skip/Ignore, multi-select, wire looks, rolled wires, port colours.
+3. Input block: no "input" concept in concepts.json and no input block in the 9 language packs -> add concept + one block per language (Python input(), C scanf, Java Scanner ...).
+4. Language-locked nodes: node starts neutral; first code in a language locks it; switching discards old code with option to back it up. Ask him: what counts as "code added", per node or per file, what is the backup (node copy vs generated text).
+5. Port legend + type label; rolled-wire follow-ups; branch outputs (approved/declined), cross-file import wires, group<->category, multi-open.
+Open from #19: call wires caller->callee but variable wires producer->user; compact boxes have no ports; box font fixed Segoe UI.
+
+Working rules
+One sentence of what you'll do; read git state first; implement -> test -> package; adversarial/mutation tests; ONE cumulative change; if only paste blocks are possible, wrap in ( ... ) with set -e, idempotent, split pastes under ~3.5 KB with a checksum. Handoff at ~200k tokens.
+Gotchas: backslashes/\u escapes through tool calls - use chr(92) or heredocs; Tk windows off-screen are unmapped (use winfo_reqwidth); layers: view_mode files/file/node = Files/Nodes/Blocks; derived node fields (references, data_uses, ref_kinds) excluded in project_file.build_project_data.

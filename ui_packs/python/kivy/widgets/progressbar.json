@@ -1,0 +1,32 @@
+{
+  "type": "progressbar",
+  "label": "Progress bar",
+  "description": "A bar that fills up to show progress.",
+  "category": "Display",
+  "icon": "▰",
+  "container": false,
+  "default_size": [
+    160,
+    16
+  ],
+  "props": [
+    {
+      "key": "max",
+      "label": "Maximum",
+      "kind": "float",
+      "default": 100
+    },
+    {
+      "key": "value",
+      "label": "Value",
+      "kind": "float",
+      "default": 0,
+      "omit_when": 0
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = ProgressBar({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

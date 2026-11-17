@@ -1,0 +1,54 @@
+{
+  "type": "entry",
+  "label": "Input box",
+  "description": "A one-line box where the user types text.",
+  "category": "Input",
+  "icon": "▁",
+  "container": false,
+  "default_size": [
+    160,
+    32
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "optional": true
+    },
+    {
+      "key": "hint_text",
+      "label": "Hint",
+      "kind": "string",
+      "optional": true
+    },
+    {
+      "key": "password",
+      "label": "Hide what is typed",
+      "kind": "bool",
+      "default": false,
+      "omit_when": false
+    },
+    {
+      "key": "font_size",
+      "label": "Text size",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "text",
+      "label": "On change",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(text={handler})"
+    }
+  ],
+  "code": [
+    "{name} = TextInput(multiline=False{opts})",
+    "{parent}.add_widget({name})"
+  ]
+}

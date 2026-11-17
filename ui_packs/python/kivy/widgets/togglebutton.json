@@ -1,0 +1,41 @@
+{
+  "type": "togglebutton",
+  "label": "Toggle button",
+  "description": "A button that stays pressed until it is pressed again.",
+  "category": "Basic",
+  "icon": "▣",
+  "container": false,
+  "default_size": [
+    100,
+    32
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Toggle"
+    },
+    {
+      "key": "font_size",
+      "label": "Text size",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "state",
+      "label": "On change",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(state={handler})"
+    }
+  ],
+  "code": [
+    "{name} = ToggleButton({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

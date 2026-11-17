@@ -1,0 +1,36 @@
+{
+  "type": "switch",
+  "label": "Switch",
+  "description": "A sliding on/off switch.",
+  "category": "Input",
+  "icon": "⏽",
+  "container": false,
+  "default_size": [
+    100,
+    32
+  ],
+  "props": [
+    {
+      "key": "active",
+      "label": "On",
+      "kind": "bool",
+      "default": false,
+      "omit_when": false
+    }
+  ],
+  "events": [
+    {
+      "key": "active",
+      "label": "On change",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(active={handler})"
+    }
+  ],
+  "code": [
+    "{name} = Switch({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

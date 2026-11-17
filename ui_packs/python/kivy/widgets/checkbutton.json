@@ -1,0 +1,36 @@
+{
+  "type": "checkbutton",
+  "label": "Checkbox",
+  "description": "A box the user ticks on or off (it has no text: put a Label beside it).",
+  "category": "Input",
+  "icon": "☑",
+  "container": false,
+  "default_size": [
+    40,
+    32
+  ],
+  "props": [
+    {
+      "key": "active",
+      "label": "Ticked",
+      "kind": "bool",
+      "default": false,
+      "omit_when": false
+    }
+  ],
+  "events": [
+    {
+      "key": "active",
+      "label": "On change",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(active={handler})"
+    }
+  ],
+  "code": [
+    "{name} = CheckBox({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

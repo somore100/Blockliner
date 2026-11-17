@@ -1,0 +1,25 @@
+{
+  "type": "image",
+  "label": "Image",
+  "description": "Shows a picture from a file.",
+  "category": "Display",
+  "icon": "🖼",
+  "container": false,
+  "default_size": [
+    100,
+    100
+  ],
+  "props": [
+    {
+      "key": "source",
+      "label": "File",
+      "kind": "string",
+      "default": "image.png"
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = Image({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

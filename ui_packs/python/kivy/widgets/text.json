@@ -1,0 +1,47 @@
+{
+  "type": "text",
+  "label": "Text box",
+  "description": "A big box where the user types several lines.",
+  "category": "Input",
+  "icon": "▤",
+  "container": false,
+  "default_size": [
+    200,
+    100
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "optional": true
+    },
+    {
+      "key": "hint_text",
+      "label": "Hint",
+      "kind": "string",
+      "optional": true
+    },
+    {
+      "key": "font_size",
+      "label": "Text size",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "text",
+      "label": "On change",
+      "args": [
+        "instance",
+        "value"
+      ],
+      "code": "{name}.bind(text={handler})"
+    }
+  ],
+  "code": [
+    "{name} = TextInput(multiline=True{opts})",
+    "{parent}.add_widget({name})"
+  ]
+}

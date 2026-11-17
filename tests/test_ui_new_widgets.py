@@ -13,7 +13,7 @@ def check(label, cond):
     if not cond: FAILURES.append(label)
 
 def main():
-    for lib in ("tkinter", "customtkinter"):
+    for lib in ("tkinter", "customtkinter", "kivy"):
         pack, notes = ui_pack.load_pack(os.path.join(ROOT, "python", lib))
         check(f"{lib}: loads with no notes {notes}", pack is not None and not notes)
         t = UITree.new(pack.id, props=pack.defaults("window"), is_container=pack.is_container)

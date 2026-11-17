@@ -21,7 +21,7 @@ for p in packs:
     check(f"{p.id}: the library has a description", bool(p.description))
     check(f"{p.id}: every widget has a description", all(w["description"] for w in p.widgets.values()))
 
-tk_pack, ctk_pack = packs
+tk_pack, ctk_pack = packs[:2]
 check("pick: only one library, no question", ui_pack.pick_pack([tk_pack]) == (tk_pack, False))
 check("pick: several libraries and none used asks", ui_pack.pick_pack(packs) == (None, True))
 check("pick: the file's library is reused", ui_pack.pick_pack(packs, None, ["python/customtkinter"]) == (ctk_pack, False))

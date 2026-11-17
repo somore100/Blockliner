@@ -21,6 +21,7 @@ CORE = [
     ("file.load", "Load", "File", 1, lambda a: a.load_project(), "", "open project"),
     ("file.open_project", "Open Project...", "File", 1, lambda a: a.open_project_dialog(), "", "folder"),
     ("file.follow_folder", "Follow a Folder...", "File", 1, lambda a: a.follow_folder(), "", "folder"),
+    ("file.follow_file", "Follow a File...", "File", 1, lambda a: a.follow_file(), "", "single source file write back"),
     ("file.update_source", "Update Source Files", "File", 1, lambda a: a.follow_update_now(), "", "write back sync followed folder"),
     ("file.resolve_conflicts", "Resolve Conflicts...", "File", 1, lambda a: a.follow_resolve_conflicts(), "", "merge conflict markers followed"),
     ("file.stop_following", "Stop Following the Folder", "File", 1, lambda a: a.stop_following(forget=True), "", "unfollow read-only"),

@@ -33,7 +33,25 @@ MAX_DELAY_S = 300
 class FollowMixin:
     _follow = None             # {"folder", "snap": {rel: info}, "job"} while a folder is followed
 
-    def follow_folder(self, folder=None, write=None):
+    def follow_file(self, path=None, write=None):
+        """File > Follow a File...: the same as following a folder, but only that one file is read and written
+        (its folder is still where .blockliner/presence lives, so teammates following the file see each other)."""
+        if path is None:
+            path = filedialog.askopenfilename(
+                title="Follow a file",
+                filetypes=[("Source files", " ".join("*" + e for e in sorted(LANGUAGE_EXTENSIONS))), ("All files", "*")])
+        if not path:
+            return 0
+        path = os.path.abspath(path)
+        return self.follow_folder(os.path.dirname(path), write=write, only=os.path.basename(path))
+
+    def _follow_snapshot(self, folder, only=None, previous=None):
+        snap = source_follow.snapshot(folder, LANGUAGE_EXTENSIONS, previous=previous)
+        if only:
+            snap = {rel: v for rel, v in snap.items() if rel == only}
+        return snap
+
+    def follow_folder(self, folder=None, write=None, only=None):
         """Pick a folder and start following it. `write` True lets edits made here be written back into the files
         (only the nodes that were edited); False keeps it read-only; None asks. Returns how many files were opened
         (0 = nothing started)."""
@@ -43,9 +61,10 @@ class FollowMixin:
             folder = filedialog.askdirectory(title="Follow a folder - pick the project's root folder")
         if not folder:
             return 0
-        snap = source_follow.snapshot(folder, LANGUAGE_EXTENSIONS)
+        snap = self._follow_snapshot(folder, only)
         if not snap:
-            messagebox.showinfo("Follow a folder", "There are no source files Blockliner can read in that folder.")
+            messagebox.showinfo("Follow a folder", "Blockliner can't read that file." if only else
+                                "There are no source files Blockliner can read in that folder.")
             return 0
         if write is None:
             write = messagebox.askyesno(
@@ -56,7 +75,7 @@ class FollowMixin:
                 "overwritten: you get that version.)\n\n"
                 "No - read-only. Nothing is written to the folder; what you change here is replaced the next time the "
                 "file changes on disk.")
-        self._follow = {"folder": os.path.abspath(folder), "snap": {}, "job": None, "write": bool(write)}
+        self._follow = {"folder": os.path.abspath(folder), "snap": {}, "job": None, "write": bool(write), "only": only}
         opened = 0
         for rel in sorted(snap):
             if self._follow_open_file(rel, snap[rel]):
@@ -66,13 +85,13 @@ class FollowMixin:
             self.goto_layer("files")
         self._follow_schedule()
         self.presence_start()
-        self.remember_follow(self._follow["folder"], bool(write))
+        self.remember_follow(self._follow["folder"], bool(write), only)
         mode = ("Edits you make to a block are written back into that file (only the nodes you change)."
                 if write else "This is read-only: Blockliner never writes to these files, and what you change here is "
                               "replaced the next time the file changes on disk.")
         messagebox.showinfo(
             "Following a folder",
-            f"Following {os.path.basename(self._follow['folder']) or folder}: {opened} file(s).\n\n"
+            f"Following {only if only else (os.path.basename(self._follow['folder']) or folder)}: {opened} file(s).\n\n"
             "The files on disk are the truth. When another program changes a file, Blockliner updates by itself.\n"
             f"{mode}\n\nNext time Blockliner starts it will offer to follow this folder again.")
         return opened
@@ -544,14 +563,19 @@ class FollowMixin:
         return fixed
 
     # ---- remembering the folder ----------------------------------------------
-    def remember_follow(self, folder, write=False):
+    def remember_follow(self, folder, write=False, only=None):
         """Keep (or forget, with None) the followed folder in the settings so it can be offered at the next start."""
         if folder:
             self.settings["follow_folder"] = folder
             self.settings["follow_write"] = bool(write)
+            if only:
+                self.settings["follow_only"] = only
+            else:
+                self.settings.pop("follow_only", None)
         else:
             self.settings.pop("follow_folder", None)
             self.settings.pop("follow_write", None)
+            self.settings.pop("follow_only", None)
         try:
             self.save_app_settings()
         except Exception:
@@ -570,10 +594,10 @@ class FollowMixin:
                else "Read-only: Blockliner never writes to those files.")
         if not messagebox.askyesno(
                 "Follow the folder again?",
-                f"Last time you were following:\n\n  {folder}\n\nFollow it again? ({how})"):
+                f"Last time you were following:\n\n  {os.path.join(folder, self.settings['follow_only']) if self.settings.get('follow_only') else folder}\n\nFollow it again? ({how})"):
             self.remember_follow(None)
             return False
-        return bool(self.follow_folder(folder, write=write))
+        return bool(self.follow_folder(folder, write=write, only=self.settings.get("follow_only")))
 
     # ---- the watcher ----------------------------------------------------
     def _follow_schedule(self, took=0.0):
@@ -598,7 +622,7 @@ class FollowMixin:
         f = self._follow
         if f is None:
             return [], [], []
-        new = source_follow.snapshot(f["folder"], LANGUAGE_EXTENSIONS, previous=f["snap"])
+        new = self._follow_snapshot(f["folder"], f.get("only"), previous=f["snap"])
         added, changed, removed = source_follow.diff(f["snap"], new)
         if not (added or changed or removed):
             f["snap"] = new

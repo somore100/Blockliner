@@ -45,6 +45,15 @@ class UINodeMixin:
                     out.append(name)
         return out
 
+    def ui_screen_names(self):
+        """Names of the screens of every UI window in the open file (for the Show Screen block)."""
+        if not getattr(self, "tabs", None):
+            return []
+        out = []
+        for node, _path in self.iter_tab_nodes(self.tabs[self.active_tab_index]):
+            out += [n for n in ui_node.screen_names(node) if n not in out]
+        return out
+
     def choose_ui_pack(self, tab):
         """The UI library for a new UI node in `tab`: the one the file already
         uses, the only one there is, or the user's choice. None if cancelled."""

@@ -132,6 +132,14 @@ def widget_names(node):
     return out
 
 
+def screen_names(node):
+    """Names of the screens (frames marked as screens) of the node's UI, in order."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    root = doc.get("root") if isinstance(doc, dict) else None
+    kids = root.get("children") if isinstance(root, dict) else None
+    return [c["name"] for c in kids or [] if isinstance(c, dict) and c.get("screen") and isinstance(c.get("name"), str)]
+
+
 def pack_id_of(node):
     """The id of the UI library a UI node was made for ('python/tkinter'), or None."""
     doc = node.get(UI_KEY) if isinstance(node, dict) else None

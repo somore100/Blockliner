@@ -1,0 +1,14 @@
+{
+  "display_name": "Show Screen",
+  "category": "GUI",
+  "description": "Switches the window to another screen: that screen shows, the other screens hide. Mark screens in the designer (select a frame, tick 'This frame is a screen').",
+  "template": "ui.show_screen('[[screen]]')\n",
+  "params": [
+    {
+      "name": "screen",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_screens"
+    }
+  ]
+}

@@ -41,6 +41,20 @@ def main():
                 print(typ, e); ok = False
             check(f"{typ}: added and drawn", ok)
         types = {n["type"] for n in ui_node.load_tree(node, pack).walk()}
+        tree = ui_node.load_tree(node, pack)
+        ed._dz_add_screen(); settle(app, 0.1); ed._dz_add_screen(); settle(app, 0.1)
+        tree = ui_node.load_tree(node, pack)
+        check("+ Screen adds two screens", tree.screens() == ["screen_1", "screen_2"])
+        check("they fill the window", all(c["layout"].get("width") for c in tree.root["children"] if c.get("screen")))
+        ed._dz_set_screen_view("screen_1"); settle(app, 0.1)
+        ids = {b["id"] for b in ed._dz_boxes}
+        s2 = next(c for c in tree.root["children"] if c["name"] == "screen_2")
+        check("designing one screen leaves the other off the paper", s2["id"] not in ids)
+        ed._dz_set_screen_view("All"); settle(app, 0.1)
+        check("All shows both", s2["id"] in {b["id"] for b in ed._dz_boxes})
+        ed._dz_set_screen(s2["id"], False); settle(app, 0.1)
+        check("unmarking a screen", ui_node.load_tree(node, pack).screens() == ["screen_1"])
+        check("screen names are offered to blocks", ui_node.screen_names(node) == ["screen_1"])
         check("all widget types are in the tree", {t for t in pack.widgets if t not in pack.root_types} <= types)
     finally:
         app.destroy()

@@ -183,7 +183,8 @@ class UIDesignerEditor:
         On a narrow workspace the device buttons go on a second row."""
         st = self._dz()
         wide = self.host.view_width() >= TOOLBAR_ONE_ROW
-        key = (wide, tree.can_undo, tree.can_redo, self._dz_device(tree), st.get("hide_pal"), st.get("hide_props"))
+        key = (wide, tree.can_undo, tree.can_redo, self._dz_device(tree), st.get("hide_pal"), st.get("hide_props"),
+               tuple(tree.screens()), st.get("screen"))
         if st.get("bar_key") == key:
             return
         st["bar_key"], st["wide"] = key, wide
@@ -198,6 +199,7 @@ class UIDesignerEditor:
             dev_bar.pack(fill=tk.X, pady=(0, 6))
         self._dz_button(bar, "↶ Undo", self._dz_undo, tk.NORMAL if tree.can_undo else tk.DISABLED).pack(side=tk.LEFT, padx=2)
         self._dz_button(bar, "↷ Redo", self._dz_redo, tk.NORMAL if tree.can_redo else tk.DISABLED).pack(side=tk.LEFT, padx=2)
+        self._dz_button(bar, "+ Screen", self._dz_add_screen).pack(side=tk.LEFT, padx=(8, 2))
         tk.Frame(bar, width=14, bg=DARK_BG).pack(side=tk.LEFT)
         for key, text in (("hide_pal", "Widgets"), ("hide_props", "Settings")):
             on = not st.get(key)
@@ -213,9 +215,45 @@ class UIDesignerEditor:
             tk.Button(dev_bar, text=label, command=lambda k=key: self._dz_set_device(k), relief=tk.FLAT, cursor="hand2",
                       bg=DARK_ACCENT if on else "#3a3a3a", fg="#ffffff" if on else DARK_FG,
                       font=("Segoe UI", 9), padx=8).pack(side=tk.LEFT, padx=1)
+        screens = tree.screens()
+        if screens:
+            tk.Label(dev_bar, text="  Screen", bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(8, 4))
+            pick = ttk.Combobox(dev_bar, values=["All"] + screens, state="readonly", width=10)
+            pick.set(st.get("screen") if st.get("screen") in screens else "All")
+            pick.pack(side=tk.LEFT)
+            pick.bind("<<ComboboxSelected>>", lambda e, c=pick: self._dz_set_screen_view(c.get()))
         self._dz_button(bar, "</> Code…", self._dz_detach).pack(side=tk.RIGHT, padx=2)
         self._dz_button(bar, "\u26a1 Behaviour", self.port.show_behaviour).pack(side=tk.RIGHT, padx=2)
         self._dz_button(bar, "▶ Preview", self._dz_preview).pack(side=tk.RIGHT, padx=2)
+
+    def _dz_set_screen_view(self, name):
+        """Design one screen at a time: the others are left off the paper (they stay in the UI)."""
+        self._dz()["screen"] = None if name == "All" else name
+        self._dz()["sel"] = None
+        self.host.refresh()
+
+    def _dz_add_screen(self):
+        """A new frame filling the window, marked as a screen (the first one also hides nothing: it is the one shown)."""
+        pack = self.port.pack()
+        holder = {}
+
+        def change(t):
+            pw, ph = ui_paper.device_size(self._dz_device(t))
+            wid = t.add(t.root["id"], "frame", name=f"screen_{len(t.screens()) + 1}", props=pack.defaults("frame"),
+                        layout=dm.default_layout(pack, t, t.root["id"]), design={"w": int(pw), "h": int(ph)})
+            node = t.find(wid)
+            if "x" in node["layout"]:
+                node["layout"].update(x=0, y=0, width=int(pw), height=int(ph))
+            t.set_screen(wid, True)
+            holder["id"] = wid
+        self._dz_apply(change)
+        if holder.get("id"):
+            self._dz()["sel"] = holder["id"]
+            self._dz()["screen"] = None
+            self.host.after_idle(self._dz_update)
+
+    def _dz_set_screen(self, wid, on):
+        self._dz_apply(lambda t: t.set_screen(wid, on))
 
     def _dz_toggle_side(self, key):
         st = self._dz()
@@ -338,7 +376,7 @@ class UIDesignerEditor:
         if label is not None and label.winfo_exists():
             label.configure(text=paper_view.percent(s))
         self._dz_paper_obj = ui_paper.Paper(tree, pack)
-        layout = self._dz_paper_obj.boxes(pw, ph)
+        layout = self._dz_paper_obj.boxes(pw, ph, skip=dm.hidden_screens(tree, self._dz().get("screen")))
         self._dz_boxes, self._dz_origin, self._dz_scale = layout, (ox, oy), s
         sel = self._dz().get("sel")
         canvas.delete("all")
@@ -781,6 +819,14 @@ class UIDesignerEditor:
         self._dz_field(frame, "Variable name", widget["name"], lambda text, w=wid: self._dz_rename(w, text))
         for p in wdef["props"]:
             self._dz_prop_row(frame, tree, wid, widget, p)
+        parent = tree.parent_of(wid)
+        if wdef["container"] and parent is not None and parent["id"] == tree.root["id"]:
+            var = tk.BooleanVar(value=bool(widget.get("screen")))
+            tk.Checkbutton(frame, text="This frame is a screen", variable=var, bg=DARK_PANEL, fg=DARK_FG, selectcolor=DARK_BG,
+                           activebackground=DARK_PANEL, activeforeground=DARK_FG, font=("Segoe UI", 9), anchor="w",
+                           command=lambda w=wid, v=var: self._dz_set_screen(w, v.get())).pack(fill=tk.X, padx=10, pady=(6, 0))
+            tk.Label(frame, text="Only one screen shows at a time. Switch with the Show Screen block.", bg=DARK_PANEL, fg="#8a8a8a",
+                     font=("Segoe UI", 8), wraplength=250, justify=tk.LEFT, anchor="w").pack(fill=tk.X, padx=10)
         if pack.layouts and widget["id"] != tree.root["id"]:
             self._dz_section(frame, "Layout")
             self._dz_layout_rows(frame, tree, pack, widget)

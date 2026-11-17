@@ -83,6 +83,15 @@ for f in ("ui_set_text.json", "ui_set_option.json", "ui_read_input.json"):
     widgets = [p for p in d["params"] if p["name"] == "widget"]
     check(f"{f}: the widget parameter is a dropdown of the window's widgets", widgets and widgets[0]["choices"] == "@ui_widgets")
 
+for f, key, kind in (("ui_show_widget.json", "widget", "@ui_widgets"), ("ui_hide_widget.json", "widget", "@ui_widgets"), ("ui_show_screen.json", "screen", "@ui_screens")):
+    d = block(f)
+    ps = [p for p in d["params"] if p["name"] == key]
+    check(f"{f}: GUI category and a dropdown of {kind}", d["category"] == "GUI" and ps and ps[0]["choices"] == kind)
+b = block("ui_show_widget.json")
+check("show widget: renders a call on the UI namespace", renderer.render_template(b["template"], {"widget": "btn"}) == "ui.show_widget('btn')\n")
+check("hide widget: renders", renderer.render_template(block("ui_hide_widget.json")["template"], {"widget": "btn"}) == "ui.hide_widget('btn')\n")
+check("show screen: renders", renderer.render_template(block("ui_show_screen.json")["template"], {"screen": "home"}) == "ui.show_screen('home')\n")
+
 # --- the language pack still loads and keeps the dropdown definitions -------------------
 from engine import loader
 blocks = loader.load_language_pack(os.path.join(ROOT, "languages", "python"))[1]

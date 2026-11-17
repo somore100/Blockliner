@@ -36,6 +36,15 @@ def add_target(tree, pack, selected_id):
     return tree.root["id"]
 
 
+def hidden_screens(tree, current):
+    """Ids of the screens to leave off the paper while `current` (a screen name) is the one being designed.
+    Nothing is hidden when `current` is None or not a screen."""
+    names = tree.screens()
+    if current not in names:
+        return set()
+    return {c["id"] for c in tree.root["children"] if c.get("screen") and c["name"] != current}
+
+
 PREFERRED_MANAGER = "place"     # free x/y: what dragging/resizing on the paper needs
 
 
@@ -116,7 +125,7 @@ def outline_rows(tree):
     rows = []
 
     def walk(node, parent_id, depth):
-        rows.append((node["id"], parent_id, f"{node['name']}  ({node['type']})", depth))
+        rows.append((node["id"], parent_id, f"{node['name']}  ({node['type']})" + ("  \u25a3 screen" if node.get("screen") else ""), depth))
         for c in node["children"]:
             walk(c, node["id"], depth + 1)
     walk(tree.root, "", 0)

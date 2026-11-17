@@ -166,8 +166,9 @@ class Paper:
             right, bottom, y = max(right, PAD + w), y + h, y + h + GAP
         return rel, right, bottom
 
-    def boxes(self, paper_w, paper_h):
-        """[{id, type, x, y, w, h, depth}] parent-first, so later = on top."""
+    def boxes(self, paper_w, paper_h, skip=()):
+        """[{id, type, x, y, w, h, depth}] parent-first, so later = on top. Widgets whose id is in `skip` (and
+        everything inside them) are left out: the screens that are not being looked at."""
         out = []
         root = self.tree.root
 
@@ -176,6 +177,8 @@ class Paper:
             if node["children"]:
                 rel, _cw, _ch = self._arrange(node)
                 for c in _kids(node):
+                    if c["id"] in skip:
+                        continue
                     dx, dy, cw, ch = rel[c["id"]]
                     walk(c, x + dx, y + dy, cw, ch, depth + 1)
         walk(root, 0, 0, paper_w, paper_h, 0)

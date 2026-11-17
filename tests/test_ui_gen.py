@@ -30,7 +30,25 @@ def build_main():
     btn_save.configure(command=on_save)
     combobox = ttk.Combobox(app, values=['a', 'b'])
     combobox.grid(row=1, column=0)
-    return types.SimpleNamespace(app=app, frame=frame, label=label, entry_name=entry_name, btn_save=btn_save, combobox=combobox)
+
+    widgets = dict(locals())
+    saved = {}
+    def hide_widget(name):
+        w = widgets[name]
+        manager = w.winfo_manager()
+        if manager and name not in saved:
+            saved[name] = (manager, getattr(w, manager + '_info')())
+            getattr(w, manager + '_forget')()
+    def show_widget(name):
+        if name in saved:
+            manager, info = saved.pop(name)
+            getattr(widgets[name], manager)(**info)
+    screens = []
+    def show_screen(name):
+        for other in screens:
+            hide_widget(other)
+        show_widget(name)
+    return types.SimpleNamespace(app=app, frame=frame, label=label, entry_name=entry_name, btn_save=btn_save, combobox=combobox, show_widget=show_widget, hide_widget=hide_widget, show_screen=show_screen)
 
 ui = build_main()
 ui.app.mainloop()

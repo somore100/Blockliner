@@ -250,6 +250,7 @@ class Pack:
         self.quote = data["quote"]
         self.function = data["function"]
         self.layouts = data["layouts"]
+        self.visibility = data.get("visibility")        # lines that add show_widget / hide_widget / show_screen
         self.preview = data["preview"]
         self.widgets = widgets            # type -> definition, in file order
         self.folder = folder
@@ -378,6 +379,8 @@ def load_pack(folder, scope="prebuilt"):
              "root_types": data["root_types"],
              "run": data["run"] if isinstance(data.get("run"), str) else "",
              "layouts": _clean_layouts(data.get("layouts"), name, notes),
+             "visibility": ([ln for ln in data["visibility"] if isinstance(ln, str)]
+                            if isinstance(data.get("visibility"), list) else None),
              "preview": data.get("preview") if data.get("preview") in PREVIEWS else "boxes"}
 
     raws = [(f"{name}/pack.json", w) for w in (data.get("widgets") or [])]

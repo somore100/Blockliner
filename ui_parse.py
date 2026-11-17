@@ -113,11 +113,19 @@ def parse(text, pack, handler_id=None, previous=None):
         events[wtype] = [(ev, _regex(ev["code"][0])) for ev in w["events"] if len(ev["code"]) == 1]
 
     tree, by_name, problems = None, {}, []
+    screen_names = []
     i = 0
     while i < len(lines):
         text_line = lines[i]
         i += 1
         made = False
+        m_screens = re.match(r"screens = \[(.*)\]\Z", text_line)
+        if m_screens:                                    # the generated list of screens (see ui_gen._visibility_lines)
+            try:
+                screen_names = [x for x in ast.literal_eval("[" + m_screens.group(1) + "]") if isinstance(x, str)]
+            except (ValueError, SyntaxError):
+                pass
+            continue
         for wtype, w, first, rest in creators:
             m = first.match(text_line)
             if not m:
@@ -192,6 +200,10 @@ def parse(text, pack, handler_id=None, previous=None):
                 break
     if tree is None:
         return None, problems or ["no window was found in the code"]
+    if tree is not None:
+        for n in tree.root["children"]:
+            if n["name"] in screen_names:
+                n["screen"] = True
     if previous is not None:
         old = {n["name"]: n for n in previous.walk()}
         for n in tree.walk():

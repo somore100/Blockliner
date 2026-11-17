@@ -230,6 +230,25 @@ class UITree:
         self._checkpoint(("prop", widget_id, key))
         node["props"][key] = value
 
+    def set_screen(self, widget_id, on=True):
+        """Mark a container that sits directly in the window as a screen (only one screen shows at a time), or
+        unmark it. Screens are generated as show_screen('name') on the UI's namespace."""
+        node = self._get(widget_id)
+        parent = self.parent_of(widget_id)
+        if on and (parent is None or parent["id"] != self.root["id"]):
+            raise ValueError("a screen must sit directly in the window")
+        if on and not self._is_container(node["type"]):
+            raise ValueError("only a container (a frame) can be a screen")
+        self._checkpoint()
+        if on:
+            node["screen"] = True
+        else:
+            node.pop("screen", None)
+
+    def screens(self):
+        """Names of the screens, in order."""
+        return [c["name"] for c in (self.root["children"] if self.root else []) if c.get("screen")]
+
     def clear_prop(self, widget_id, key):
         node = self._get(widget_id)
         self._checkpoint()

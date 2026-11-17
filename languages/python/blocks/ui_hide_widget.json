@@ -1,0 +1,14 @@
+{
+  "display_name": "Hide Widget",
+  "category": "GUI",
+  "description": "Hides a widget without removing it; Show Widget brings it back where it was.",
+  "template": "ui.hide_widget('[[widget]]')\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    }
+  ]
+}

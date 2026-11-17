@@ -145,6 +145,10 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
 
     emit(tree.root, None)
     indent = fn["indent"]
+    helpers = _visibility_lines(tree, pack)
+    if helpers:
+        body.extend(["", *helpers])
+        names = names + ["show_widget", "hide_widget", "show_screen"]
     pairs = ", ".join(fill(fn["pair"], {"name": (n, n)}) for n in names)
     function = [fill(fn["def"], {"fname": (fname, fname)})]
     function += [indent + line if line else line for line in body]
@@ -161,6 +165,19 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     return {"imports": imports, "function": function,
             "call": [] if standalone else call, "run": [] if standalone else run,
             "preview_tail": call + run, "problems": problems}
+
+
+def _visibility_lines(tree, pack):
+    """The pack's lines that let the program show and hide widgets and switch screens (python-family packs). They
+    come after the widgets; `{screens}` becomes the quoted screen names, and the first screen is shown."""
+    template = getattr(pack, "visibility", None)
+    if not template:
+        return []
+    screens = tree.screens()
+    out = [ln.replace("{screens}", ", ".join(repr(n) for n in screens)) for ln in template]
+    if screens:
+        out.append(f"show_screen({screens[0]!r})")
+    return out
 
 
 def render(result, include_run=True, preview=False):

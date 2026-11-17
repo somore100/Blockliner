@@ -1,0 +1,14 @@
+{
+  "display_name": "Show Widget",
+  "category": "GUI",
+  "description": "Shows a widget that was hidden (it comes back where it was). Pick the widget from the list.",
+  "template": "ui.show_widget('[[widget]]')\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    }
+  ]
+}

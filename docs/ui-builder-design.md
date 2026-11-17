@@ -307,3 +307,13 @@ One finding changed the plan: an *attached* UI window never shows the Blocks lay
 - The app opens on the Files layer (`start_ui` in `ui.py`). Tests build `BlocklinerUI` directly and still start on Blocks.
 - `tests/test_designer_inline.py`: key events need `focus_force()` and mouse events need `rootx/rooty` under Xvfb
   (no window manager); the two failures on the first run were test issues, not app bugs.
+
+## Widgets on the Nodes layer (built 2026-11-17)
+
+A UI window's box has a **▸ Widgets** button. Opened, the box lists its widgets (indented by nesting, ▣ marks a screen) and every event the pack gives a widget gets a dot on its row: **filled** (`On click → on_save ●`) when it is linked to a function node, **empty** (`On click + ○`) when it is not.
+- The wire to a linked function starts at that dot (one wire per linked event), not at the middle of the box. Closed again, the wires go back to the box.
+- Click a filled dot: opens the function. Click an empty dot: makes `on_<widget>_<event>` next to the window, links the event and refreshes (`ui_nodewidgets.link_new_ui_handler`). Click a widget's name: opens the window in the designer with that widget selected (`_ui_pending_sel`, taken once by `UIDesignerEditor.render_designer` through the port's `pending_selection`).
+- A function that widget events run says so in its own box (`← Main.button · On click`), so the link reads both ways.
+- The open/closed state is `node["ui_open"]` and is saved with the project (not in portable exports). A window whose code was taken over by hand ("code only") has no Widgets button.
+- Pure part: `ui_node.widget_rows`, `ui_node.triggers_for`, `ui_node.handler_base_name` (tests/test_widget_rows.py). Tk part: `ui_nodewidgets.py` (a mixin), wire anchors in `ui_canvas._draw_one_wire(src_y=)`, tests/test_ui_nodewidgets.py.
+- Not done: widgets as separate draggable boxes (the list lives inside the window's box), showing a function's blocks inside the row, long lists beyond 30 widgets are cut with a count.

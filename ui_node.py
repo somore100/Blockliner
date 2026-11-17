@@ -112,6 +112,48 @@ def event_rows(node, pack, lookup):
     return rows
 
 
+def widget_rows(node, pack, lookup):
+    """The widgets of a UI window as rows for the Nodes layer, parent-first in tree order (the window itself is
+    left out): {id, name, type, label, depth, screen, events}. `events` has one entry for every event the pack
+    gives that widget type: {key, label, handler_id, handler, is_window}; handler_id is None when nothing is linked
+    (the row then offers to make one) and `handler` is None when the link is broken. `lookup(id)` finds a node."""
+    doc = node.get(UI_KEY) if isinstance(node, dict) else None
+    rows = []
+
+    def walk(w, depth):
+        if not isinstance(w, dict):
+            return
+        if depth > 0:
+            wdef = (pack.widget(w.get("type")) if pack is not None else None) or {}
+            linked = w.get("events") if isinstance(w.get("events"), dict) else {}
+            events = []
+            for ev in wdef.get("events", []):
+                target = linked.get(ev["key"])
+                target = target if isinstance(target, str) and target else None
+                handler = lookup(target) if target else None
+                events.append({"key": ev["key"], "label": ev.get("label") or ev["key"], "handler_id": target,
+                               "handler": handler, "is_window": bool(handler) and is_ui_node(handler)})
+            rows.append({"id": w.get("id"), "name": w.get("name"), "type": w.get("type"),
+                         "label": wdef.get("label") or w.get("type"), "depth": depth - 1,
+                         "screen": bool(w.get("screen")), "events": events})
+        for child in w.get("children") or []:
+            walk(child, depth + 1)
+    if isinstance(doc, dict):
+        walk(doc.get("root"), 0)
+    return rows
+
+
+def triggers_for(ui_nodes, target_id, pack_for, lookup):
+    """Which widget events run the node `target_id`: [(window name, widget name, event label)], for the
+    'called by' line on a handler's box. `pack_for(ui node)` gives that window's pack."""
+    out = []
+    for node in ui_nodes:
+        for row in event_rows(node, pack_for(node), lookup):
+            if row["handler_id"] == target_id:
+                out.append((node.get("name"), row["widget"], row["label"]))
+    return out
+
+
 def widget_names(node):
     """Variable names of every widget in the node's UI (the window first), in
     tree order. [] for a node without a UI. These are what blocks refer to as
@@ -145,6 +187,13 @@ def pack_id_of(node):
     doc = node.get(UI_KEY) if isinstance(node, dict) else None
     pid = doc.get("pack") if isinstance(doc, dict) else None
     return pid if isinstance(pid, str) and pid else None
+
+
+def handler_base_name(widget_name, event_key):
+    """The name given to the function made for a widget's event: on_<widget>_<event>, with an event key like
+    '<<ComboboxSelected>>' tidied to 'combobox_selected'."""
+    key = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", re.sub(r"[<>]+", "", str(event_key))).lower()
+    return re.sub(r"\W+", "_", f"on_{widget_name}_{key}").strip("_")
 
 
 def function_name(node):

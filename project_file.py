@@ -74,6 +74,8 @@ def _node_from_json(raw, seen_ids, notes):
             node[ui_node.UI_KEY] = ui_doc
             if ui_detached:
                 node[ui_node.DETACHED_KEY] = True
+            if raw.get("ui_open") is True:                  # the window's box shows its widgets on the Nodes layer
+                node["ui_open"] = True
     if raw.get("ignored") is True:
         node["ignored"] = True
     if raw.get("skipped") is True:

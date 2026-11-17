@@ -74,6 +74,9 @@ class UIDesignerEditor:
         st = self._dz()
         if st.get("sel") and tree.find(st["sel"]) is None:
             st["sel"] = None
+        pending = self.port.pending_selection()          # the Nodes layer opened the window on one widget
+        if pending and tree.find(pending) is not None:
+            st["sel"] = pending
         self._dz_style()
 
         frame = self.host.frame

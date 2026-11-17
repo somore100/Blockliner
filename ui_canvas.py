@@ -491,11 +491,24 @@ class CanvasMixin:
             if who and who[0]:
                 tk.Label(info, text=who[0], bg=BLOCK_BG, fg=who[1], font=self._zfont(8, "bold"),
                          anchor="w").pack(anchor="w")
+            who_runs = "" if (is_ui or is_container) else self.ui_triggers_text(node["id"])
+            if who_runs:                               # a widget event of a UI window runs this function
+                tk.Label(info, text=who_runs, bg=BLOCK_BG, fg="#4ec9b0", font=self._zfont(8), anchor="w",
+                         justify=tk.LEFT).pack(anchor="w")
             tk.Button(
                 body, text="Open \u2192", bg="#3a3a3a", fg=DARK_FG,
                 relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
                 command=_open
             ).pack(side=tk.RIGHT)
+            if is_ui and not ui_node.is_detached(node):
+                opened = bool(node.get("ui_open"))
+                tk.Button(
+                    body, text=("\u25be Widgets" if opened else "\u25b8 Widgets"), bg="#3a3a3a", fg=DARK_FG,
+                    relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
+                    command=lambda nid=node["id"]: self.toggle_ui_widgets(nid)
+                ).pack(side=tk.RIGHT, padx=(0, 6))
+                if opened:
+                    self.build_ui_widget_rows(box, node, self._zfont, 8)
 
         if node.get("canvas_h") and not compact:
             box.pack_propagate(False)
@@ -1140,10 +1153,16 @@ class CanvasMixin:
                 (x0 + x1) / 2, (y0 + y1) / 2 - 8, text=label, fill=color,
                 font=("TkDefaultFont", max(7, int(9 * z))), tags=("fileview", "wire", tag))
 
-    def _draw_one_wire(self, source_id, target_id, data_vars=None):
+    def _draw_one_wire(self, source_id, target_id, data_vars=None, src_y=None):
         """data_vars given = a DATA wire (dashed blue, labelled with the
         variable names): the producer's variable is read in the target's code.
         Derived only, nothing to select or delete here - change the code."""
+        if data_vars is None and src_y is None:       # a window with its widgets open: one wire from each linked dot
+            offsets = self.ui_port_offsets(source_id, target_id)
+            if offsets:
+                for off in offsets:
+                    self._draw_one_wire(source_id, target_id, src_y=off)
+                return
         _, src_widget = self._fileview_boxes[source_id]
         _, dst_widget = self._fileview_boxes[target_id]
         sw = src_widget.winfo_width() or 220
@@ -1156,7 +1175,7 @@ class CanvasMixin:
             return
         z = self.canvas_zoom
         x0 = src_node["canvas_x"] * z + sw
-        y0 = src_node["canvas_y"] * z + sh / 2
+        y0 = src_node["canvas_y"] * z + (sh / 2 if src_y is None else src_y)
         x1 = dst_node["canvas_x"] * z
         y1 = dst_node["canvas_y"] * z + dh / 2
         if data_vars is not None:       # sit a little below a call wire

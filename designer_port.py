@@ -36,6 +36,10 @@ class UIDocumentPort:
         """A new empty handler function; returns its id."""
         raise NotImplementedError
 
+    def pending_selection(self):
+        """Id of a widget to select when the designer opens (asked for by the Nodes layer), once; else None."""
+        return None
+
     def open_node(self, node_id):
         """Show another function (an event's handler) in the editor."""
 
@@ -92,7 +96,10 @@ class CodeBuilderUIPort(UIDocumentPort):
                 for n in self._cb.function_nodes(exclude=self._cb.active_node())]
 
     def create_handler(self, widget_name, event_key):
-        return self._cb.add_function_node(f"on_{widget_name}_{event_key}")
+        return self._cb.add_function_node(ui_node.handler_base_name(widget_name, event_key))
+
+    def pending_selection(self):
+        return self._cb.take_pending_selection()
 
     def open_node(self, node_id):
         self._cb.open_node(node_id)

@@ -70,6 +70,10 @@ class CodeBuilderFacade:
         """Show another node of the open file in the editor."""
         self._app.open_node(node_id)
 
+    def take_pending_selection(self):
+        """The widget the Nodes layer asked the designer to select (once), or None."""
+        return self._app.__dict__.pop("_ui_pending_sel", None)
+
     def show_behaviour(self):
         """Show what the open UI window's widgets do (events and their blocks)."""
         self._app.show_ui_behaviour()

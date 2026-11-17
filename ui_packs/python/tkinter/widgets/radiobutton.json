@@ -1,0 +1,46 @@
+{
+  "type": "radiobutton",
+  "label": "Radio button",
+  "description": "One choice of a group: radio buttons with the same name group together, ticking one unticks the others.",
+  "category": "Input",
+  "icon": "◉",
+  "container": false,
+  "default_size": [
+    120,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Option"
+    },
+    {
+      "key": "value",
+      "label": "Value",
+      "kind": "string",
+      "default": "1"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ttk.Radiobutton({parent}{opts})"
+}

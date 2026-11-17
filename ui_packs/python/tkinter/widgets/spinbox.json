@@ -1,0 +1,59 @@
+{
+  "type": "spinbox",
+  "label": "Number box",
+  "description": "A box with up and down arrows for picking a number.",
+  "category": "Input",
+  "icon": "⇅",
+  "container": false,
+  "default_size": [
+    100,
+    26
+  ],
+  "props": [
+    {
+      "key": "from",
+      "label": "From",
+      "kind": "float",
+      "default": 0,
+      "arg": "from_"
+    },
+    {
+      "key": "to",
+      "label": "To",
+      "kind": "float",
+      "default": 10
+    },
+    {
+      "key": "increment",
+      "label": "Step",
+      "kind": "float",
+      "optional": true
+    },
+    {
+      "key": "width",
+      "label": "Width (chars)",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ttk.Spinbox({parent}{opts})"
+}

@@ -106,7 +106,14 @@
     "entry",
     "text",
     "combobox",
-    "listbox"
+    "listbox",
+    "radiobutton",
+    "scale",
+    "spinbox",
+    "progressbar",
+    "separator",
+    "labelframe",
+    "canvas"
   ],
   "quote": "python",
   "function": {

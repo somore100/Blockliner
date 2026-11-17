@@ -26,7 +26,14 @@
     "checkbutton",
     "entry",
     "text",
-    "combobox"
+    "combobox",
+    "radiobutton",
+    "switch",
+    "scale",
+    "progressbar",
+    "optionmenu",
+    "segmented",
+    "scrollframe"
   ],
   "quote": "python",
   "function": {

@@ -1,0 +1,22 @@
+{
+  "type": "scrollframe",
+  "label": "Scrolling frame",
+  "description": "A frame that scrolls when it holds more than fits.",
+  "category": "Containers",
+  "icon": "▢",
+  "container": true,
+  "default_size": [
+    220,
+    140
+  ],
+  "props": [
+    {
+      "key": "label_text",
+      "label": "Title",
+      "kind": "string",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = ctk.CTkScrollableFrame({parent}{opts})"
+}

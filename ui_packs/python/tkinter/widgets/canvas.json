@@ -1,0 +1,34 @@
+{
+  "type": "canvas",
+  "label": "Drawing area",
+  "description": "A blank area you draw shapes and images on from code.",
+  "category": "Display",
+  "icon": "▨",
+  "container": false,
+  "default_size": [
+    200,
+    150
+  ],
+  "props": [
+    {
+      "key": "width",
+      "label": "Width",
+      "kind": "int",
+      "default": 200
+    },
+    {
+      "key": "height",
+      "label": "Height",
+      "kind": "int",
+      "default": 150
+    },
+    {
+      "key": "background",
+      "label": "Background",
+      "kind": "color",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = tk.Canvas({parent}{opts})"
+}

@@ -376,14 +376,51 @@ class UIDesignerEditor:
                 canvas.create_rectangle(x0, y0, x1, y1, fill=bg, outline="")
             canvas.create_rectangle(x0, (y0 + y1) / 2 - 6, x0 + 12, (y0 + y1) / 2 + 6, fill="#ffffff", outline="#777777")
             canvas.create_text(x0 + 18, (y0 + y1) / 2, text=text or "Check", anchor="w", fill=fg, font=font)
-        elif kind == "frame":
+        elif kind in ("frame", "scrollframe"):
             canvas.create_rectangle(x0, y0, x1, y1, fill="", outline="#b5b5b5", dash=(3, 3))
+        elif kind == "labelframe":
+            canvas.create_rectangle(x0, y0 + 7, x1, y1, fill="", outline="#b5b5b5")
+            canvas.create_text(x0 + 8, y0 + 7, text=" " + (text or "Group") + " ", anchor="w", fill=fg, font=font)
+        elif kind == "radiobutton":
+            cy = (y0 + y1) / 2
+            canvas.create_oval(x0, cy - 6, x0 + 12, cy + 6, fill="#ffffff", outline="#777777")
+            canvas.create_text(x0 + 18, cy, text=text or "Option", anchor="w", fill=fg, font=font)
+        elif kind in ("switch",):
+            cy = (y0 + y1) / 2
+            canvas.create_rectangle(x0, cy - 7, x0 + 28, cy + 7, fill="#cccccc", outline="#888888")
+            canvas.create_oval(x0 + 1, cy - 6, x0 + 13, cy + 6, fill="#ffffff", outline="#888888")
+            canvas.create_text(x0 + 34, cy, text=text or "Switch", anchor="w", fill=fg, font=font)
+        elif kind == "scale":
+            cy = (y0 + y1) / 2
+            if (props.get("orient") or "horizontal") == "vertical":
+                cx = (x0 + x1) / 2
+                canvas.create_line(cx, y0 + 4, cx, y1 - 4, fill="#999999", width=3)
+                canvas.create_oval(cx - 6, (y0 + y1) / 2 - 6, cx + 6, (y0 + y1) / 2 + 6, fill="#e1e1e1", outline="#777777")
+            else:
+                canvas.create_line(x0 + 4, cy, x1 - 4, cy, fill="#999999", width=3)
+                canvas.create_oval((x0 + x1) / 2 - 6, cy - 6, (x0 + x1) / 2 + 6, cy + 6, fill="#e1e1e1", outline="#777777")
+        elif kind == "progressbar":
+            canvas.create_rectangle(x0, y0, x1, y1, fill="#e6e6e6", outline="#9a9a9a")
+            try:
+                frac = max(0.0, min(1.0, float(props.get("value") or 0) / float(props.get("maximum") or 100)))
+            except (TypeError, ValueError, ZeroDivisionError):
+                frac = 0.0
+            if frac:
+                canvas.create_rectangle(x0, y0, x0 + (x1 - x0) * frac, y1, fill=DARK_ACCENT, outline="")
+        elif kind == "separator":
+            if (props.get("orient") or "horizontal") == "vertical":
+                canvas.create_line((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, fill="#999999")
+            else:
+                canvas.create_line(x0, (y0 + y1) / 2, x1, (y0 + y1) / 2, fill="#999999")
+        elif kind == "canvas":
+            canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#ffffff", outline="#9a9a9a")
+            canvas.create_line(x0 + 6, y1 - 6, x1 - 6, y0 + 6, fill="#cccccc")
         else:                                    # entry, text, listbox, combobox and unknown types
             canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#ffffff", outline="#9a9a9a")
             if props.get("font") or props.get("foreground"):
-                canvas.create_text(x0 + 4, (y0 + y1) / 2 if kind in ("entry", "combobox") else y0 + 4,
-                                   text="Abc", anchor="w" if kind in ("entry", "combobox") else "nw", fill=fg, font=font)
-            label = {"combobox": "▾", "listbox": "≡"}.get(kind, "")
+                canvas.create_text(x0 + 4, (y0 + y1) / 2 if kind in ("entry", "combobox", "spinbox", "optionmenu") else y0 + 4,
+                                   text="Abc", anchor="w" if kind in ("entry", "combobox", "spinbox", "optionmenu") else "nw", fill=fg, font=font)
+            label = {"combobox": "▾", "listbox": "≡", "optionmenu": "▾", "spinbox": "⇅", "segmented": "▤"}.get(kind, "")
             if label:
                 canvas.create_text(x1 - 8, (y0 + y1) / 2, text=label, fill="#666666")
             if kind not in ("entry", "text", "listbox", "combobox") and b["w"] * s > 40:

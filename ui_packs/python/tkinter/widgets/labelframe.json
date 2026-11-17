@@ -1,0 +1,28 @@
+{
+  "type": "labelframe",
+  "label": "Group box",
+  "description": "A frame with a title that groups other widgets. Add widgets while it is selected to put them inside.",
+  "category": "Containers",
+  "icon": "▣",
+  "container": true,
+  "default_size": [
+    200,
+    120
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Title",
+      "kind": "string",
+      "default": "Group"
+    },
+    {
+      "key": "padding",
+      "label": "Padding",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = ttk.LabelFrame({parent}{opts})"
+}

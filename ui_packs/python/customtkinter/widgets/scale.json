@@ -1,0 +1,49 @@
+{
+  "type": "scale",
+  "label": "Slider",
+  "description": "A slider the user drags to pick a number.",
+  "category": "Input",
+  "icon": "⊷",
+  "container": false,
+  "default_size": [
+    160,
+    20
+  ],
+  "props": [
+    {
+      "key": "from",
+      "label": "From",
+      "kind": "float",
+      "default": 0,
+      "arg": "from_"
+    },
+    {
+      "key": "to",
+      "label": "To",
+      "kind": "float",
+      "default": 100
+    },
+    {
+      "key": "orient",
+      "label": "Direction",
+      "kind": "enum",
+      "default": "horizontal",
+      "options": [
+        "horizontal",
+        "vertical"
+      ],
+      "omit_when": "horizontal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On move",
+      "args": [
+        "value"
+      ],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkSlider({parent}{opts})"
+}

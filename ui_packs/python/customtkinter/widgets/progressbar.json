@@ -1,0 +1,27 @@
+{
+  "type": "progressbar",
+  "label": "Progress bar",
+  "description": "A bar that fills up (set its value from 0 to 1 in code).",
+  "category": "Display",
+  "icon": "▰",
+  "container": false,
+  "default_size": [
+    160,
+    16
+  ],
+  "props": [
+    {
+      "key": "orient",
+      "label": "Direction",
+      "kind": "enum",
+      "default": "horizontal",
+      "options": [
+        "horizontal",
+        "vertical"
+      ],
+      "omit_when": "horizontal"
+    }
+  ],
+  "events": [],
+  "code": "{name} = ctk.CTkProgressBar({parent}{opts})"
+}

@@ -1,0 +1,40 @@
+{
+  "type": "switch",
+  "label": "Switch",
+  "description": "A sliding on/off switch.",
+  "category": "Input",
+  "icon": "⏽",
+  "container": false,
+  "default_size": [
+    110,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Switch"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkSwitch({parent}{opts})"
+}

@@ -1,0 +1,56 @@
+{
+  "type": "progressbar",
+  "label": "Progress bar",
+  "description": "A bar that fills up to show progress.",
+  "category": "Display",
+  "icon": "▰",
+  "container": false,
+  "default_size": [
+    160,
+    20
+  ],
+  "props": [
+    {
+      "key": "maximum",
+      "label": "Maximum",
+      "kind": "float",
+      "default": 100
+    },
+    {
+      "key": "value",
+      "label": "Value",
+      "kind": "float",
+      "default": 0
+    },
+    {
+      "key": "orient",
+      "label": "Direction",
+      "kind": "enum",
+      "default": "horizontal",
+      "options": [
+        "horizontal",
+        "vertical"
+      ],
+      "omit_when": "horizontal"
+    },
+    {
+      "key": "mode",
+      "label": "Mode",
+      "kind": "enum",
+      "default": "determinate",
+      "options": [
+        "determinate",
+        "indeterminate"
+      ],
+      "omit_when": "determinate"
+    },
+    {
+      "key": "length",
+      "label": "Length",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = ttk.Progressbar({parent}{opts})"
+}

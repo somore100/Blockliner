@@ -1,0 +1,46 @@
+{
+  "type": "radiobutton",
+  "label": "Radio button",
+  "description": "One choice of a group.",
+  "category": "Input",
+  "icon": "◉",
+  "container": false,
+  "default_size": [
+    120,
+    24
+  ],
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Option"
+    },
+    {
+      "key": "value",
+      "label": "Value",
+      "kind": "string",
+      "default": "1"
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "kind": "enum",
+      "default": "normal",
+      "options": [
+        "normal",
+        "disabled"
+      ],
+      "omit_when": "normal"
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On change",
+      "args": [],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkRadioButton({parent}{opts})"
+}

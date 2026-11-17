@@ -1,0 +1,27 @@
+{
+  "type": "separator",
+  "label": "Separator",
+  "description": "A thin line that divides parts of the window.",
+  "category": "Display",
+  "icon": "─",
+  "container": false,
+  "default_size": [
+    160,
+    4
+  ],
+  "props": [
+    {
+      "key": "orient",
+      "label": "Direction",
+      "kind": "enum",
+      "default": "horizontal",
+      "options": [
+        "horizontal",
+        "vertical"
+      ],
+      "omit_when": "horizontal"
+    }
+  ],
+  "events": [],
+  "code": "{name} = ttk.Separator({parent}{opts})"
+}

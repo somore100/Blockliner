@@ -1,0 +1,34 @@
+{
+  "type": "optionmenu",
+  "label": "Option menu",
+  "description": "A menu button: the user picks one of your choices.",
+  "category": "Input",
+  "icon": "▾",
+  "container": false,
+  "default_size": [
+    140,
+    28
+  ],
+  "props": [
+    {
+      "key": "values",
+      "label": "Choices",
+      "kind": "list",
+      "default": [
+        "one",
+        "two"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "key": "command",
+      "label": "On select",
+      "args": [
+        "value"
+      ],
+      "code": "{name}.configure(command={handler})"
+    }
+  ],
+  "code": "{name} = ctk.CTkOptionMenu({parent}{opts})"
+}

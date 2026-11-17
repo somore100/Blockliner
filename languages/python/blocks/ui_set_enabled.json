@@ -1,0 +1,19 @@
+{
+  "display_name": "Enable / Disable Widget",
+  "category": "GUI",
+  "description": "Turns a widget on (True) or off (False): a disabled button or input box can't be used.",
+  "template": "ui.set_enabled('[[widget]]', [[enabled]])\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    },
+    {
+      "name": "enabled",
+      "type": "expression",
+      "default": "False"
+    }
+  ]
+}

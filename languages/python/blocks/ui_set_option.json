@@ -1,8 +1,8 @@
 {
   "display_name": "Set Widget Option",
   "category": "GUI",
-  "description": "Changes one setting of a widget while the program runs, for example its colour or whether it is disabled.",
-  "template": "ui.[[widget]].configure([[option]]=[[value]])\n",
+  "description": "Changes one setting of a widget while the program runs, for example its colour or whether it is disabled. The settings offered depend on the UI library; you can also type any other.",
+  "template": "ui.set_option('[[widget]]', '[[option]]', [[value]])\n",
   "params": [
     {
       "name": "widget",
@@ -14,14 +14,7 @@
       "name": "option",
       "type": "identifier",
       "default": "state",
-      "choices": [
-        "text",
-        "state",
-        "foreground",
-        "background",
-        "font",
-        "width"
-      ]
+      "choices": "@ui_options"
     },
     {
       "name": "value",

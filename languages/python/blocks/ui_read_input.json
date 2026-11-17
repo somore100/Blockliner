@@ -1,8 +1,8 @@
 {
   "display_name": "Read Widget Text",
   "category": "GUI",
-  "description": "Puts what is typed in an input box (or chosen in a dropdown) into a variable.",
-  "template": "[[variable]] = ui.[[widget]].get()\n",
+  "description": "Puts the text of a widget (what is typed in an input box, or chosen in a dropdown) into a variable.",
+  "template": "[[variable]] = ui.get_text('[[widget]]')\n",
   "params": [
     {
       "name": "variable",

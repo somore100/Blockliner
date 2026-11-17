@@ -54,6 +54,19 @@ class UINodeMixin:
             out += [n for n in ui_node.screen_names(node) if n not in out]
         return out
 
+    def ui_option_names(self):
+        """Settings a widget can be given while the program runs (Set Widget Option's dropdown): the pack's own list
+        for each UI library the file uses, else for the default one."""
+        if not getattr(self, "tabs", None):
+            return []
+        tab = self.tabs[self.active_tab_index]
+        used = [ui_node.pack_id_of(n) for n, _p in self.iter_tab_nodes(tab) if ui_node.is_ui_node(n)]
+        packs = [self.ui_pack_for(tab["language"], pid) for pid in dict.fromkeys(used)] or [self.ui_pack_for(tab["language"])]
+        out = []
+        for pack in packs:
+            out += [o for o in (pack.options if pack else []) if o not in out]
+        return out
+
     def choose_ui_pack(self, tab):
         """The UI library for a new UI node in `tab`: the one the file already
         uses, the only one there is, or the user's choice. None if cancelled."""

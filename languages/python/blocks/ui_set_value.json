@@ -1,0 +1,19 @@
+{
+  "display_name": "Set Widget Value",
+  "category": "GUI",
+  "description": "Sets the value of a slider, progress bar, checkbox, switch or dropdown. (Slider and progress bar ranges depend on the UI library.)",
+  "template": "ui.set_value('[[widget]]', [[value]])\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    },
+    {
+      "name": "value",
+      "type": "expression",
+      "default": "50"
+    }
+  ]
+}

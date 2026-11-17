@@ -251,6 +251,8 @@ class Pack:
         self.function = data["function"]
         self.layouts = data["layouts"]
         self.visibility = data.get("visibility")        # lines that add show_widget / hide_widget / show_screen
+        self.actions = data.get("actions") or []        # lines that add set_text, move_widget ... (the library's own way)
+        self.options = data.get("options") or []        # option names the Set Widget Option block offers
         self.preview = data["preview"]
         self.widgets = widgets            # type -> definition, in file order
         self.folder = folder
@@ -381,6 +383,10 @@ def load_pack(folder, scope="prebuilt"):
              "layouts": _clean_layouts(data.get("layouts"), name, notes),
              "visibility": ([ln for ln in data["visibility"] if isinstance(ln, str)]
                             if isinstance(data.get("visibility"), list) else None),
+             "actions": ([ln for ln in data["actions"] if isinstance(ln, str)]
+                         if isinstance(data.get("actions"), list) else []),
+             "options": ([o for o in data["options"] if isinstance(o, str) and o.isidentifier()]
+                         if isinstance(data.get("options"), list) else []),
              "preview": data.get("preview") if data.get("preview") in PREVIEWS else "boxes"}
 
     raws = [(f"{name}/pack.json", w) for w in (data.get("widgets") or [])]

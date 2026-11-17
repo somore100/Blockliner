@@ -1,0 +1,24 @@
+{
+  "display_name": "Resize Widget",
+  "category": "GUI",
+  "description": "Changes the size of a widget in pixels.",
+  "template": "ui.resize_widget('[[widget]]', [[width]], [[height]])\n",
+  "params": [
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    },
+    {
+      "name": "width",
+      "type": "expression",
+      "default": "100"
+    },
+    {
+      "name": "height",
+      "type": "expression",
+      "default": "30"
+    }
+  ]
+}

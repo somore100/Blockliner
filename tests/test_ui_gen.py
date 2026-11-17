@@ -48,7 +48,57 @@ def build_main():
         for other in screens:
             hide_widget(other)
         show_widget(name)
-    return types.SimpleNamespace(app=app, frame=frame, label=label, entry_name=entry_name, btn_save=btn_save, combobox=combobox, show_widget=show_widget, hide_widget=hide_widget, show_screen=show_screen)
+    def set_text(name, text):
+        w = widgets[name]
+        if isinstance(w, tk.Text):
+            w.delete('1.0', 'end')
+            w.insert('1.0', text)
+        elif isinstance(w, ttk.Combobox):
+            w.set(text)
+        elif isinstance(w, tk.Entry):
+            w.delete(0, 'end')
+            w.insert(0, text)
+        else:
+            w.configure(text=text)
+    def get_text(name):
+        w = widgets[name]
+        if isinstance(w, tk.Text):
+            return w.get('1.0', 'end-1c')
+        if isinstance(w, tk.Entry):
+            return w.get()
+        return str(w.cget('text'))
+    def set_enabled(name, enabled=True):
+        w = widgets[name]
+        if isinstance(w, ttk.Widget):
+            w.state(['!disabled' if enabled else 'disabled'])
+        else:
+            w.configure(state='normal' if enabled else 'disabled')
+    def set_value(name, value):
+        w = widgets[name]
+        if isinstance(w, ttk.Progressbar):
+            w['value'] = value
+        elif isinstance(w, tk.Checkbutton):
+            w.select() if value else w.deselect()
+        else:
+            w.set(value)
+    def get_value(name):
+        w = widgets[name]
+        if isinstance(w, ttk.Progressbar):
+            return float(w['value'])
+        if isinstance(w, tk.Checkbutton):
+            return bool(int(w.getvar(str(w.cget('variable')))))
+        return w.get()
+    def move_widget(name, x, y):
+        widgets[name].place(x=x, y=y)
+    def resize_widget(name, width, height):
+        w = widgets[name]
+        if w.winfo_manager() == 'place':
+            w.place_configure(width=width, height=height)
+        else:
+            w.configure(width=width, height=height)
+    def set_option(name, option, value):
+        widgets[name].configure(**{option: value})
+    return types.SimpleNamespace(app=app, frame=frame, label=label, entry_name=entry_name, btn_save=btn_save, combobox=combobox, show_widget=show_widget, hide_widget=hide_widget, show_screen=show_screen, set_text=set_text, get_text=get_text, set_enabled=set_enabled, set_value=set_value, get_value=get_value, move_widget=move_widget, resize_widget=resize_widget, set_option=set_option)
 
 ui = build_main()
 ui.app.mainloop()
@@ -77,7 +127,7 @@ def main():
     check("default function name comes from the root name", ui_gen.generate(t, pack)["function"][0] == "def build_app():")
     check("custom ui variable name", ui_gen.generate(t, pack, ui_name="gui")["call"] == ["gui = build_app()"]
           and ui_gen.generate(t, pack, ui_name="gui")["run"] == ["gui.app.mainloop()"])
-    check("omit_when: state normal is left out, disabled is kept", "state='normal'" not in text and "state='disabled'" in text)
+    check("omit_when: state normal is left out, disabled is kept", "state='normal'" not in text.split("widgets = dict(locals())")[0] and "state='disabled'" in text)
     check("inline props never appear as arguments", "title=" not in text and "geometry=" not in text)
 
     # ---- run the generated code against a stub tkinter

@@ -46,38 +46,53 @@ def block(name):
     with open(os.path.join(ROOT, "languages", "python", "blocks", name), encoding="utf-8") as f:
         return json.load(f)
 
-class Fake:
-    """Stands in for a widget: remembers what was configured."""
-    def __init__(self, text=""):
-        self.calls, self.text = [], text
-    def configure(self, **kw):
-        self.calls.append(kw)
-    def get(self):
-        return self.text
+class Calls:
+    """Stands in for the `ui` namespace: remembers every call."""
+    def __init__(self, answer=None):
+        self.calls, self.answer = [], answer
+    def __getattr__(self, name):
+        def call(*args):
+            self.calls.append((name, args))
+            return self.answer
+        return call
 
-def run(code, **widgets):
-    ns = {"ui": types.SimpleNamespace(**widgets)}
+def run(code, answer=None):
+    ui = Calls(answer)
+    ns = {"ui": ui}
     exec(code, ns)
-    return ns
+    return ns, ui.calls
 
-b = block("ui_set_text.json")
-code = renderer.render_template(b["template"], {"widget": "label", "text": "\"Hi\""})
-check("set text: the code", code == "ui.label.configure(text=\"Hi\")\n")
-w = Fake(); run(code, label=w)
-check("set text: it configures the widget", w.calls == [{"text": "Hi"}])
+def render(file, **values):
+    return renderer.render_template(block(file)["template"], values)
 
-b = block("ui_set_option.json")
-code = renderer.render_template(b["template"], {"widget": "button", "option": "state", "value": "\"disabled\""})
-w = Fake(); run(code, button=w)
-check("set option: it configures the widget", w.calls == [{"state": "disabled"}])
-check("set option: the option list is offered", "state" in b["params"][1]["choices"] and "text" in b["params"][1]["choices"])
+code = render("ui_set_text.json", widget="label", text="\"Hi\"")
+check("set text: the code", code == "ui.set_text('label', \"Hi\")\n")
+check("set text: it asks the window to set the text", run(code)[1] == [("set_text", ("label", "Hi"))])
 
-b = block("ui_read_input.json")
-code = renderer.render_template(b["template"], {"variable": "name", "widget": "entry"})
-ns = run(code, entry=Fake("Ann"))
-check("read input: puts the text in the variable", ns["name"] == "Ann")
+code = render("ui_set_option.json", widget="button", option="state", value="\"disabled\"")
+check("set option: it asks the window", run(code)[1] == [("set_option", ("button", "state", "disabled"))])
+check("set option: the option list comes from the UI library", block("ui_set_option.json")["params"][1]["choices"] == "@ui_options")
 
-for f in ("ui_set_text.json", "ui_set_option.json", "ui_read_input.json"):
+code = render("ui_read_input.json", variable="name", widget="entry")
+ns, calls = run(code, answer="Ann")
+check("read input: puts the text in the variable", ns["name"] == "Ann" and calls == [("get_text", ("entry",))])
+
+for f, vals, expect in (
+        ("ui_set_enabled.json", {"widget": "b", "enabled": "False"}, ("set_enabled", ("b", False))),
+        ("ui_set_value.json", {"widget": "s", "value": "30"}, ("set_value", ("s", 30))),
+        ("ui_move_widget.json", {"widget": "b", "x": "5", "y": "9"}, ("move_widget", ("b", 5, 9))),
+        ("ui_resize_widget.json", {"widget": "b", "width": "120", "height": "40"}, ("resize_widget", ("b", 120, 40)))):
+    check(f"{f}: renders the call", run(render(f, **vals))[1] == [expect])
+ns, calls = run(render("ui_read_value.json", variable="v", widget="s"), answer=7)
+check("read value: puts the value in the variable", ns["v"] == 7 and calls == [("get_value", ("s",))])
+
+ACTIONS = ("set_text", "get_text", "set_enabled", "set_value", "get_value", "move_widget", "resize_widget", "set_option")
+for p in packs:
+    defined = [ln.split("(")[0][4:] for ln in p.actions if ln.startswith("def ")]
+    check(f"{p.id}: defines every action the blocks use ({defined})", all(a in defined for a in ACTIONS))
+    check(f"{p.id}: offers option names", bool(p.options))
+
+for f in ("ui_set_text.json", "ui_set_option.json", "ui_read_input.json", "ui_set_enabled.json", "ui_set_value.json", "ui_read_value.json", "ui_move_widget.json", "ui_resize_widget.json"):
     d = block(f)
     check(f"{f}: GUI category, has a description", d["category"] == "GUI" and d["description"])
     widgets = [p for p in d["params"] if p["name"] == "widget"]

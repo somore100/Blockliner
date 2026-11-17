@@ -1,8 +1,8 @@
 {
   "display_name": "Set Widget Text",
   "category": "GUI",
-  "description": "Changes the text a label, button or checkbox shows. Pick the widget from the list.",
-  "template": "ui.[[widget]].configure(text=[[text]])\n",
+  "description": "Changes the text of a label, button, checkbox or input box. Pick the widget from the list. Works with whichever UI library the window uses.",
+  "template": "ui.set_text('[[widget]]', [[text]])\n",
   "params": [
     {
       "name": "widget",

@@ -39,8 +39,12 @@
     "def place(parent, widget, x=0, y=0, width=100, height=30):",
     "    widget.size_hint = (None, None)",
     "    widget.size = (width, height)",
-    "    widget.pos = (x, parent.height - y - height)",
-    "    parent.bind(height=lambda _w, h: setattr(widget, 'pos', (x, h - y - height)))"
+    "    widget.place_xy = (x, y)",
+    "    def fit(*_args):",
+    "        widget.pos = (widget.place_xy[0], parent.height - widget.place_xy[1] - widget.height)",
+    "    widget.place_fit = fit",
+    "    fit()",
+    "    parent.bind(height=fit)"
   ],
   "root_types": [
     "window"
@@ -114,5 +118,39 @@
     "    for other in screens:",
     "        hide_widget(other)",
     "    show_widget(name)"
+  ],
+  "actions": [
+    "def set_text(name, text):",
+    "    widgets[name].text = text",
+    "def get_text(name):",
+    "    return str(widgets[name].text)",
+    "def set_enabled(name, enabled=True):",
+    "    widgets[name].disabled = not enabled",
+    "def set_value(name, value):",
+    "    w = widgets[name]",
+    "    setattr(w, 'active' if hasattr(w, 'active') else 'value', value)",
+    "def get_value(name):",
+    "    w = widgets[name]",
+    "    return getattr(w, 'active' if hasattr(w, 'active') else 'value')",
+    "def move_widget(name, x, y):",
+    "    w = widgets[name]",
+    "    w.place_xy = (x, y)",
+    "    w.place_fit()",
+    "def resize_widget(name, width, height):",
+    "    w = widgets[name]",
+    "    w.size = (width, height)",
+    "    w.place_fit()",
+    "def set_option(name, option, value):",
+    "    setattr(widgets[name], option, value)"
+  ],
+  "options": [
+    "text",
+    "disabled",
+    "opacity",
+    "font_size",
+    "color",
+    "size_hint",
+    "width",
+    "height"
   ]
 }

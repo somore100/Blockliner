@@ -19,6 +19,7 @@ quoting, how the function wraps up) comes from the pack; nothing here is
 specific to a library. Nothing raises on odd input: a widget the pack doesn't
 know is skipped and reported in `problems`.
 """
+import re
 import json
 import string
 
@@ -149,6 +150,11 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     if helpers:
         body.extend(["", *helpers])
         names = names + ["show_widget", "hide_widget", "show_screen"]
+    actions = list(getattr(pack, "actions", None) or [])
+    if actions:                                  # the library's own set_text / move_widget ... (see the pack's "actions")
+        body.extend([""] if not helpers else [])
+        body.extend(actions)
+        names = names + [m.group(1) for ln in actions if (m := re.match(r"def (\w+)\(", ln)) and m.group(1) not in names]
     pairs = ", ".join(fill(fn["pair"], {"name": (n, n)}) for n in names)
     function = [fill(fn["def"], {"fname": (fname, fname)})]
     function += [indent + line if line else line for line in body]

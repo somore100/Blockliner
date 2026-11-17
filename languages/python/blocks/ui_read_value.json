@@ -1,0 +1,19 @@
+{
+  "display_name": "Read Widget Value",
+  "category": "GUI",
+  "description": "Puts the value of a slider, progress bar, checkbox, switch or dropdown into a variable (True/False for checkboxes and switches).",
+  "template": "[[variable]] = ui.get_value('[[widget]]')\n",
+  "params": [
+    {
+      "name": "variable",
+      "type": "identifier",
+      "default": "value"
+    },
+    {
+      "name": "widget",
+      "type": "identifier",
+      "default": "",
+      "choices": "@ui_widgets"
+    }
+  ]
+}

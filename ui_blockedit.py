@@ -321,7 +321,8 @@ class BlockEditMixin:
             if choices:
                 # a dropdown (still typeable): "@ui_widgets" lists the widgets of the file's UI windows
                 values = (self.ui_widget_names() if choices == "@ui_widgets" else
-                          self.ui_screen_names() if choices == "@ui_screens" else list(choices))
+                          self.ui_screen_names() if choices == "@ui_screens" else
+                          self.ui_option_names() if choices == "@ui_options" else list(choices))
                 if not initial_value and values:
                     initial_value = values[0]
                 entry = ttk.Combobox(row_frame, values=values)

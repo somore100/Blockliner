@@ -1,0 +1,7 @@
+{
+  "display_name": "Line Break",
+  "category": "Text",
+  "description": "Starts a new line.",
+  "template": "<br>\n",
+  "params": []
+}

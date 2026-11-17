@@ -1,0 +1,18 @@
+{
+  "display_name": "Option",
+  "category": "Forms",
+  "description": "One choice of a drop-down.",
+  "template": "<option value=\"[[value]]\">[[text]]</option>\n",
+  "params": [
+    {
+      "name": "value",
+      "type": "string",
+      "default": "1"
+    },
+    {
+      "name": "text",
+      "type": "string",
+      "default": "One"
+    }
+  ]
+}

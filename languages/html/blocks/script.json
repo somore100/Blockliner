@@ -1,0 +1,9 @@
+{
+  "display_name": "Script",
+  "category": "Head",
+  "description": "JavaScript written right in the page.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<script>\n[[body]]\n</script>\n",
+  "params": []
+}

@@ -1,0 +1,9 @@
+{
+  "display_name": "Navigation",
+  "category": "Layout",
+  "description": "A group of navigation links.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<nav>\n[[body]]\n</nav>\n",
+  "params": []
+}

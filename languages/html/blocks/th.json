@@ -1,0 +1,13 @@
+{
+  "display_name": "Header Cell",
+  "category": "Table",
+  "description": "A header cell of a table row.",
+  "template": "<th>[[text]]</th>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Header"
+    }
+  ]
+}

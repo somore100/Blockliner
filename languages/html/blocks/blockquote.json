@@ -1,0 +1,13 @@
+{
+  "display_name": "Quote",
+  "category": "Text",
+  "description": "A quotation.",
+  "template": "<blockquote>[[text]]</blockquote>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "A quote"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "display_name": "Section",
+  "category": "Layout",
+  "description": "A thematic section of the page.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<section>\n[[body]]\n</section>\n",
+  "params": []
+}

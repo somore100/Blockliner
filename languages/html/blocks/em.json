@@ -1,0 +1,13 @@
+{
+  "display_name": "Italic",
+  "category": "Text",
+  "description": "Emphasised text (italic).",
+  "template": "<em>[[text]]</em>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Italic text"
+    }
+  ]
+}

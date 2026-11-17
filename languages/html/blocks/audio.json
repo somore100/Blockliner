@@ -1,0 +1,13 @@
+{
+  "display_name": "Audio",
+  "category": "Media",
+  "description": "An audio player.",
+  "template": "<audio src=\"[[url]]\" controls></audio>\n",
+  "params": [
+    {
+      "name": "url",
+      "type": "string",
+      "default": "sound.mp3"
+    }
+  ]
+}

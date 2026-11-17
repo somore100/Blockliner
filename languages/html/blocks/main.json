@@ -1,0 +1,9 @@
+{
+  "display_name": "Main",
+  "category": "Layout",
+  "description": "The main content of the page.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<main>\n[[body]]\n</main>\n",
+  "params": []
+}

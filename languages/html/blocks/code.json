@@ -1,0 +1,13 @@
+{
+  "display_name": "Inline Code",
+  "category": "Text",
+  "description": "A short piece of code.",
+  "template": "<code>[[text]]</code>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "code"
+    }
+  ]
+}

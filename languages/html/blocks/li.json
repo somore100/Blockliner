@@ -1,0 +1,13 @@
+{
+  "display_name": "List Item",
+  "category": "Lists",
+  "description": "One item of a list.",
+  "template": "<li>[[text]]</li>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Item"
+    }
+  ]
+}

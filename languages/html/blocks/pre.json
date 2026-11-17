@@ -1,0 +1,13 @@
+{
+  "display_name": "Preformatted",
+  "category": "Text",
+  "description": "Text that keeps its spaces and line breaks.",
+  "template": "<pre>[[text]]</pre>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Text\n  as written"
+    }
+  ]
+}

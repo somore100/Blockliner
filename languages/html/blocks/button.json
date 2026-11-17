@@ -1,0 +1,23 @@
+{
+  "display_name": "Button",
+  "category": "Forms",
+  "description": "A button.",
+  "template": "<button type=\"[[type]]\">[[text]]</button>\n",
+  "params": [
+    {
+      "name": "type",
+      "type": "string",
+      "default": "button",
+      "choices": [
+        "button",
+        "submit",
+        "reset"
+      ]
+    },
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Click me"
+    }
+  ]
+}

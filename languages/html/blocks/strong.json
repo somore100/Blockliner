@@ -1,0 +1,13 @@
+{
+  "display_name": "Bold",
+  "category": "Text",
+  "description": "Important text (bold).",
+  "template": "<strong>[[text]]</strong>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Bold text"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "display_name": "Embedded Page",
+  "category": "Media",
+  "description": "Shows another web page inside this one.",
+  "template": "<iframe src=\"[[url]]\" width=\"[[width]]\" height=\"[[height]]\"></iframe>\n",
+  "params": [
+    {
+      "name": "url",
+      "type": "string",
+      "default": "https://example.com"
+    },
+    {
+      "name": "width",
+      "type": "number",
+      "default": "400"
+    },
+    {
+      "name": "height",
+      "type": "number",
+      "default": "300"
+    }
+  ]
+}

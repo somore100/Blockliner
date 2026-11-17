@@ -1,0 +1,9 @@
+{
+  "display_name": "Aside",
+  "category": "Layout",
+  "description": "Content next to the main content (sidebar).",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<aside>\n[[body]]\n</aside>\n",
+  "params": []
+}

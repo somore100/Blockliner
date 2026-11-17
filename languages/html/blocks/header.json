@@ -1,0 +1,9 @@
+{
+  "display_name": "Header",
+  "category": "Layout",
+  "description": "Intro content or navigation at the top of a page or section.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<header>\n[[body]]\n</header>\n",
+  "params": []
+}

@@ -1,0 +1,13 @@
+{
+  "display_name": "Video",
+  "category": "Media",
+  "description": "A video player.",
+  "template": "<video src=\"[[url]]\" controls></video>\n",
+  "params": [
+    {
+      "name": "url",
+      "type": "string",
+      "default": "movie.mp4"
+    }
+  ]
+}

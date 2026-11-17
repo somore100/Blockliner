@@ -1,0 +1,9 @@
+{
+  "display_name": "Footer",
+  "category": "Layout",
+  "description": "Footer of a page or section.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<footer>\n[[body]]\n</footer>\n",
+  "params": []
+}

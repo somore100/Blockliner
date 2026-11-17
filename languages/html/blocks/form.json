@@ -1,0 +1,24 @@
+{
+  "display_name": "Form",
+  "category": "Forms",
+  "description": "A form that sends what the user typed.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<form action=\"[[action]]\" method=\"[[method]]\">\n[[body]]\n</form>\n",
+  "params": [
+    {
+      "name": "action",
+      "type": "string",
+      "default": "/submit"
+    },
+    {
+      "name": "method",
+      "type": "string",
+      "default": "post",
+      "choices": [
+        "post",
+        "get"
+      ]
+    }
+  ]
+}

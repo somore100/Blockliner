@@ -1,0 +1,18 @@
+{
+  "display_name": "Label",
+  "category": "Forms",
+  "description": "A caption for a form field.",
+  "template": "<label for=\"[[for]]\">[[text]]</label>\n",
+  "params": [
+    {
+      "name": "for",
+      "type": "string",
+      "default": "field"
+    },
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Label"
+    }
+  ]
+}

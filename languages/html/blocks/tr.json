@@ -1,0 +1,9 @@
+{
+  "display_name": "Table Row",
+  "category": "Table",
+  "description": "A row of a table. Put cells inside.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<tr>\n[[body]]\n</tr>\n",
+  "params": []
+}

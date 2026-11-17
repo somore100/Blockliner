@@ -1,0 +1,13 @@
+{
+  "display_name": "Script File",
+  "category": "Head",
+  "description": "Loads a JavaScript file.",
+  "template": "<script src=\"[[url]]\"></script>\n",
+  "params": [
+    {
+      "name": "url",
+      "type": "string",
+      "default": "script.js"
+    }
+  ]
+}

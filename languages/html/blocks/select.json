@@ -1,0 +1,15 @@
+{
+  "display_name": "Drop-down",
+  "category": "Forms",
+  "description": "A list to choose one option from. Put Options inside.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<select name=\"[[name]]\">\n[[body]]\n</select>\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "string",
+      "default": "choice"
+    }
+  ]
+}

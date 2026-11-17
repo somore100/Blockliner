@@ -1,0 +1,23 @@
+{
+  "display_name": "Text Area",
+  "category": "Forms",
+  "description": "A big box to type several lines.",
+  "template": "<textarea name=\"[[name]]\" rows=\"[[rows]]\">[[text]]</textarea>\n",
+  "params": [
+    {
+      "name": "name",
+      "type": "string",
+      "default": "message"
+    },
+    {
+      "name": "rows",
+      "type": "number",
+      "default": "4"
+    },
+    {
+      "name": "text",
+      "type": "string",
+      "default": ""
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "display_name": "Bullet List",
+  "category": "Lists",
+  "description": "A list with bullets. Put List Items inside.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<ul>\n[[body]]\n</ul>\n",
+  "params": []
+}

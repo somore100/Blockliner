@@ -1,0 +1,9 @@
+{
+  "display_name": "Article",
+  "category": "Layout",
+  "description": "Self-contained content, like a post.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<article>\n[[body]]\n</article>\n",
+  "params": []
+}

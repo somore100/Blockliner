@@ -1,0 +1,13 @@
+{
+  "display_name": "Character Set",
+  "category": "Head",
+  "description": "Sets the text encoding (put it in the head).",
+  "template": "<meta charset=\"[[charset]]\">\n",
+  "params": [
+    {
+      "name": "charset",
+      "type": "string",
+      "default": "utf-8"
+    }
+  ]
+}

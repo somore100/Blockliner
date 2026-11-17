@@ -1,0 +1,9 @@
+{
+  "display_name": "Span",
+  "category": "Layout",
+  "description": "A small inline container for text.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<span>\n[[body]]\n</span>\n",
+  "params": []
+}

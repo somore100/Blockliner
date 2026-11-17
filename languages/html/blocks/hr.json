@@ -1,0 +1,7 @@
+{
+  "display_name": "Horizontal Rule",
+  "category": "Text",
+  "description": "A line across the page.",
+  "template": "<hr>\n",
+  "params": []
+}

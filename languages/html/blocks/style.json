@@ -1,0 +1,9 @@
+{
+  "display_name": "Style",
+  "category": "Head",
+  "description": "CSS written right in the page.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<style>\n[[body]]\n</style>\n",
+  "params": []
+}

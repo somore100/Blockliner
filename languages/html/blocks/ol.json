@@ -1,0 +1,9 @@
+{
+  "display_name": "Numbered List",
+  "category": "Lists",
+  "description": "A numbered list. Put List Items inside.",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<ol>\n[[body]]\n</ol>\n",
+  "params": []
+}

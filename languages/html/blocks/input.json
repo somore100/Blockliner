@@ -1,0 +1,35 @@
+{
+  "display_name": "Input",
+  "category": "Forms",
+  "description": "A field to type in or a checkbox.",
+  "template": "<input type=\"[[type]]\" name=\"[[name]]\" placeholder=\"[[placeholder]]\">\n",
+  "params": [
+    {
+      "name": "type",
+      "type": "string",
+      "default": "text",
+      "choices": [
+        "text",
+        "password",
+        "email",
+        "number",
+        "checkbox",
+        "radio",
+        "date",
+        "file",
+        "color",
+        "range"
+      ]
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "default": "field"
+    },
+    {
+      "name": "placeholder",
+      "type": "string",
+      "default": ""
+    }
+  ]
+}

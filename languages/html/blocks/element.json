@@ -1,0 +1,20 @@
+{
+  "display_name": "HTML Element",
+  "category": "Layout",
+  "description": "Any tag you type, with optional attributes (start them with a space, e.g.  class=\"box\" id=\"top\").",
+  "is_container": true,
+  "empty_body": "",
+  "template": "<[[tag]][[attributes]]>\n[[body]]\n</[[tag]]>\n",
+  "params": [
+    {
+      "name": "tag",
+      "type": "string",
+      "default": "div"
+    },
+    {
+      "name": "attributes",
+      "type": "string",
+      "default": ""
+    }
+  ]
+}

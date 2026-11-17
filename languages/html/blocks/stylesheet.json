@@ -1,0 +1,13 @@
+{
+  "display_name": "Stylesheet Link",
+  "category": "Head",
+  "description": "Loads a CSS file (put it in the head).",
+  "template": "<link rel=\"stylesheet\" href=\"[[url]]\">\n",
+  "params": [
+    {
+      "name": "url",
+      "type": "string",
+      "default": "style.css"
+    }
+  ]
+}

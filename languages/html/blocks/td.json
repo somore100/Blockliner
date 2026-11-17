@@ -1,0 +1,13 @@
+{
+  "display_name": "Cell",
+  "category": "Table",
+  "description": "A cell of a table row.",
+  "template": "<td>[[text]]</td>\n",
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "default": "Cell"
+    }
+  ]
+}

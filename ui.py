@@ -55,10 +55,38 @@ from ui_common import *  # noqa: F401,F403
 from ui_widgets import *  # noqa: F401,F403
 
 
+def _small_logo(path, size=64):
+    """The logo as a Tk image of about size x size (the file is much bigger), or None."""
+    try:
+        from PIL import Image, ImageTk
+        img = Image.open(path).convert("RGBA")
+        img.thumbnail((size, size))
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        pass
+    try:
+        full = tk.PhotoImage(file=path)
+        return full.subsample(max(1, full.width() // size), max(1, full.height() // size))
+    except Exception:
+        return None
+
+
 class BlocklinerUI(TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, FollowMixin, PresenceMixin, UINodeMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, ZoomPreviewMixin, tk.Tk):
+    def set_app_icon(self):
+        """Our logo in the title bar of every window instead of the default Tk feather."""
+        import os
+        img = _small_logo(os.path.join(get_bundle_path(), "logo.png"))
+        if img is not None:
+            self._app_icon = img                        # keep a reference or Tk drops it
+            try:
+                self.iconphoto(True, img)               # True: windows opened later (Run output, dialogs) use it too
+            except tk.TclError:
+                pass
+
     def __init__(self, initial_lang="python", languages_path="languages"):
         super().__init__()
         self.title("Blockliner - Visual Code Builder")
+        self.set_app_icon()
         self.geometry("1400x800")
         self.configure(bg=DARK_BG)
         

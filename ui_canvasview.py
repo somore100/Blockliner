@@ -221,6 +221,7 @@ class CanvasViewMixin:
             self.redraw_grid()
         else:
             self.rescale_canvas_layer()
+            self.schedule_cull()
 
     def rescale_canvas_layer(self):
         """Resize the boxes that are already on the canvas to the current
@@ -311,6 +312,7 @@ class CanvasViewMixin:
         c.bind("<Configure>", lambda e: self.schedule_grid(), add="+")
 
     def schedule_grid(self):
+        self.schedule_cull()
         if self._grid_job is None:
             self._grid_job = self.after_idle(self._run_grid_job)
 

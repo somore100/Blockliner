@@ -9,6 +9,7 @@ import wire_kinds
 import wire_rollup
 import ui_node
 from canvas_view import NODE_W, resize_node_rect
+from ui_culling import BUILD_MARGIN as ui_culling_margin
 from nodes_model import find_node_by_id, normalize_orders
 from ui_common import BLOCK_BG, CATEGORY_COLORS, DARK_BG, DARK_BORDER, DARK_FG, get_block_attr
 
@@ -236,6 +237,7 @@ class CanvasMixin:
         nodes = self.get_current_node_list(tab)
 
         self._fileview_boxes = {}
+        self._ghost_ids = set()
         self._begin_canvas_render()
         # Defensive: a refresh mid wire-drag (e.g. triggered by something
         # else while dragging) would otherwise leave a dangling temp line
@@ -253,13 +255,16 @@ class CanvasMixin:
         self.assign_default_canvas_positions(nodes)
 
         self.draw_groups()
+        rect = self._view_rect(ui_culling_margin) if self._cull_on(nodes) else None
         for node in nodes:
-            self.create_fileview_node_box(node)
+            self.make_node_box(node, rect=rect)
 
         self.workspace_frame.update_idletasks()
         self.draw_wires()
         self._update_fileview_scrollregion()
         self.redraw_grid()
+        if self._ghosts():
+            self.schedule_cull()
 
     def refresh_after_node_added(self, node, target_list):
         """A node was just appended to target_list. On the Nodes canvas,
@@ -301,7 +306,7 @@ class CanvasMixin:
             return False
         rebuild = set(rebuild_ids)
         shown = {n["id"] for n in nodes}
-        if any(n["id"] not in boxes and n["id"] not in rebuild for n in nodes):
+        if any(n["id"] not in boxes and n["id"] not in rebuild and n["id"] not in self._ghosts() for n in nodes):
             return False
         old = [boxes.pop(i)
                for i in [i for i in boxes if i not in shown or i in rebuild]]
@@ -311,9 +316,10 @@ class CanvasMixin:
         self.multi_check()
         self.recompute_references()
         self.update_generated_code()
+        self._ghosts().intersection_update(shown)
         for n in nodes:
             if n["id"] in rebuild:
-                self.create_fileview_node_box(n)
+                self.make_node_box(n, nodes)
         self.workspace_canvas.delete("group")
         self.draw_groups()
         self.workspace_frame.update_idletasks()
@@ -1021,14 +1027,14 @@ class CanvasMixin:
         for node in nodes_shown:
             if node.get("kind", "function") != "function":
                 continue
-            if node["id"] not in self._fileview_boxes:
+            if not self._wireable(node["id"]):
                 continue
             for target_id in node.get("references", []):
-                if target_id not in shown_ids or target_id not in self._fileview_boxes:
+                if target_id not in shown_ids or not self._wireable(target_id):
                     continue
                 self._draw_one_wire(node["id"], target_id)
             for use in node.get("data_uses", []):
-                if use["id"] in shown_ids and use["id"] in self._fileview_boxes:
+                if use["id"] in shown_ids and self._wireable(use["id"]):
                     self._draw_one_wire(use["id"], node["id"], data_vars=use["vars"])
         for edge in wire_rollup.rolled_edges(nodes_shown):
             self._draw_rolled_wire(edge)
@@ -1071,24 +1077,24 @@ class CanvasMixin:
         tab = self.tabs[self.active_tab_index]
         nodes_shown = self.get_current_node_list(tab)
         shown_ids = {n["id"] for n in nodes_shown}
-        if node_id not in shown_ids or node_id not in self._fileview_boxes:
+        if node_id not in shown_ids or not self._wireable(node_id):
             self.draw_wires()
             return
         edges = []
         for node in nodes_shown:
-            if node.get("kind", "function") != "function" or node["id"] not in self._fileview_boxes:
+            if node.get("kind", "function") != "function" or not self._wireable(node["id"]):
                 continue
             for target_id in node.get("references", []):
-                if target_id not in shown_ids or target_id not in self._fileview_boxes:
+                if target_id not in shown_ids or not self._wireable(target_id):
                     continue
                 if node["id"] == node_id or target_id == node_id:
                     edges.append((node["id"], target_id))
         data_edges = []
         for node in nodes_shown:
-            if node["id"] not in self._fileview_boxes:
+            if not self._wireable(node["id"]):
                 continue
             for use in node.get("data_uses", []):
-                if use["id"] in shown_ids and use["id"] in self._fileview_boxes \
+                if use["id"] in shown_ids and self._wireable(use["id"]) \
                         and node_id in (use["id"], node["id"]):
                     data_edges.append((use["id"], node["id"], use["vars"]))
         for source_id, target_id in edges:
@@ -1113,15 +1119,15 @@ class CanvasMixin:
         box (wire_rollup.py). Same colour/dash as its kind, one pixel thicker,
         labelled "xN" when it stands for several connections (data: the
         variable names). Derived only - nothing to select or delete."""
-        if edge["src"] not in self._fileview_boxes or edge["dst"] not in self._fileview_boxes:
+        if not self._wireable(edge["src"]) or not self._wireable(edge["dst"]):
             return
         tab = self.tabs[self.active_tab_index]
         src_node = find_node_by_id(tab["nodes"], edge["src"])
         dst_node = find_node_by_id(tab["nodes"], edge["dst"])
         if not src_node or not dst_node:
             return
-        src_widget = self._fileview_boxes[edge["src"]][1]
-        dst_widget = self._fileview_boxes[edge["dst"]][1]
+        src_widget = self._box_pair(edge["src"])[1]
+        dst_widget = self._box_pair(edge["dst"])[1]
         z = self.canvas_zoom
         sw = src_widget.winfo_width() or 220
         sh = src_widget.winfo_height() or 70
@@ -1163,8 +1169,8 @@ class CanvasMixin:
                 for off in offsets:
                     self._draw_one_wire(source_id, target_id, src_y=off)
                 return
-        _, src_widget = self._fileview_boxes[source_id]
-        _, dst_widget = self._fileview_boxes[target_id]
+        _, src_widget = self._box_pair(source_id)
+        _, dst_widget = self._box_pair(target_id)
         sw = src_widget.winfo_width() or 220
         sh = src_widget.winfo_height() or 70
         dh = dst_widget.winfo_height() or 70
@@ -1306,6 +1312,14 @@ class CanvasMixin:
         item 1) - this first pass reuses the plain vertical/horizontal
         scrollbar machinery already in place for the block editor."""
         bbox = self.workspace_canvas.bbox("fileview")
+        if self._ghosts():                 # unbuilt boxes still count: the region comes from the model
+            z = self.canvas_zoom
+            tab = self.tabs[self.active_tab_index]
+            far = [(n["canvas_x"] + (n.get("canvas_w") or NODE_W), n["canvas_y"] + (n.get("canvas_h") or 110))
+                   for n in self.get_current_node_list(tab) if "canvas_x" in n]
+            if far:
+                mx, my = max(p[0] for p in far) * z, max(p[1] for p in far) * z
+                bbox = (0, 0, max(mx, bbox[2] if bbox else 0), max(my, bbox[3] if bbox else 0))
         if bbox:
             x0, y0, x1, y1 = bbox
             self.workspace_canvas.configure(scrollregion=(0, 0, x1 + 60, y1 + 60))

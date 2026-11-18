@@ -1,0 +1,27 @@
+{
+  "type": "hscrollbar",
+  "label": "Scrollbar (horizontal)",
+  "description": "A horizontal scroll bar. Type the name of the list, text box or table it scrolls; it must be above this scrollbar in the widget list. Put it in the row under that widget.",
+  "category": "Input",
+  "icon": "⇔",
+  "container": false,
+  "default_size": [
+    160,
+    16
+  ],
+  "props": [
+    {
+      "key": "target",
+      "label": "Scrolls (widget name)",
+      "kind": "code",
+      "optional": true,
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = ttk.Scrollbar({parent}, orient='horizontal'{opts})",
+    "{target}.configure(xscrollcommand={name}.set)",
+    "{name}.configure(command={target}.xview)"
+  ]
+}

@@ -336,3 +336,13 @@ Under each linked event a widget box also shows the first 5 lines of the functio
 "+ N more lines" after that); clicking a line opens the function. It is a read-only preview (`ui_widgetboxes.preview_of`),
 cached until the next full render, and it counts in the default stacking of the boxes. Editing stays in the function's own
 layer or the designer's Behaviour view.
+
+## Table, scrollbars (tkinter pack, built 2026-11-18)
+
+New widgets: **Table** (`treeview`, ttk.Treeview: columns list, headings, show/selectmode, On select), **Scrollbar
+(vertical)** and **Scrollbar (horizontal)**. A scrollbar has an optional `target` (the name of the list, text box or
+table it scrolls). With a target, the generator writes the two link lines (`target.configure(yscrollcommand=bar.set)` and
+`bar.configure(command=target.yview)`) after all widgets, so the order in the tree does not matter. Without one, the
+scrollbar is just drawn. This needed a generic pack rule (see `ui_pack.py`): creation lines after the first that use an unset
+optional prop are skipped, set ones are deferred; `ui_parse` reads them back from anywhere after the creation.
+Not added: customtkinter (its text box and scroll frame scroll by themselves) and Kivy (ScrollView).

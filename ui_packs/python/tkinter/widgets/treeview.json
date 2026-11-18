@@ -1,0 +1,68 @@
+{
+  "type": "treeview",
+  "label": "Table",
+  "description": "A table or tree with columns and a heading for each. Fill it from code or blocks; the selected row raises the On select event.",
+  "category": "Input",
+  "icon": "▦",
+  "container": false,
+  "default_size": [
+    260,
+    140
+  ],
+  "props": [
+    {
+      "key": "columns",
+      "label": "Columns",
+      "kind": "list",
+      "default": [
+        "name",
+        "value"
+      ],
+      "inline": true
+    },
+    {
+      "key": "show",
+      "label": "Show",
+      "kind": "enum",
+      "default": "headings",
+      "options": [
+        "headings",
+        "tree headings",
+        "tree"
+      ],
+      "omit_when": "tree headings"
+    },
+    {
+      "key": "height",
+      "label": "Height (rows)",
+      "kind": "int",
+      "default": 8
+    },
+    {
+      "key": "selectmode",
+      "label": "Selection",
+      "kind": "enum",
+      "default": "browse",
+      "options": [
+        "browse",
+        "extended",
+        "none"
+      ],
+      "omit_when": "browse"
+    }
+  ],
+  "events": [
+    {
+      "key": "selected",
+      "label": "On select",
+      "args": [
+        "event"
+      ],
+      "code": "{name}.bind('<<TreeviewSelect>>', {handler})"
+    }
+  ],
+  "code": [
+    "{name} = ttk.Treeview({parent}{opts}, columns={columns!r})",
+    "for _c in {columns!r}: {name}.heading(_c, text=_c)"
+  ]
+}

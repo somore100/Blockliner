@@ -453,6 +453,23 @@ class UIDesignerEditor:
                 canvas.create_line((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, fill="#999999")
             else:
                 canvas.create_line(x0, (y0 + y1) / 2, x1, (y0 + y1) / 2, fill="#999999")
+        elif kind in ("scrollbar", "hscrollbar"):
+            canvas.create_rectangle(x0, y0, x1, y1, fill="#e6e6e6", outline="#b0b0b0")
+            if kind == "scrollbar":
+                canvas.create_rectangle(x0 + 2, y0 + (y1 - y0) * 0.1, x1 - 2, y0 + (y1 - y0) * 0.5, fill="#b8b8b8", outline="")
+            else:
+                canvas.create_rectangle(x0 + (x1 - x0) * 0.1, y0 + 2, x0 + (x1 - x0) * 0.5, y1 - 2, fill="#b8b8b8", outline="")
+        elif kind == "treeview":
+            canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#ffffff", outline="#9a9a9a")
+            canvas.create_rectangle(x0, y0, x1, y0 + 16 * s, fill="#e6e6e6", outline="#b0b0b0")
+            cols = props.get("columns") if isinstance(props.get("columns"), (list, tuple)) and props.get("columns") else ["name"]
+            step = (x1 - x0) / len(cols)
+            for k, c in enumerate(cols):
+                canvas.create_text(x0 + k * step + 4, y0 + 8 * s, text=str(c), anchor="w", fill="#444444", font=("Segoe UI", max(5, round(8 * s))))
+                if k:
+                    canvas.create_line(x0 + k * step, y0, x0 + k * step, y1, fill="#dddddd")
+            for r in range(1, 4):
+                canvas.create_line(x0, y0 + (16 + 14 * r) * s, x1, y0 + (16 + 14 * r) * s, fill="#eeeeee")
         elif kind in ("canvas", "image"):
             canvas.create_rectangle(x0, y0, x1, y1, fill=bg or "#ffffff", outline="#9a9a9a")
             canvas.create_line(x0 + 6, y1 - 6, x1 - 6, y0 + 6, fill="#cccccc")

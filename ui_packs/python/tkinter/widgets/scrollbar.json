@@ -1,0 +1,27 @@
+{
+  "type": "scrollbar",
+  "label": "Scrollbar (vertical)",
+  "description": "A vertical scroll bar. Type the name of the list, text box or table it scrolls (for example the name shown for that widget); it must be above this scrollbar in the widget list. Put it in the column right of that widget.",
+  "category": "Input",
+  "icon": "⇕",
+  "container": false,
+  "default_size": [
+    16,
+    120
+  ],
+  "props": [
+    {
+      "key": "target",
+      "label": "Scrolls (widget name)",
+      "kind": "code",
+      "optional": true,
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": [
+    "{name} = ttk.Scrollbar({parent}, orient='vertical'{opts})",
+    "{target}.configure(yscrollcommand={name}.set)",
+    "{name}.configure(command={target}.yview)"
+  ]
+}

@@ -63,6 +63,18 @@ def fill(template, values):
     return "".join(out)
 
 
+def line_fields(line):
+    return {f for _l, f, _s, _c in string.Formatter().parse(line) if f}
+
+
+def needs_unset_prop(line, props_schema, node_values):
+    """True when the template line uses an optional prop that is not set: such a line is left out (a scrollbar's
+    link to its target, for example, only exists once a target is chosen)."""
+    fields = line_fields(line)
+    return any(p["optional"] and p["key"] in fields and node_values.get(p["key"]) in (None, "")
+               for p in props_schema)
+
+
 def _prop_values(props_schema, node_values, quote):
     """{key: (plain, literal)} for every prop in the schema; unset falls back
     to the designer default, then to None."""
@@ -106,7 +118,7 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     quote = pack.quote
     fn = pack.function
     fname = function_name or f"build_{tree.root['name']}"
-    body, names = [], []
+    body, names, late = [], [], []
 
     def emit(node, parent_name):
         w = pack.widget(node["type"])
@@ -118,7 +130,11 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
         if w["code_raw"] is not None:
             body.extend(w["code_raw"].replace("{name}", name).replace("{parent}", parent_name or "").split("\n"))
         else:
-            body.extend(fill(line, values) for line in w["code"])
+            for k, line in enumerate(w["code"]):
+                if not k or not needs_unset_prop(line, w["props"], {}):
+                    body.append(fill(line, values))
+                elif not needs_unset_prop(line, w["props"], node["props"]):
+                    late.append(fill(line, values))        # links to another widget: written once every widget exists
 
         manager = node["layout"].get("manager")
         if parent_name is not None:
@@ -145,6 +161,7 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
             emit(child, name)
 
     emit(tree.root, None)
+    body.extend(late)
     indent = fn["indent"]
     helpers = _visibility_lines(tree, pack)
     if helpers:

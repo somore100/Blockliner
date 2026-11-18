@@ -46,6 +46,8 @@ pack loads; the generator in ui_gen.py fills them in):
     {key} {key!r}               one prop's value (`!r` = the language's quoted form)
 
 Props marked "inline": true are left out of {args}/{opts}; the template places
+A creation line after the first that uses an optional prop which is not set is left out; when it is set, it is written
+after every widget exists (so it can refer to widgets made later, e.g. a scrollbar's link to the list it scrolls).
 them itself. A prop with "omit_when": X is left out when its value is X (the
 library's own default), so generated code stays short. "default" is only the
 value the designer gives a newly added widget.

@@ -108,13 +108,15 @@ def parse(text, pack, handler_id=None, previous=None):
     creators = []
     for wtype, w in pack.widgets.items():
         if w["code"]:
-            creators.append((wtype, w, _regex(w["code"][0]), [_regex(c) for c in w["code"][1:]]))
+            creators.append((wtype, w, _regex(w["code"][0]),
+                             [(_regex(c), ui_gen.needs_unset_prop(c, w["props"], {})) for c in w["code"][1:]]))
     layouts = {m: (spec, _regex(spec["code"][0])) for m, spec in pack.layouts.items() if len(spec["code"]) == 1}
     events = {}                                       # type -> [(event, regex)]
     for wtype, w in pack.widgets.items():
         events[wtype] = [(ev, _regex(ev["code"][0])) for ev in w["events"] if len(ev["code"]) == 1]
 
     tree, by_name, problems = None, {}, []
+    late, late_values = [], {}                       # lines that link widgets, written after all of them
     screen_names = []
     i = 0
     while i < len(lines):
@@ -128,6 +130,10 @@ def parse(text, pack, handler_id=None, previous=None):
             except (ValueError, SyntaxError):
                 pass
             continue
+        hit = next(((rx, wn) for rx, wn, _t in late if (mm := rx.match(text_line)) and mm.groupdict().get("name", wn) == wn), None)
+        if hit is not None:
+            late_values.setdefault(hit[1], {}).update(hit[0].match(text_line).groupdict())
+            continue
         for wtype, w, first, rest in creators:
             m = first.match(text_line)
             if not m:
@@ -135,7 +141,10 @@ def parse(text, pack, handler_id=None, previous=None):
             name = m.group("name")
             captured = dict(m.groupdict())
             ok = True
-            for extra in rest:                        # the creation's further lines, e.g. title, size
+            for extra, optional in rest:              # the creation's further lines, e.g. title, size
+                if optional:                          # written after all widgets (links to others): found later
+                    late.append((extra, name, wtype))
+                    continue
                 if i < len(lines) and (m2 := extra.match(lines[i])) and m2.groupdict().get("name", name) == name:
                     captured.update(m2.groupdict())
                     i += 1
@@ -203,6 +212,12 @@ def parse(text, pack, handler_id=None, previous=None):
                 break
     if tree is None:
         return None, problems or ["no window was found in the code"]
+    for rx, wn, wt in late:
+        for key, raw in late_values.get(wn, {}).items():
+            if key != "name" and wn in by_name:
+                pdef = next((p for p in pack.widget(wt)["props"] if p["key"] == key), None)
+                if pdef is not None:
+                    tree.find(by_name[wn][0])["props"][key] = _value(pdef["kind"], raw)
     if tree is not None:
         for n in tree.root["children"]:
             if n["name"] in screen_names:

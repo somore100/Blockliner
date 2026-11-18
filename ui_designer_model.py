@@ -36,6 +36,31 @@ def add_target(tree, pack, selected_id):
     return tree.root["id"]
 
 
+TAB = "tab"
+
+
+def hidden_tabs(tree, chosen, sel=None):
+    """Ids of the tab pages to leave off the paper: in every widget whose children are tabs, all but one. The one
+    shown is the page holding the selected widget, else the page chosen by clicking its tab (`chosen`: {notebook id:
+    page id}), else the first."""
+    inside = set()
+    if sel:
+        cur = sel
+        while cur is not None:
+            inside.add(cur)
+            parent = tree.parent_of(cur)
+            cur = parent["id"] if parent is not None else None
+    hidden = set()
+    for node in tree.walk():
+        pages = [c for c in node["children"] if isinstance(c, dict) and c["layout"].get("manager") == TAB]
+        if len(pages) < 2:
+            continue
+        show = next((p["id"] for p in pages if p["id"] in inside), None) or \
+            next((p["id"] for p in pages if p["id"] == (chosen or {}).get(node["id"])), None) or pages[0]["id"]
+        hidden |= {p["id"] for p in pages if p["id"] != show}
+    return hidden
+
+
 def hidden_screens(tree, current):
     """Ids of the screens to leave off the paper while `current` (a screen name) is the one being designed.
     Nothing is hidden when `current` is None or not a screen."""
@@ -54,8 +79,12 @@ def default_layout(pack, tree, parent_id):
     the pack has no layouts."""
     if not pack.layouts:
         return {}
-    manager = PREFERRED_MANAGER if PREFERRED_MANAGER in pack.layouts else next(iter(pack.layouts))
-    n = len(tree.find(parent_id)["children"])
+    parent = tree.find(parent_id)
+    n = len(parent["children"])
+    allowed = pack.layouts_for(parent["type"]) or list(pack.layouts)
+    if allowed == [(pack.widget(parent["type"]) or {}).get("child_layout")]:      # a notebook's child is a tab
+        return {"manager": allowed[0], "text": f"Tab {n + 1}"}
+    manager = PREFERRED_MANAGER if PREFERRED_MANAGER in allowed else allowed[0]
     layout = {"manager": manager}
     keys = {p["key"] for p in pack.layouts[manager]["props"]}
     if "row" in keys and "column" in keys:
@@ -246,6 +275,9 @@ def move_changes(tree, paper, boxes, widget_id, x, y, w, h, pack=None):
         target = drop_container(tree, pack, boxes, widget_id, x + w / 2, y + h / 2)
         if target != parent["id"]:
             tbox = next(b for b in boxes if b["id"] == target)
+            tparent = tree.find(target)
+            if pack.layouts_for(tparent["type"]) == [TAB]:
+                return {widget_id: {"parent": target, "layout": {"manager": TAB, "text": f"Tab {len(tparent['children']) + 1}"}}}
             if m == "grid":
                 layout = {"manager": "grid", "row": len(tree.find(target)["children"]), "column": 0}
             else:

@@ -1,0 +1,32 @@
+{
+  "type": "notebook",
+  "label": "Tabs",
+  "description": "A row of tabs, each showing its own page. Add a frame while this is selected to make a tab (its title is in the Placement settings); add widgets into that frame.",
+  "category": "Containers",
+  "icon": "⌸",
+  "container": true,
+  "child_layout": "tab",
+  "default_size": [
+    260,
+    180
+  ],
+  "props": [
+    {
+      "key": "padding",
+      "label": "Padding",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "changed",
+      "label": "On tab change",
+      "args": [
+        "event"
+      ],
+      "code": "{name}.bind('<<NotebookTabChanged>>', {handler})"
+    }
+  ],
+  "code": "{name} = ttk.Notebook({parent}{opts})"
+}

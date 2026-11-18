@@ -229,6 +229,7 @@ def clean_widget(raw, where, notes):
             "category": raw["category"] if isinstance(raw.get("category"), str) else "Other",
             "icon": raw["icon"] if isinstance(raw.get("icon"), str) else "",
             "container": bool(raw.get("container")),
+            "child_layout": raw["child_layout"] if isinstance(raw.get("child_layout"), str) else None,   # its children use only this layout (a notebook: "tab")
             "no_run": bool(raw.get("no_run")),
             "default_size": size,
             "props": props, "events": events,
@@ -262,6 +263,14 @@ class Pack:
 
     def widget(self, wtype):
         return self.widgets.get(wtype)
+
+    def layouts_for(self, parent_type):
+        """The layout managers a child of a `parent_type` widget may use: only the parent's own (a notebook's "tab")
+        when it names one, else every manager that is not child-only."""
+        w = self.widgets.get(parent_type) or {}
+        if w.get("child_layout") in self.layouts:
+            return [w["child_layout"]]
+        return [m for m, spec in self.layouts.items() if not spec.get("child_only")]
 
     def is_container(self, wtype):
         w = self.widgets.get(wtype)
@@ -328,7 +337,7 @@ def _clean_layouts(raw, where, notes):
         if lines is None or any(template_problems(ln, fields) for ln in lines):
             notes.append(f"{where}: layout '{manager}' has bad code")
             continue
-        out[manager] = {"props": props, "code": lines}
+        out[manager] = {"props": props, "code": lines, "child_only": bool(spec.get("child_only"))}
     return out
 
 

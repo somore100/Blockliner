@@ -379,7 +379,8 @@ class UIDesignerEditor:
         if label is not None and label.winfo_exists():
             label.configure(text=paper_view.percent(s))
         self._dz_paper_obj = ui_paper.Paper(tree, pack)
-        layout = self._dz_paper_obj.boxes(pw, ph, skip=dm.hidden_screens(tree, self._dz().get("screen")))
+        self._dz_hidden_tabs = dm.hidden_tabs(tree, self._dz().get("tabs"), self._dz().get("sel"))
+        layout = self._dz_paper_obj.boxes(pw, ph, skip=dm.hidden_screens(tree, self._dz().get("screen")) | self._dz_hidden_tabs)
         self._dz_boxes, self._dz_origin, self._dz_scale = layout, (ox, oy), s
         sel = self._dz().get("sel")
         canvas.delete("all")
@@ -453,6 +454,19 @@ class UIDesignerEditor:
                 canvas.create_line((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, fill="#999999")
             else:
                 canvas.create_line(x0, (y0 + y1) / 2, x1, (y0 + y1) / 2, fill="#999999")
+        elif kind == "notebook":
+            canvas.create_rectangle(x0, y0 + 22 * s, x1, y1, fill="", outline="#b5b5b5")
+            pages = [c for c in (node["children"] if node else []) if c["layout"].get("manager") == "tab"]
+            tx = x0
+            for page in pages:
+                title = str(page["layout"].get("text") or "Tab")
+                tw = (len(title) * 7 + 18) * s
+                shown = page["id"] not in getattr(self, "_dz_hidden_tabs", ())
+                canvas.create_rectangle(tx, y0 + (2 if shown else 4) * s, tx + tw, y0 + 22 * s, fill="#ffffff" if shown else "#dcdcdc", outline="#b5b5b5")
+                canvas.create_text(tx + tw / 2, y0 + 12 * s, text=title, fill=fg, font=("Segoe UI", max(5, round(9 * s))))
+                tx += tw
+            if not pages:
+                canvas.create_text(x0 + 8, y0 + 12 * s, text="no tabs yet: add a frame", anchor="w", fill="#999999", font=("Segoe UI", max(5, round(8 * s))))
         elif kind in ("scrollbar", "hscrollbar"):
             canvas.create_rectangle(x0, y0, x1, y1, fill="#e6e6e6", outline="#b0b0b0")
             if kind == "scrollbar":
@@ -533,6 +547,13 @@ class UIDesignerEditor:
             self._dz_drag = {"id": st["sel"], "mode": handle, "start": (px, py), "box": self._dz_box(st["sel"]), "rect": None}
             return
         hit = ui_paper.hit_test(self._dz_boxes, px, py)
+        picked = self._dz_tab_at(tree, px, py) if hit is not None else None
+        if picked is not None:                              # a click on a notebook's row of tabs shows that page
+            nb_id, page_id = picked
+            st.setdefault("tabs", {})[nb_id] = page_id
+            st["sel"] = page_id
+            self._dz_update(code=False)
+            return
         if hit is None:                                     # empty space: drag moves the view, a plain click deselects
             self._dz_pan_press(event)
             self._dz_pan["deselect"] = True
@@ -602,6 +623,22 @@ class UIDesignerEditor:
             cursor = ""
         if str(self._dz_canvas.cget("cursor")) != cursor:
             self._dz_canvas.configure(cursor=cursor)
+
+    def _dz_tab_at(self, tree, px, py):
+        """(notebook id, page id) when the paper point is on a tab of a notebook, else None."""
+        for b in reversed(self._dz_boxes):
+            node = tree.find(b["id"])
+            if node is None or node["type"] != "notebook":
+                continue
+            if not (b["x"] <= px <= b["x"] + b["w"] and 0 <= py - b["y"] <= 22):
+                continue
+            tx = b["x"]
+            for page in (c for c in node["children"] if c["layout"].get("manager") == "tab"):
+                tw = len(str(page["layout"].get("text") or "Tab")) * 7 + 18
+                if tx <= px <= tx + tw:
+                    return node["id"], page["id"]
+                tx += tw
+        return None
 
     # ---- typing straight onto the paper ----------------------------------------
     def _dz_paper_double(self, event):
@@ -991,7 +1028,8 @@ class UIDesignerEditor:
 
     def _dz_layout_rows(self, parent, tree, pack, widget):
         wid = widget["id"]
-        managers = [NONE_LABEL] + list(pack.layouts)
+        owner = tree.parent_of(wid)
+        managers = [NONE_LABEL] + (pack.layouts_for(owner["type"]) if owner is not None else list(pack.layouts))
         current = widget["layout"].get("manager") or NONE_LABEL
         self._dz_combo(parent, "Placement", managers, current, lambda v: self._dz_set_layout(wid, manager=None if v == NONE_LABEL else v))
         spec = pack.layouts.get(widget["layout"].get("manager"))

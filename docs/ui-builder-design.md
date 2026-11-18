@@ -346,3 +346,13 @@ table it scrolls). With a target, the generator writes the two link lines (`targ
 scrollbar is just drawn. This needed a generic pack rule (see `ui_pack.py`): creation lines after the first that use an unset
 optional prop are skipped, set ones are deferred; `ui_parse` reads them back from anywhere after the creation.
 Not added: customtkinter (its text box and scroll frame scroll by themselves) and Kivy (ScrollView).
+
+## Tabs (tkinter pack, built 2026-11-18)
+
+**Tabs** (`notebook`, ttk.Notebook) is a container whose children use the new child-only layout `tab`
+(`{parent}.add({name}, {args})`, prop "Tab title"). A pack widget can say `"child_layout": "tab"`; `Pack.layouts_for(parent_type)`
+then gives only that manager (and the "Placement" list in the designer shows only it), while other widgets never offer
+child-only layouts. Add a frame with the notebook selected: it becomes a page ("Tab 1", "Tab 2"…); widgets added with a page
+selected go in the page. On the paper only one page is drawn: the one holding the selected widget, else the one whose tab was
+clicked, else the first (`ui_designer_model.hidden_tabs`). A widget dropped on the row of tabs becomes a page. Not in
+customtkinter/Kivy yet (CTkTabview and TabbedPanel work differently).

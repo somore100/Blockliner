@@ -13,6 +13,7 @@ DEVICES = {
 DEFAULT_DEVICE = "desktop"
 GAP = 6                 # space between stacked children
 PAD = 8                 # inside a container
+TAB_STRIP = 24          # height of a notebook's row of tabs
 
 
 DEFAULT_FONT = ("Helvetica", 9)
@@ -159,6 +160,12 @@ class Paper:
             w, h = _num(lay.get("width"), w), _num(lay.get("height"), h)
             rel[c["id"]] = (_num(lay.get("x")), _num(lay.get("y")), w, h)
             right, bottom = max(right, _num(lay.get("x")) + w), max(bottom, _num(lay.get("y")) + h)
+        tabs = [c for c in stack if c["layout"].get("manager") == "tab"]
+        stack = [c for c in stack if c["layout"].get("manager") != "tab"]
+        for c in tabs:                     # every page fills the area under the row of tabs; the designer shows one
+            w, h = self.measure(c)
+            rel[c["id"]] = (0, TAB_STRIP, w, h)
+            right, bottom = max(right, w), max(bottom, TAB_STRIP + h)
         y = bottom + GAP if bottom else PAD
         for c in stack:
             w, h = self.measure(c)
@@ -180,6 +187,8 @@ class Paper:
                     if c["id"] in skip:
                         continue
                     dx, dy, cw, ch = rel[c["id"]]
+                    if c["layout"].get("manager") == "tab":          # a page fills the notebook under its tabs
+                        cw, ch = w, max(0, h - TAB_STRIP)
                     walk(c, x + dx, y + dy, cw, ch, depth + 1)
         walk(root, 0, 0, paper_w, paper_h, 0)
         return out

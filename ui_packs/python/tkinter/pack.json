@@ -94,12 +94,25 @@
         }
       ],
       "code": "{name}.place({args})"
+    },
+    "tab": {
+      "props": [
+        {
+          "key": "text",
+          "label": "Tab title",
+          "kind": "string",
+          "default": "Tab"
+        }
+      ],
+      "code": "{parent}.add({name}, {args})",
+      "child_only": true
     }
   },
   "order": [
     "window",
     "popup",
     "frame",
+    "notebook",
     "label",
     "button",
     "checkbutton",

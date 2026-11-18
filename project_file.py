@@ -74,8 +74,14 @@ def _node_from_json(raw, seen_ids, notes):
             node[ui_node.UI_KEY] = ui_doc
             if ui_detached:
                 node[ui_node.DETACHED_KEY] = True
-            if raw.get("ui_open") is True:                  # the window's box shows its widgets on the Nodes layer
-                node["ui_open"] = True
+            if raw.get("ui_open") in (True, "boxes"):         # the window's box shows its widgets on the Nodes layer
+                node["ui_open"] = raw["ui_open"]
+            pos = raw.get("ui_box_pos")
+            if isinstance(pos, dict):                        # where its widget boxes were dragged to (offsets)
+                clean = {str(k): [float(v[0]), float(v[1])] for k, v in pos.items()
+                         if isinstance(v, (list, tuple)) and len(v) == 2 and all(isinstance(x, (int, float)) for x in v)}
+                if clean:
+                    node["ui_box_pos"] = clean
     if raw.get("ignored") is True:
         node["ignored"] = True
     if raw.get("skipped") is True:

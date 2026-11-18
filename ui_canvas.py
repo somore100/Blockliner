@@ -238,6 +238,7 @@ class CanvasMixin:
 
         self._fileview_boxes = {}
         self._ghost_ids = set()
+        self._widget_boxes = {}
         self._begin_canvas_render()
         # Defensive: a refresh mid wire-drag (e.g. triggered by something
         # else while dragging) would otherwise leave a dangling temp line
@@ -507,11 +508,17 @@ class CanvasMixin:
                 command=_open
             ).pack(side=tk.RIGHT)
             if is_ui and not ui_node.is_detached(node):
-                opened = bool(node.get("ui_open"))
+                opened = node.get("ui_open") is True
+                boxed = node.get("ui_open") == "boxes"
                 tk.Button(
                     body, text=("\u25be Widgets" if opened else "\u25b8 Widgets"), bg="#3a3a3a", fg=DARK_FG,
                     relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
                     command=lambda nid=node["id"]: self.toggle_ui_widgets(nid)
+                ).pack(side=tk.RIGHT, padx=(0, 6))
+                tk.Button(
+                    body, text=("\u25a3 Boxes \u2713" if boxed else "\u25a3 Boxes"), bg="#3a3a3a", fg=DARK_FG,
+                    relief=tk.FLAT, cursor="hand2", font=self._zfont(9),
+                    command=lambda nid=node["id"]: self.toggle_ui_boxes(nid)
                 ).pack(side=tk.RIGHT, padx=(0, 6))
                 if opened:
                     self.build_ui_widget_rows(box, node, self._zfont, 8)
@@ -581,6 +588,8 @@ class CanvasMixin:
                 if wid is not None:
                     self.workspace_canvas.coords(wid, new_x * self.canvas_zoom, new_y * self.canvas_zoom)
                 self.draw_wires_for(sid)
+                self.place_widget_boxes(sid)
+                self.draw_widget_wires()
 
         def _release(e, nid=node["id"]):
             if drag_state["dragging"]:
@@ -1039,6 +1048,7 @@ class CanvasMixin:
         for edge in wire_rollup.rolled_edges(nodes_shown):
             self._draw_rolled_wire(edge)
         self._update_wire_legend()
+        self.draw_widget_wires()
 
     def _note_wire_kind(self, kind):
         if not hasattr(self, "_wire_kinds_seen"):

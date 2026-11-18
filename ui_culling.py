@@ -69,7 +69,9 @@ class CullMixin:
             self._ghosts().add(node["id"])
             return False
         self._ghosts().discard(node["id"])
+        self.clear_widget_boxes(node["id"])
         self.create_fileview_node_box(node)
+        self.build_widget_boxes(node)
         return True
 
     def schedule_cull(self):
@@ -101,6 +103,7 @@ class CullMixin:
                         win, box = self._fileview_boxes.pop(nid)
                         self.workspace_canvas.delete(win)
                         doomed.append(box)
+                        self.clear_widget_boxes(nid)
                         ghosts.add(nid)
                         changed = True
                 elif build is None or self._node_hits(n, build):

@@ -142,6 +142,7 @@ class CanvasViewMixin:
     def _canvas_box_widgets(self):
         out = [b for _w, b in (getattr(self, "_fileview_boxes", None) or {}).values()]
         out += [b for _w, b in (getattr(self, "_filesview_boxes", None) or {}).values()]
+        out += [v[1] for v in (getattr(self, "_widget_boxes", None) or {}).values()]
         return out
 
     def canvas_layer_active(self):
@@ -252,6 +253,7 @@ class CanvasViewMixin:
                 n = find_node_by_id(tab["nodes"], nid)
                 if n:
                     c.coords(win, n["canvas_x"] * z, n["canvas_y"] * z)
+        self.place_widget_boxes()
         c.delete("group")
         self.draw_groups()
         # Wires need the boxes' real sizes, which only exist after the

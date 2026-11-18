@@ -317,3 +317,17 @@ A UI window's box has a **▸ Widgets** button. Opened, the box lists its widget
 - The open/closed state is `node["ui_open"]` and is saved with the project (not in portable exports). A window whose code was taken over by hand ("code only") has no Widgets button.
 - Pure part: `ui_node.widget_rows`, `ui_node.triggers_for`, `ui_node.handler_base_name` (tests/test_widget_rows.py). Tk part: `ui_nodewidgets.py` (a mixin), wire anchors in `ui_canvas._draw_one_wire(src_y=)`, tests/test_ui_nodewidgets.py.
 - Not done: widgets as separate draggable boxes (the list lives inside the window's box), showing a function's blocks inside the row, long lists beyond 30 widgets are cut with a count.
+
+## Widgets as separate boxes (built 2026-11-18)
+
+A window's box on the Nodes layer has two switches: **▸ Widgets** (the list inside the box) and **▣ Boxes**. Boxes mode
+(`node["ui_open"] == "boxes"`; the list is `True`) gives every widget its own small box in a column to the right of the
+window: title (drag it; a click without moving opens the designer on that widget), type, and a line with a dot per
+event. A dotted line ties each box to its window; a wire runs from every linked event to its function node. Empty dots
+make and link `on_<widget>_<event>` and put the function beside the widget's box.
+
+- Positions are saved as offsets from the window (`node["ui_box_pos"] = {widget id: [dx, dy]}`), so moving the window moves
+  its widgets. Like `ui_open` they are not in portable exports.
+- Code: `ui_widgetboxes.py` (`WidgetBoxMixin`); wires are tagged `uiwire` and redrawn at the end of `draw_wires`.
+- Boxes are built with their window (`make_node_box`), so culling (`ui_culling.py`) builds and drops them with it.
+- At most 40 boxes per window (`BOX_LIMIT`); the rest stay in the designer.

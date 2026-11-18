@@ -31,7 +31,7 @@ class NodeWidgetsMixin:
         node = find_node_by_id(self._ui_tab()["nodes"], nid)
         if node is None:
             return
-        if node.get("ui_open"):
+        if node.get("ui_open") is True:
             node.pop("ui_open", None)
         else:
             node["ui_open"] = True
@@ -120,6 +120,10 @@ class NodeWidgetsMixin:
         placed = len(ui_node.event_targets(node))
         handler["canvas_x"] = node.get("canvas_x", 30) + (node.get("canvas_w") or NODE_W) + 120
         handler["canvas_y"] = node.get("canvas_y", 20) + 20 + 130 * placed
+        if node.get("ui_open") == "boxes":            # widgets are boxes: the function goes beside the widget's own box
+            at = self.widget_box_origin(node, widget_id)
+            if at is not None:
+                handler["canvas_x"], handler["canvas_y"] = at[0] + 190 + 90, at[1]
         self._ui_container_list(tab, ui_id).append(handler)
         tree.set_event(widget_id, event_key, handler["id"])
         ui_node.store_tree(node, tree)

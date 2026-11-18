@@ -239,6 +239,7 @@ class CanvasMixin:
         self._fileview_boxes = {}
         self._ghost_ids = set()
         self._widget_boxes = {}
+        self._wb_pv = {}
         self._begin_canvas_render()
         # Defensive: a refresh mid wire-drag (e.g. triggered by something
         # else while dragging) would otherwise leave a dangling temp line

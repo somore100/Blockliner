@@ -14,6 +14,9 @@ from ui_common import BLOCK_BG
 
 BOX_W = 190                 # model width of a widget box
 BOX_LIMIT = 40              # more widgets than this: the first ones get boxes, the rest stay in the designer
+PREVIEW_LINES = 5           # lines of the handler's code shown under a linked event
+PREVIEW_CHARS = 34
+PV_H = 14                   # model height of one preview line
 ROW_H = 20                  # model height of one event line
 HEAD_H = 40                 # title + type line
 GAP = 10
@@ -23,12 +26,21 @@ FREE = "#777777"
 TIE = "#2a6a60"
 
 
-def default_offsets(rows, window_w):
+def preview_of(code):
+    """The first few non-empty lines of a function's code, cut to fit, plus a "+N more lines" line."""
+    lines = [ln.strip() for ln in (code or "").splitlines() if ln.strip()]
+    out = [ln if len(ln) <= PREVIEW_CHARS else ln[:PREVIEW_CHARS - 1] + "\u2026" for ln in lines[:PREVIEW_LINES]]
+    if len(lines) > PREVIEW_LINES:
+        out.append(f"+ {len(lines) - PREVIEW_LINES} more lines")
+    return out
+
+
+def default_offsets(rows, window_w, preview_count=lambda _row: 0):
     """{widget id: [dx, dy]} - a column to the right of the window, each box as tall as its events need."""
     out, y = {}, 0
     for row in rows:
         out[row["id"]] = [window_w + 40, y]
-        y += HEAD_H + ROW_H * max(1, len(row["events"])) + GAP
+        y += HEAD_H + ROW_H * max(1, len(row["events"])) + PV_H * preview_count(row) + GAP
     return out
 
 
@@ -49,8 +61,22 @@ class WidgetBoxMixin:
         if not self.refresh_nodes_in_place(rebuild_ids=(nid,)):
             self.refresh_workspace()
 
+    def _preview(self, handler):
+        """Preview lines of a function node's code (cached until the next full render)."""
+        if not handler or ui_node.is_ui_node(handler):
+            return []
+        cache = self.__dict__.setdefault("_wb_pv", {})
+        if handler["id"] not in cache:
+            lang = self._ui_tab().get("language") or "python"
+            try:
+                cache[handler["id"]] = preview_of(self.generate_code_for_node(handler, lang))
+            except Exception:
+                cache[handler["id"]] = []
+        return cache[handler["id"]]
+
     def _offsets(self, node, rows):
-        offs = default_offsets(rows, node.get("canvas_w") or NODE_W)
+        offs = default_offsets(rows, node.get("canvas_w") or NODE_W,
+                               lambda row: sum(len(self._preview(e["handler"])) for e in row["events"]))
         for wid, off in (node.get("ui_box_pos") or {}).items():
             if wid in offs and isinstance(off, (list, tuple)) and len(off) == 2:
                 offs[wid] = list(off)
@@ -67,6 +93,7 @@ class WidgetBoxMixin:
     # ---- build / clear -------------------------------------------------------
     def clear_widget_boxes(self, ui_id):
         reg = self.widget_boxes()
+        self.__dict__.pop("_wb_pv", None)
         gone = [k for k in reg if k[0] == ui_id]
         boxes = []
         for k in gone:
@@ -100,6 +127,10 @@ class WidgetBoxMixin:
             lab = tk.Label(box, text=text + (" ●" if linked else " ○"), bg=BLOCK_BG, fg=LINKED if linked else FREE,
                            font=self._zfont(8), cursor="hand2", anchor="e")
             lab.pack(fill=tk.X, padx=4)
+            for line in self._preview(ev["handler"]):
+                tk.Label(box, text=line, bg="#1e1e1e", fg="#b5cea8", font=self._zfont(8), anchor="w", cursor="hand2"
+                         ).pack(fill=tk.X, padx=(10, 4))
+                box.winfo_children()[-1].bind("<Button-1>", lambda _e, h=ev["handler_id"]: self.open_node(h))
             if linked:
                 lab.bind("<Button-1>", lambda _e, h=ev["handler_id"]: self.open_node(h))
                 ports.append((lab, ev["handler_id"]))

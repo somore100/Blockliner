@@ -79,6 +79,21 @@ def main():
         check("the new place is saved as an offset", node["ui_box_pos"][btn["id"]][0] > 0)
         check("the window is marked changed", app.tabs[app.active_tab_index].get("dirty", True))
 
+        # the function's blocks show inside the box
+        import ui_widgetboxes
+        pv = ui_widgetboxes.preview_of("a = 1\n\nprint(a)\n" + "x\n" * 6)
+        check("preview: five lines and a count", len(pv) == 6 and pv[-1] == "+ 3 more lines")
+        check("preview: long lines are cut", len(ui_widgetboxes.preview_of("y" * 100)[0]) == ui_widgetboxes.PREVIEW_CHARS)
+        before_y = app.workspace_canvas.coords(app.widget_boxes()[(node["id"], lab["id"])][0])[1]
+        handler["blocks"].extend([("print_output", {"value": f"'step {i}'"}) for i in range(7)])
+        app.refresh_workspace(); settle(app)
+        boxw = app.widget_boxes()[(node["id"], btn["id"])][1]
+        texts = [str(t) for t in labels(boxw)]
+        check("the function's code is shown in the widget's box", any("step 0" in t for t in texts))
+        check("... only the first lines, with a count", not any("step 6" in t for t in texts) and any("more lines" in t for t in texts))
+        check("... and the next box makes room", lab["id"] in {k[1] for k in app.widget_boxes()} and
+              app.workspace_canvas.coords(app.widget_boxes()[(node["id"], lab["id"])][0])[1] > before_y + 40)
+
         # the window carries its boxes
         node["canvas_x"] += 100
         app.place_widget_boxes(node["id"]); settle(app, 0.05)

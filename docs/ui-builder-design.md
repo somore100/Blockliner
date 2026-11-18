@@ -331,3 +331,8 @@ make and link `on_<widget>_<event>` and put the function beside the widget's box
 - Code: `ui_widgetboxes.py` (`WidgetBoxMixin`); wires are tagged `uiwire` and redrawn at the end of `draw_wires`.
 - Boxes are built with their window (`make_node_box`), so culling (`ui_culling.py`) builds and drops them with it.
 - At most 40 boxes per window (`BOX_LIMIT`); the rest stay in the designer.
+
+Under each linked event a widget box also shows the first 5 lines of the function's generated code (long lines cut,
+"+ N more lines" after that); clicking a line opens the function. It is a read-only preview (`ui_widgetboxes.preview_of`),
+cached until the next full render, and it counts in the default stacking of the boxes. Editing stays in the function's own
+layer or the designer's Behaviour view.

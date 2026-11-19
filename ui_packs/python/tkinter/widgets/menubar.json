@@ -1,0 +1,25 @@
+{
+  "type": "menubar",
+  "label": "Menu bar",
+  "category": "Menus",
+  "icon": "☰",
+  "container": true,
+  "virtual": true,
+  "no_layout": true,
+  "inside": [
+    "window",
+    "popup"
+  ],
+  "child_layout": "cascade",
+  "default_size": [
+    200,
+    24
+  ],
+  "description": "The menu strip along the top of the window. Add Menu widgets to it (File, Edit...); each menu holds items and separators.",
+  "props": [],
+  "events": [],
+  "code": [
+    "{name} = tk.Menu({parent}{opts})",
+    "{parent}.configure(menu={name})"
+  ]
+}

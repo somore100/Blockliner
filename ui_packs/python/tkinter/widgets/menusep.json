@@ -1,0 +1,20 @@
+{
+  "type": "menusep",
+  "label": "Menu line",
+  "category": "Menus",
+  "icon": "—",
+  "container": false,
+  "virtual": true,
+  "no_layout": true,
+  "inside": [
+    "menu"
+  ],
+  "default_size": [
+    100,
+    8
+  ],
+  "description": "A dividing line between menu items.",
+  "props": [],
+  "events": [],
+  "code": "{name} = {parent}.add_separator()"
+}

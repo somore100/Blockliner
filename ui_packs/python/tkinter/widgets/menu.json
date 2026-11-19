@@ -1,0 +1,29 @@
+{
+  "type": "menu",
+  "label": "Menu",
+  "category": "Menus",
+  "icon": "▾",
+  "container": true,
+  "virtual": true,
+  "inside": [
+    "menubar",
+    "menu"
+  ],
+  "child_layout": "cascade",
+  "default_size": [
+    120,
+    24
+  ],
+  "description": "A drop-down menu. Add it to the menu bar (its title is in the Placement settings), then add items into it. A menu inside a menu makes a sub-menu.",
+  "props": [
+    {
+      "key": "tearoff",
+      "label": "Tear-off line",
+      "kind": "int",
+      "default": 0,
+      "inline": true
+    }
+  ],
+  "events": [],
+  "code": "{name} = tk.Menu({parent}, tearoff={tearoff}{opts})"
+}

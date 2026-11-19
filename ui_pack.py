@@ -231,6 +231,9 @@ def clean_widget(raw, where, notes):
             "container": bool(raw.get("container")),
             "child_layout": raw["child_layout"] if isinstance(raw.get("child_layout"), str) else None,   # its children use only this layout (a notebook: "tab")
             "no_run": bool(raw.get("no_run")),
+            "no_layout": bool(raw.get("no_layout")),      # not placed by a layout manager (a menu item): no Layout settings, no warning
+            "virtual": bool(raw.get("virtual")),          # not drawn on the paper (menus show as a strip, not as boxes)
+            "inside": [t for t in raw.get("inside") or [] if isinstance(t, str)] if isinstance(raw.get("inside"), list) else [],   # parent types it may be added under
             "default_size": size,
             "props": props, "events": events,
             "code": lines if raw_code is None else None,

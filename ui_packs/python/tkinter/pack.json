@@ -106,6 +106,19 @@
       ],
       "code": "{parent}.add({name}, {args})",
       "child_only": true
+    },
+    "cascade": {
+      "props": [
+        {
+          "key": "text",
+          "label": "Menu title",
+          "kind": "string",
+          "default": "Menu",
+          "arg": "label"
+        }
+      ],
+      "code": "{parent}.add_cascade({args}, menu={name})",
+      "child_only": true
     }
   },
   "order": [
@@ -129,7 +142,11 @@
     "progressbar",
     "separator",
     "labelframe",
-    "canvas"
+    "canvas",
+    "menubar",
+    "menu",
+    "menuitem",
+    "menusep"
   ],
   "quote": "python",
   "function": {

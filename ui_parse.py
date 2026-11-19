@@ -200,6 +200,21 @@ def parse(text, pack, handler_id=None, previous=None):
         for name, (wid, wtype) in by_name.items():
             for ev, rx in events.get(wtype, []):
                 m = rx.match(text_line)
+                if m and "name" not in m.groupdict():           # a line that names no widget (a menu item's): found by its parent and own values
+                    par = tree.parent_of(wid)
+                    own = tree.find(wid)
+                    if par is not None and par["name"] == m.groupdict().get("parent") and all(
+                            own["props"].get(k) == _value("string", v) for k, v in m.groupdict().items() if k not in ("parent", "handler")):
+                        m = None if tree.find(wid)["events"].get(ev["key"]) is not None else m
+                        if m is not None:
+                            target = handler_id(m.group("handler")) if handler_id else None
+                            if target is None:
+                                problems.append(f"'{m.group('handler')}' isn't a function in this file")
+                            else:
+                                own["events"][ev["key"]] = target
+                            made = True
+                            break
+                    continue
                 if m and m.group("name") == name:
                     target = handler_id(m.group("handler")) if handler_id else None
                     if target is None:

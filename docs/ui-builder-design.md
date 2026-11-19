@@ -356,3 +356,17 @@ child-only layouts. Add a frame with the notebook selected: it becomes a page ("
 selected go in the page. On the paper only one page is drawn: the one holding the selected widget, else the one whose tab was
 clicked, else the first (`ui_designer_model.hidden_tabs`). A widget dropped on the row of tabs becomes a page. Not in
 customtkinter/Kivy yet (CTkTabview and TabbedPanel work differently).
+
+## Menu bar (tkinter)
+
+`menubar`, `menu`, `menuitem` and `menusep` build a `tk.Menu` tree. They are **virtual** (pack field `virtual`): not boxes on
+the paper, the designer draws one strip under the window's title instead, and a click on a title selects that menu.
+
+- A menu bar holds menus; a menu holds items, separators and sub-menus. Menus and bars are added to their parent with the
+  child-only `cascade` layout (`{parent}.add_cascade(label=..., menu={name})`, title in Placement). Items and separators are
+  `no_layout` (no Placement, no "won't be placed" warning).
+- `inside` names the parents a type may go under. Adding a widget climbs from the selection to the nearest allowed parent; a
+  menu added with no bar makes one under the window. Ordinary widgets never land inside a menu.
+- A menu item's click event is `{parent}.entryconfigure('Text', command=handler)`. That line has no `{name}`, so
+  `ui_parse` finds the item by its parent and its own values (two items in one menu with the same text would clash).
+- Limits: tkinter only; no check boxes or radio items; no accelerator key binding (the text is only displayed).

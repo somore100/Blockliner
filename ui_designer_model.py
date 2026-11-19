@@ -23,10 +23,32 @@ def inline_prop(pack, wtype):
     return None
 
 
-def add_target(tree, pack, selected_id):
+def add_target(tree, pack, selected_id, wtype=None):
     """Parent id a new widget goes under: the selected widget if it can hold
-    children, else the selected widget's parent, else the root."""
+    children, else the selected widget's parent, else the root. A widget that
+    names where it may go (`inside`: a menu item goes in a menu) climbs from the
+    selection to the nearest allowed parent, else the first one in the window; a
+    menu with none gets a menu bar made for it. Ordinary widgets never go into
+    menus (those are virtual: they are not on the paper)."""
+    allowed = (pack.widget(wtype) or {}).get("inside") if wtype else None
     sel = tree.find(selected_id) if selected_id else None
+    if allowed:
+        cur = sel
+        while cur is not None:
+            if cur["type"] in allowed:
+                return cur["id"]
+            cur = tree.parent_of(cur["id"])
+        if tree.root["type"] in allowed:
+            return tree.root["id"]
+        found = next((n for n in tree.walk() if n["type"] in allowed), None)
+        if found is not None:
+            return found["id"]
+        for t in allowed:                                  # no menu bar yet: make one under the window
+            if tree.root["type"] in (pack.widget(t) or {}).get("inside", []):
+                return add_widget(tree, pack, t, tree.root["id"])
+        return tree.root["id"]
+    while sel is not None and (pack.widget(sel["type"]) or {}).get("virtual"):
+        sel = tree.parent_of(sel["id"])
     if sel is not None:
         if pack.is_container(sel["type"]):
             return sel["id"]
@@ -73,17 +95,22 @@ def hidden_screens(tree, current):
 PREFERRED_MANAGER = "place"     # free x/y: what dragging/resizing on the paper needs
 
 
-def default_layout(pack, tree, parent_id):
+def default_layout(pack, tree, parent_id, wtype=None):
     """Starting layout for a new child: free placement when the pack has it
     (else its first manager), one line below the existing children. {} when
-    the pack has no layouts."""
-    if not pack.layouts:
+    the pack has no layouts or the widget is not placed (a menu item)."""
+    if not pack.layouts or (wtype and (pack.widget(wtype) or {}).get("no_layout")):
         return {}
     parent = tree.find(parent_id)
     n = len(parent["children"])
     allowed = pack.layouts_for(parent["type"]) or list(pack.layouts)
-    if allowed == [(pack.widget(parent["type"]) or {}).get("child_layout")]:      # a notebook's child is a tab
-        return {"manager": allowed[0], "text": f"Tab {n + 1}"}
+    if allowed == [(pack.widget(parent["type"]) or {}).get("child_layout")]:      # a notebook's child is a tab, a menu bar's a title
+        spec = pack.layouts[allowed[0]]
+        text = next((p for p in spec["props"] if p["key"] == "text"), None)
+        layout = {"manager": allowed[0]}
+        if text is not None:
+            layout["text"] = f"{text.get('default') or 'Tab'} {n + 1}"
+        return layout
     manager = PREFERRED_MANAGER if PREFERRED_MANAGER in allowed else allowed[0]
     layout = {"manager": manager}
     keys = {p["key"] for p in pack.layouts[manager]["props"]}
@@ -100,9 +127,9 @@ def add_widget(tree, pack, wtype, selected_id=None):
     w = pack.widget(wtype)
     if w is None or wtype in pack.root_types:
         return None
-    parent_id = add_target(tree, pack, selected_id)
+    parent_id = add_target(tree, pack, selected_id, wtype)
     return tree.add(parent_id, wtype, props=pack.defaults(wtype),
-                    layout=default_layout(pack, tree, parent_id),
+                    layout=default_layout(pack, tree, parent_id, wtype),
                     design={"w": w["default_size"][0], "h": w["default_size"][1]})
 
 

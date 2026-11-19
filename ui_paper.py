@@ -90,8 +90,11 @@ def natural_size(node, wdef):
     return w, h
 
 
+VIRTUAL = frozenset({"menubar", "menu", "menuitem", "menusep"})      # not boxes on the paper: the menu bar is a strip
+
+
 def _kids(node):
-    return [c for c in node["children"] if isinstance(c, dict)]
+    return [c for c in node["children"] if isinstance(c, dict) and c["type"] not in VIRTUAL]
 
 
 def _groups(node):

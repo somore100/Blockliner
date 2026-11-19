@@ -387,7 +387,46 @@ class UIDesignerEditor:
         canvas.create_rectangle(ox + 3, oy + 3, ox + pw * s + 3, oy + ph * s + 3, fill="#1a1a1c", outline="")
         for b in layout:
             self._dz_draw_box(canvas, tree, pack, b, ox, oy, s, selected=(b["id"] == sel))
+        self._dz_draw_menu_strip(canvas, tree, ox, oy, s, sel)
         self._dz_place_inline()
+
+    MENU_Y, MENU_H = 24, 20          # the menu bar's strip on the paper: just under the window's title
+
+    def _dz_menu_bar(self, tree):
+        return next((c for c in tree.root["children"] if isinstance(c, dict) and c["type"] == "menubar"), None)
+
+    def _dz_menu_titles(self, tree, bar):
+        """[(menu node, x offset, width)] across the strip."""
+        out, x = [], 6
+        for m in (c for c in bar["children"] if isinstance(c, dict) and c["type"] == "menu"):
+            w = len(str(m["layout"].get("text") or "Menu")) * 7 + 16
+            out.append((m, x, w))
+            x += w
+        return out
+
+    def _dz_draw_menu_strip(self, canvas, tree, ox, oy, s, sel):
+        bar = self._dz_menu_bar(tree)
+        if bar is None:
+            return
+        pw = self._dz_paper_size[0]
+        y0 = oy + self.MENU_Y * s
+        y1 = y0 + self.MENU_H * s
+        canvas.create_rectangle(ox, y0, ox + pw * s, y1, fill="#f0f0f0", outline="#9a9a9a" if sel != bar["id"] else DARK_ACCENT)
+        for m, x, w in self._dz_menu_titles(tree, bar):
+            if m["id"] == sel:
+                canvas.create_rectangle(ox + x * s, y0, ox + (x + w) * s, y1, fill="#cfe3ff", outline=DARK_ACCENT)
+            canvas.create_text(ox + (x + w / 2) * s, (y0 + y1) / 2, text=str(m["layout"].get("text") or "Menu"),
+                               fill="#202020", font=("Segoe UI", max(5, round(9 * s))))
+
+    def _dz_menu_at(self, tree, px, py):
+        """Id of the menu (or the menu bar) under a paper point on the strip, else None."""
+        bar = self._dz_menu_bar(tree)
+        if bar is None or not (self.MENU_Y <= py <= self.MENU_Y + self.MENU_H) or not 0 <= px <= self._dz_paper_size[0]:
+            return None
+        for m, x, w in self._dz_menu_titles(tree, bar):
+            if x <= px <= x + w:
+                return m["id"]
+        return bar["id"]
 
     def _dz_draw_box(self, canvas, tree, pack, b, ox, oy, s, selected):
         node = tree.find(b["id"])
@@ -545,6 +584,11 @@ class UIDesignerEditor:
         handle = self._dz_handle_under(tree, pack, px, py)
         if handle:
             self._dz_drag = {"id": st["sel"], "mode": handle, "start": (px, py), "box": self._dz_box(st["sel"]), "rect": None}
+            return
+        menu_hit = self._dz_menu_at(tree, px, py)
+        if menu_hit is not None:                            # a click on the menu strip picks that menu
+            st["sel"] = menu_hit
+            self._dz_update(code=False)
             return
         hit = ui_paper.hit_test(self._dz_boxes, px, py)
         picked = self._dz_tab_at(tree, px, py) if hit is not None else None
@@ -884,7 +928,7 @@ class UIDesignerEditor:
                            command=lambda w=wid, v=var: self._dz_set_screen(w, v.get())).pack(fill=tk.X, padx=10, pady=(6, 0))
             tk.Label(frame, text="Only one screen shows at a time. Switch with the Show Screen block.", bg=DARK_PANEL, fg="#8a8a8a",
                      font=("Segoe UI", 8), wraplength=250, justify=tk.LEFT, anchor="w").pack(fill=tk.X, padx=10)
-        if pack.layouts and widget["id"] != tree.root["id"]:
+        if pack.layouts and widget["id"] != tree.root["id"] and not wdef.get("no_layout"):
             self._dz_section(frame, "Layout")
             self._dz_layout_rows(frame, tree, pack, widget)
         if wdef["events"]:

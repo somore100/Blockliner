@@ -1,0 +1,41 @@
+{
+  "type": "menuitem",
+  "label": "Menu item",
+  "category": "Menus",
+  "icon": "•",
+  "container": false,
+  "virtual": true,
+  "no_layout": true,
+  "inside": [
+    "menu"
+  ],
+  "default_size": [
+    100,
+    22
+  ],
+  "description": "One command in a menu. Pick a function for On click.",
+  "props": [
+    {
+      "key": "text",
+      "label": "Text",
+      "kind": "string",
+      "default": "Item",
+      "inline": true
+    },
+    {
+      "key": "accelerator",
+      "label": "Shortcut text",
+      "kind": "string",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "key": "click",
+      "label": "On click",
+      "args": [],
+      "code": "{parent}.entryconfigure({text!r}, command={handler})"
+    }
+  ],
+  "code": "{name} = {parent}.add_command(label={text!r}{opts})"
+}

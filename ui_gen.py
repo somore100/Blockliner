@@ -143,7 +143,7 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
                 set_values = {k: v for k, v in node["layout"].items() if k != "manager"}
                 lvals = _template_values(name, parent_name, None, spec["props"], set_values, quote)
                 body.extend(fill(line, lvals) for line in spec["code"])
-            elif manager is None:
+            elif manager is None and not w.get("no_layout"):
                 problems.append(f"'{name}' has no layout manager, so it won't be placed")
 
         for ev in w["events"]:

@@ -77,7 +77,7 @@ def build_metadata(nodes, language, active_node_id=None):
                 "parent": parent_id,
                 "index": index,
             }
-            for key in ("category", "locked", "node_type_id", "ignored", "skipped"):
+            for key in ("category", "locked", "node_type_id", "ignored", "skipped", "indent"):
                 if node.get(key):
                     entry[key] = node[key]
             if node.get("port_colors"):
@@ -334,6 +334,10 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
                 if ui_detached:
                     node[ui_node.DETACHED_KEY] = True
             node["code"] = code_by_id.get(node_id, "")
+            width = entry.get("indent")
+            if isinstance(width, int) and not isinstance(width, bool) and 0 < width <= 16:
+                node["indent"] = width        # a method: the class indent, added back when code is generated
+                node["code"] = dedent_code(node["code"], " " * width)
             if "order" in entry:
                 node["order"] = entry["order"]
         if isinstance(entry.get("x"), (int, float)) and isinstance(entry.get("y"), (int, float)):
@@ -622,3 +626,111 @@ def wrap_with_markers(chunks, token="#"):
             code += "\n"
         out.append(f"{start}\n{code}{end}\n")
     return "".join(out)
+
+
+# --- Python classes: the class line + its attributes, and one node per method ----------
+# A class node (kind "class") holds a "<Name>_header" node (the `class` line, docstring and
+# class attributes) and one node per method. A method node holds its code WITHOUT the class
+# indent (so it imports into real blocks) and has `indent` = the width that is added back when
+# code is generated, so the generated file is exactly the original text.
+
+_DEF_RE = re.compile(r"(?:async\s+def|def)\s+([A-Za-z_][A-Za-z0-9_]*)")
+_CLASS_RE = re.compile(r"(?:@.*\n|\s*\n|\s*#.*\n)*class\s+([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _inside_strings(lines):
+    in_str, inside = None, [False] * len(lines)
+    for i, ln in enumerate(lines):
+        inside[i] = in_str is not None
+        for q in ('"""', "'''"):
+            c = ln.count(q)
+            if c and c % 2 == 1:
+                in_str = q if in_str is None else (None if in_str == q else in_str)
+    return inside
+
+
+def split_class_methods(code):
+    """Python class text -> (class name, header code, [(method name, code, indent width)]), or None when it
+    is not a class with at least one method indented by spaces. "".join of the pieces is `code`."""
+    m = _CLASS_RE.match(code)
+    if not m:
+        return None
+    lines = code.splitlines(keepends=True)
+    inside = _inside_strings(lines)
+    head = next((i for i, ln in enumerate(lines) if ln.startswith("class ")), None)
+    if head is None:
+        return None
+    body = [i for i in range(head + 1, len(lines)) if lines[i].strip() and not inside[i]]
+    if not body:
+        return None
+    width = len(lines[body[0]]) - len(lines[body[0]].lstrip(" \t"))
+    if width == 0 or lines[body[0]][:width] != " " * width:
+        return None
+    pad = " " * width
+
+    def is_head(i):
+        ln = lines[i]
+        return (not inside[i] and ln.startswith(pad) and not ln[width:width + 1].isspace()
+                and (ln[width] == "@" or _DEF_RE.match(ln[width:])))
+    def is_deco(i):
+        return lines[i].startswith(pad) and lines[i][width:].startswith("@")
+    cuts = []   # (first line of the method incl. decorators/comments, its def line)
+    for i in body:
+        if not is_head(i) or (i - 1 > head and is_deco(i - 1) and not inside[i - 1]):
+            continue                                  # not a head, or a def under a decorator already counted
+        j = i
+        while j - 1 > head and lines[j - 1].startswith(pad) and lines[j - 1][width:].startswith("#"):
+            j -= 1                                    # comment lines right above belong to the method
+        cuts.append((j, i))
+    if not cuts:
+        return None
+    first = cuts[0][0]
+    out = []
+    for n, (a, _i) in enumerate(cuts):
+        end = cuts[n + 1][0] if n + 1 < len(cuts) else len(lines)
+        dm = next(_DEF_RE.match(lines[k][width:]) for k in range(a, end) if _DEF_RE.match(lines[k][width:]))
+        out.append((dm.group(1), dedent_code("".join(lines[a:end]), pad), width))
+    return m.group(1), "".join(lines[:first]), out
+
+
+def wrap_with_classes(chunks, token="#", language="python"):
+    """Like wrap_with_markers, but each Python class with methods becomes a class node holding a header
+    node and one node per method (see above). Without such a class the result is wrap_with_markers'."""
+    split = [split_class_methods(code) if language == "python" and name not in ("top_level", "imports") else None
+             for name, code in chunks]
+    if not any(split):
+        return wrap_with_markers(chunks, token)
+    names = []
+    for (name, _code), sp in zip(chunks, split):
+        names.append(name)
+        if sp:
+            names.append(name + "_header")
+            names.extend(mn for mn, _c, _w in sp[2])
+    ids = iter(unique_ids(names))
+    entries, text, order = {}, [], 0
+
+    def add_fn(node_id, name, code, parent, index, indent):
+        nonlocal order
+        order += 1
+        entry = {"name": name, "kind": "function", "parent": parent, "index": index, "order": order}
+        if indent:
+            entry["indent"] = indent
+        entries[node_id] = entry
+        start, end = node_marker_lines(node_id, token)
+        pad = " " * indent
+        shown = "".join((pad + ln if ln.strip() else ln) for ln in code.splitlines(keepends=True))
+        if shown and not shown.endswith("\n"):
+            shown += "\n"
+        text.append(f"{start}\n{shown}{end}\n")
+
+    for top, ((name, code), sp) in enumerate(zip(chunks, split)):
+        node_id = next(ids)
+        if not sp:
+            add_fn(node_id, name, code, None, top, 0)
+            continue
+        entries[node_id] = {"name": name, "kind": "class", "parent": None, "index": top}
+        add_fn(next(ids), name + "_header", sp[1], node_id, 0, 0)
+        for k, (mname, mcode, width) in enumerate(sp[2], start=1):
+            add_fn(next(ids), mname, mcode, node_id, k, width)
+    meta = {"v": META_VERSION, "language": language, "nodes": entries}
+    return "".join(text) + render_meta_block(meta, token)

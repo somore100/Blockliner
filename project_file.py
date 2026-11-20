@@ -68,6 +68,9 @@ def _node_from_json(raw, seen_ids, notes):
         locked=bool(raw.get("locked", False)),
         node_type_id=raw.get("node_type_id") if isinstance(raw.get("node_type_id"), str) else None,
     )
+    if kind == "function" and isinstance(raw.get("indent"), int) and not isinstance(raw.get("indent"), bool) \
+            and 0 < raw["indent"] <= 16:
+        node["indent"] = raw["indent"]
     if kind == "function":
         ui_doc, ui_detached = ui_node.clean_from_json(raw)
         if ui_doc is not None:

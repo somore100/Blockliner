@@ -30,3 +30,18 @@ Only Python gets the grouping (brace languages keep their own rule).
 top-level code **separated by blank lines is one node per group** (a group of only imports is named `imports`, the rest
 `top_level`, `top_level_2` ...). Blank lines inside a function, bracket or triple-quoted string never split. The nodes join back
 into exactly the original text. Class methods and long functions are still one node each.
+
+## Class methods as nodes (Python)
+
+File > Import Code > "split into nodes" now also opens a Python class that has methods as a **class node**:
+
+- `<Name>_header`: the `class` line, its docstring and class attributes.
+- one node per method (decorators and comment lines right above a method stay with it).
+
+A method node holds its code without the class indent, so it imports into real blocks. The node keeps `indent`
+(the class indent width, saved in projects and in the portable metadata); the indent is added back when code is
+generated, so the generated file has the original text. Per-node code views show the method without the indent.
+Method nodes stay in file order under their class and are not moved first by the "definitions first" rule.
+
+Not split: a class with no methods, tab-indented classes, files opened as a followed file or a project folder
+(those still use one node per top-level part). As for any import, blank lines between statements are not kept.

@@ -59,6 +59,18 @@ class CodegenMixin:
         own; a SKIPPED node becomes its code as ## comments, and a call to a
         skipped node (in any other node) becomes that call as a ## comment.
         Nothing stored is changed - these are copies."""
+        blocks = self._node_blocks_plain(node, skipped, lang)
+        width = node.get("indent")
+        raw_id = self.get_raw_code_block_id(lang) if width and blocks else None
+        if raw_id is None:
+            return blocks
+        text = "".join(self.render_block_list(blocks, lang))
+        pad = " " * width
+        text = "".join((pad + ln if ln.strip() else ln) for ln in text.splitlines(keepends=True))
+        return [(raw_id, {"code": text[:-1] if text.endswith("\n") else text})]
+
+    def _node_blocks_plain(self, node, skipped, lang):
+        """_node_blocks_for_gen without a method's class indent."""
         blocks = node.get("blocks", [])
         if not skipped:
             return blocks

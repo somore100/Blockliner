@@ -130,7 +130,7 @@ def sorted_function_nodes(nodes):
     treated as sitting at its tree position (so untouched legacy data
     generates exactly as before); explicitly unassigned (None) nodes go
     last - still generated, so no code is ever silently dropped.
-    Nodes that only define a function (is_pure_function_node) are written
+    Nodes that only define a function (is_pure_function_node; not a class's methods) are written
     first, in their own order, so a call never runs before its definition.
     The one exception is a node the user marked `ignored` (right-click >
     Ignore): it stays in the project but is left out of generated code."""
@@ -138,7 +138,7 @@ def sorted_function_nodes(nodes):
 
     def key(pair):
         idx, n = pair
-        first = 0 if is_pure_function_node(n) else 1
+        first = 0 if is_pure_function_node(n) and not n.get("indent") else 1   # a method stays under its class
         if "order" not in n:
             return (first, 0, idx + 1, idx)
         if n["order"] is None:

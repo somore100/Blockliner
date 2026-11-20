@@ -660,7 +660,8 @@ class ImportMixin:
             return False
         dialog.destroy()
         token = self.get_comment_token(self.current_language) or "#"
-        notes = self.load_portable_text(portable.wrap_with_markers(chunks, token))
+        marked = portable.wrap_with_classes(chunks, token, self.current_language)
+        notes = self.load_portable_text(marked)
         notes = [f"Split into {len(chunks)} nodes - names come from the code; layout is a default grid."] + (notes or [])
         messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
         return True

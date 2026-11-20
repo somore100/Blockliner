@@ -6,6 +6,8 @@ Builds a distributable binary for whichever OS it's run on:
   - Windows -> Blockliner.exe                (PyInstaller --onefile --windowed)
   - Linux   -> dist/Blockliner (ELF binary)   (PyInstaller --onefile)
               + Blockliner-x86_64.AppImage    (wraps the binary)
+              + blockliner_<version>_amd64.deb and blockliner-<version>-1.x86_64.rpm (--target linux-all, needs fpm;
+                the .rpm is for Fedora/RHEL: dnf install ./file.rpm)
   - macOS   -> dist/Blockliner.app + dist/Blockliner-macOS-<AppleSilicon|Intel>.zip  (a real app bundle, zipped for download;
                unsigned, so the first launch is right-click > Open)
 
@@ -13,6 +15,8 @@ Usage:
     python build.py                  # auto: best default for this OS
     python build.py --target exe     # force PyInstaller onefile build only
     python build.py --target appimage  # Linux only: binary + AppImage
+    python build.py --target linux-all  # Linux only: binary + AppImage + .deb + .rpm
+    python build.py --target packages   # Linux only: binary + .deb + .rpm (no AppImage)
     python build.py --target binary-only  # skip AppImage step on Linux
     python build.py --target macapp   # macOS only: Blockliner.app + Blockliner-macOS-<kind>.zip
 
@@ -380,14 +384,53 @@ exec "$HERE/usr/bin/{APP_NAME}" "$@"
     return output_path
 
 
+def build_linux_packages(binary_path: Path):
+    """A .deb (apt/dpkg) and an .rpm (dnf/rpm) from the built binary, with fpm (gem install fpm; the rpm
+    one also needs the rpmbuild tool). The binary goes to /usr/bin/blockliner."""
+    banner("Building .deb and .rpm")
+    if shutil.which("fpm") is None:
+        print("✗ fpm not found. Install it: sudo apt-get install ruby rpm && sudo gem install fpm")
+        sys.exit(1)
+    sys.path.insert(0, str(ROOT))
+    from about_info import APP_VERSION
+    root = DIST_DIR / "pkgroot"
+    if root.exists():
+        shutil.rmtree(root)
+    (root / "usr" / "bin").mkdir(parents=True)
+    (root / "usr" / "share" / "applications").mkdir(parents=True)
+    exe = root / "usr" / "bin" / APP_NAME.lower()
+    shutil.copy2(binary_path, exe)
+    exe.chmod(0o755)
+    (root / "usr" / "share" / "applications" / f"{APP_NAME.lower()}.desktop").write_text(
+        f"[Desktop Entry]\nType=Application\nName={APP_NAME}\nExec={APP_NAME.lower()}\n"
+        f"Icon={APP_NAME.lower()}\nCategories=Development;\nTerminal=false\n")
+    logo = find_logo()
+    if logo and logo.suffix.lower() == ".png":
+        icons = root / "usr" / "share" / "icons" / "hicolor" / "256x256" / "apps"
+        icons.mkdir(parents=True)
+        shutil.copy2(logo, icons / f"{APP_NAME.lower()}.png")
+    for kind in ("deb", "rpm"):
+        subprocess.run([
+            "fpm", "-s", "dir", "-t", kind, "-n", APP_NAME.lower(), "-v", APP_VERSION,
+            "--description", "Blockliner - a visual block-based code builder",
+            "--license", "see LICENSE.md", "--url", "https://github.com/", "-p", str(DIST_DIR),
+            "-C", str(root), "usr",
+        ], check=True)
+    shutil.rmtree(root)
+    for f in sorted(DIST_DIR.glob("blockliner*")):
+        if f.suffix in (".deb", ".rpm"):
+            print(f"✓ {f.name}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build Blockliner for this platform.")
     parser.add_argument(
         "--target",
-        choices=["auto", "exe", "appimage", "binary-only", "macapp"],
+        choices=["auto", "exe", "appimage", "binary-only", "macapp", "linux-all", "packages"],
         default="auto",
         help="auto: best default for this OS. exe: Windows onefile exe. "
              "appimage: Linux onefile binary + .AppImage. "
+             "linux-all: binary + .AppImage + .deb + .rpm. packages: binary + .deb + .rpm. "
              "binary-only: just the raw PyInstaller onefile binary. "
              "macapp: macOS only, a Blockliner.app bundle zipped as Blockliner-macOS-<kind>.zip.",
     )
@@ -404,8 +447,8 @@ def main():
     else:
         target = args.target
 
-    if target == "appimage" and system != "Linux":
-        print("✗ --target appimage is only supported on Linux")
+    if target in ("appimage", "linux-all", "packages") and system != "Linux":
+        print(f"✗ --target {target} is only supported on Linux")
         sys.exit(1)
 
     if target == "macapp" and system != "Darwin":
@@ -425,8 +468,10 @@ def main():
     if target == "macapp":
         package_mac_app(binary_path)
 
-    if target == "appimage":
+    if target in ("appimage", "linux-all"):
         build_appimage(binary_path)
+    if target in ("linux-all", "packages"):
+        build_linux_packages(binary_path)
 
     banner("✓ Build complete")
     print(f"Output directory: {DIST_DIR}")

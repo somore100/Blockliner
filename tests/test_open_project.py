@@ -29,13 +29,13 @@ HTML = "<!DOCTYPE html>\n<html>\n  <body>\n  </body>\n</html>\n"
 def main():
     # ---- the rule, on several languages
     check("python: top-level code runs are one node, class/def/if are nodes",
-          names(PY) == ["top_level", "A", "top_level", "g", "if"])
+          names(PY) == ["imports", "A", "top_level", "g", "if"])
     check("python: decorator stays with its def", portable.split_top_level(PY)[3][1].startswith("@dec\n"))
     check("python: class body (methods, blank lines) stays in one node", "def f(self)" in portable.split_top_level(PY)[1][1] and "x = 1" in portable.split_top_level(PY)[1][1])
-    check("C: #includes are one node, Allman functions keep their braces", names(C) == ["top_level", "main", "add"])
-    check("Rust: use / struct / impl / fn, attributes+doc attach", names(RS) == ["top_level", "P", "P", "main"]
+    check("C: #includes are one node, Allman functions keep their braces", names(C) == ["imports", "main", "add"])
+    check("Rust: use / struct / impl / fn, attributes+doc attach", names(RS) == ["imports", "P", "P", "main"]
           and portable.split_top_level(RS)[1][1].startswith("// doc\n#[derive(Debug)]\n"))
-    check("Go: method name from receiver form", names(GO) == ["top_level", "Run", "main"])
+    check("Go: method name from receiver form", names(GO) == ["top_level", "imports", "Run", "main"])
     check("HTML: closing tag stays with the element", names(HTML) == ["top_level", "html"])
     check("C#-style namespace is one node", names("namespace App\n{\n    class A\n    {\n    }\n}\n") == ["App"])
     check("nothing is ever dropped", all(lossless(t) for t in (PY, C, RS, GO, HTML, "", "x", "a\nb\n", "\n\n", "    indented only\n", '"""d\nnot head\n"""\nx=1\n')))
@@ -101,7 +101,7 @@ def main():
     rs = app.tabs[-1]
     print("   rust tab:", rs["language"], rs["title"], [n["name"] for n in rs["nodes"]])
     check("other language gets its own language pack", rs["language"] == "rust" and rs["title"] == "lib.rs")
-    check("rust split by the same rule", [n["name"] for n in rs["nodes"]] == ["top_level", "P", "P_2", "main"])
+    check("rust split by the same rule", [n["name"] for n in rs["nodes"]] == ["imports", "P", "P_2", "main"])
     check("rust code survives", "struct P" in app.generate_code_for_tab(rs, "rust"))
 
     check("markers use each language's comment token", tokens[:2] == ["#", "//"])

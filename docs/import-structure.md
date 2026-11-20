@@ -23,3 +23,10 @@ Still raw (the next candidates): docstrings and comments (kept lossless but as C
 pattern doesn't accept (tuple unpacking, annotations, `+=` on attributes), bare `return` / `yield` / `del` / `raise X`, and
 `# comment` lines with a trailing comment on a header. Measure with a script like `tests/` ... over a folder to see the list.
 Only Python gets the grouping (brace languages keep their own rule).
+
+## Splitting a file into nodes
+
+`portable.split_top_level` (any language) cuts a file with no node markers. Besides one node per top-level class / function,
+top-level code **separated by blank lines is one node per group** (a group of only imports is named `imports`, the rest
+`top_level`, `top_level_2` ...). Blank lines inside a function, bracket or triple-quoted string never split. The nodes join back
+into exactly the original text. Class methods and long functions are still one node each.

@@ -121,7 +121,7 @@ def main():
     n_tabs = len(app.tabs)
     check("unmarked python: offer made and accepted", app._offer_split_unmarked(plain, d) is True and asked and d.destroyed)
     t = app.tabs[app.active_tab_index]
-    check("unmarked python: one node per top-level item", [n["name"] for n in function_nodes_in_tree_order(t["nodes"])] == ["top_level", "load", "Player"] and len(app.tabs) == n_tabs + 1)
+    check("unmarked python: one node per top-level item", [n["name"] for n in function_nodes_in_tree_order(t["nodes"])] == ["imports", "load", "Player"] and len(app.tabs) == n_tabs + 1)
     reg = P.strip_portable(app.generate_portable_for_tab(t, "python", embed_meta=False))
     squash = lambda x: "".join(x.split())
     check("unmarked python: every original statement is still in the generated code", all(squash(l) in squash(reg) for l in plain.splitlines() if l.strip()))

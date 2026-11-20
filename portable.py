@@ -480,7 +480,8 @@ def split_python_top_level(text):
 # followed by indented lines starts ONE node that runs until the next such
 # column-0 line (class/def/fn/function/namespace/if/<html>... - whatever it is).
 # A run of consecutive column-0 lines with nothing indented under them is ONE
-# node ("top_level"). Closers at column 0 (}, ), ], </tag>, else, end...) stay
+# node ("top_level"), cut at blank lines: each blank-line-separated group is its own node
+# (a group of only imports is named "imports"). Closers at column 0 (}, ), ], </tag>, else, end...) stay
 # with the node they close. Blank lines belong to the node above. Nothing is
 # dropped: "".join(code) == text.
 
@@ -569,7 +570,8 @@ def split_top_level(text):
                 chunks[-1][2] = start
             chunks.append([chunk_name(lines[i]), start, i + 1])
         else:  # plain
-            if chunks and chunks[-1][0] == "top_level" and chunks[-1][2] == i:
+            paragraph_break = i > 0 and not lines[i - 1].strip() and not inside[i - 1]     # a blank line starts the next node
+            if chunks and chunks[-1][0] == "top_level" and chunks[-1][2] == i and not paragraph_break:
                 chunks[-1][2] = i + 1
             else:
                 if chunks:
@@ -579,8 +581,14 @@ def split_top_level(text):
         chunks[-1][2] = n
     out = []
     for name, a, b in chunks:
-        out.append((name, "".join(lines[a:b])))
+        code = "".join(lines[a:b])
+        if name == "top_level" and all(_IMPORT_RE.match(ln) or not ln.strip() for ln in lines[a:b]):
+            name = "imports"
+        out.append((name, code))
     return out
+
+
+_IMPORT_RE = re.compile(r"(?:import|from)\s+\S|#\s*include\b|using\s+\S|use\s+\S|require\s*\(|const\s+\w+\s*=\s*require")
 
 
 def _after_head(lines, kinds, i):

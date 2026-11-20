@@ -7,7 +7,7 @@ import block_zoom
 import ui_node
 from nodes_model import make_node
 from ui_common import CATEGORY_COLORS, DARK_ACCENT, DARK_BG, DARK_BORDER, DARK_FG, DARK_PANEL, get_block_attr, safe_grab_set
-from ui_widgets import ExpressionSlot
+from ui_widgets import ExpressionSlot, MultiLineEntry
 
 
 class BlockEditMixin:
@@ -328,6 +328,9 @@ class BlockEditMixin:
                 entry = ttk.Combobox(row_frame, values=values)
                 entry.set(initial_value)
                 entry.pack(fill=tk.X, pady=(3, 0), ipady=3)
+            elif isinstance(initial_value, str) and "\n" in initial_value:
+                entry = MultiLineEntry(row_frame, initial_value, **entry_kwargs)
+                entry.pack(fill=tk.X)
             elif param_type == "expression" and self.current_language == "python":
                 entry = ExpressionSlot(row_frame, initial_value, header_color, **entry_kwargs)
                 entry.pack(fill=tk.X)

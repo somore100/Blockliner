@@ -8,6 +8,7 @@ import json
 import uuid
 import portable
 import workflow_import
+from statements import statement_end
 from block_templates import _net_braces, _pattern_from_rendered, build_reverse_pattern, get_choice_combos, make_custom_block_generate_code
 from ui_common import APP_SETTINGS_PATH, BLOCK_BG, CUSTOM_BLOCKS_PATH, DARK_ACCENT, DARK_BG, DARK_FG, LANGUAGE_EXTENSIONS, get_block_attr
 
@@ -89,6 +90,10 @@ class ImportMixin:
                 return block_id
         return None
 
+    def get_raw_container_id(self):
+        """The block that keeps an unmatched header line (with ..., match ...) and its body together, or None."""
+        return next((bid for bid, module in self.blocks.items() if get_block_attr(module, "raw_container", False)), None)
+
     def get_raw_code_param_name(self, block_id):
         """
         Which param name this specific raw code block actually expects
@@ -115,7 +120,7 @@ class ImportMixin:
         """
         patterns = []
         for block_id, module in self.blocks.items():
-            if self._is_raw_code_block(block_id, module):
+            if self._is_raw_code_block(block_id, module) or get_block_attr(module, "raw_container", False):
                 continue
 
             params_meta = get_block_attr(module, "params", [])
@@ -144,7 +149,7 @@ class ImportMixin:
         for block_id, module in self.blocks.items():
             if self._is_raw_code_block(block_id, module):
                 continue
-            if not get_block_attr(module, "is_container", False):
+            if not get_block_attr(module, "is_container", False) or get_block_attr(module, "raw_container", False):
                 continue
             params_meta = get_block_attr(module, "params", [])
             gen_func = get_block_attr(module, "generate_code")
@@ -254,6 +259,7 @@ class ImportMixin:
                     split_lines.append(l)
             all_lines = split_lines
         counts = {"matched": 0, "raw": 0}
+        raw_container_id = self.get_raw_container_id()
 
         def indent_of(text):
             return len(text) - len(text.lstrip(" "))
@@ -297,7 +303,7 @@ class ImportMixin:
                     if ind < base:
                         break
                     if ind > base:
-                        emit_raw(line, out)
+                        emit_raw(line[base:], out)         # relative to this body: the renderer adds the body's indent back
                         i += 1
                         continue
                 text = line.strip() if brace_mode else line[base:]
@@ -353,8 +359,25 @@ class ImportMixin:
                 if handled:
                     continue
 
+                if not brace_mode and raw_container_id and text.rstrip().endswith(":") and "#" not in text \
+                        and re.match(r"(?:async\s+)?(?:with|for|while|match|case|if|elif|else|try|except|finally|def|class)\b|@", text):
+                    j = i + 1                                  # a header no block covers: keep it and its body together
+                    while j < n and not lines[j].strip():
+                        j += 1
+                    if j < n and indent_of(lines[j]) > base:
+                        children, next_i = parse(lines, j, indent_of(lines[j]))
+                        if len(children) == 1 and children[0][0] == "pass_stmt":
+                            children = []
+                        out.append((raw_container_id, {"header": text.strip(), "_children": children}))
+                        counts["matched"] += 1
+                        i = next_i
+                        continue
+
                 matched = False
+                last = i if brace_mode else statement_end(lines, i)
                 for window in window_sizes:
+                    if window == 1 and last > i:       # a statement over several lines: one block, not a block per line
+                        break
                     if i + window > n:
                         continue
                     chunk = lines[i:i + window]
@@ -377,8 +400,12 @@ class ImportMixin:
                     if matched:
                         break
 
-                if not matched:
-                    emit_raw(line, out)
+                if not matched and last > i:
+                    body = [lines[i][base:]] + [(l[base:] if l[:base].strip() == "" else l.lstrip()) for l in lines[i + 1:last + 1]]
+                    emit_raw("\n".join(body), out)
+                    i = last + 1
+                elif not matched:
+                    emit_raw(line if brace_mode else line[base:], out)
                     i += 1
             return out, i
 

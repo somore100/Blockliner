@@ -1,0 +1,16 @@
+{
+  "display_name": "Custom Block",
+  "category": "Advanced",
+  "is_container": true,
+  "raw_container": true,
+  "empty_body": "pass",
+  "description": "A line that opens an indented body (with, match, async for ...) which no other block covers, kept as written. Imported code uses it so the body stays inside it.",
+  "template": "[[header]]\n[[body]]\n",
+  "params": [
+    {
+      "name": "header",
+      "type": "code",
+      "default": "with something:"
+    }
+  ]
+}

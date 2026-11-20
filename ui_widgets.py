@@ -371,6 +371,9 @@ class BlockWidget(tk.Frame):
                 
                 # Truncate long values
                 display_value = str(value)
+                if "\n" in display_value:                      # several lines (a docstring, a long call): first line + count
+                    first, _sep, rest = display_value.partition("\n")
+                    display_value = f"{first[:30]}  \u23CE +{rest.count(chr(10)) + 1} lines"
                 if len(display_value) > 40:
                     display_value = display_value[:37] + "..."
                 
@@ -513,6 +516,25 @@ class EventRowWidget(BlockWidget):
 
     def on_leave(self, event):
         pass
+
+
+class MultiLineEntry(tk.Frame):
+    """A small text box for a parameter that holds several lines (an imported docstring or multi-line statement).
+    Same .get() / .focus_set() contract as tk.Entry, so the editor's save needs no special case."""
+
+    def __init__(self, parent, initial_value, **entry_kwargs):
+        super().__init__(parent, bg=DARK_PANEL)
+        lines = str(initial_value).count("\n") + 1
+        kwargs = {k: v for k, v in entry_kwargs.items() if k != "relief"}
+        self._text = tk.Text(self, height=min(12, max(3, lines)), wrap="none", undo=True, relief=tk.FLAT, **kwargs)
+        self._text.pack(fill=tk.BOTH, expand=True, pady=(3, 0))
+        self._text.insert("1.0", str(initial_value))
+
+    def get(self):
+        return self._text.get("1.0", "end-1c")
+
+    def focus_set(self):
+        self._text.focus_set()
 
 
 class ExpressionSlot(tk.Frame):

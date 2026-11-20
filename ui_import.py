@@ -7,6 +7,7 @@ import shutil
 import json
 import uuid
 import portable
+import workflow_import
 from block_templates import _net_braces, _pattern_from_rendered, build_reverse_pattern, get_choice_combos, make_custom_block_generate_code
 from ui_common import APP_SETTINGS_PATH, BLOCK_BG, CUSTOM_BLOCKS_PATH, DARK_ACCENT, DARK_BG, DARK_FG, LANGUAGE_EXTENSIONS, get_block_attr
 
@@ -579,6 +580,29 @@ class ImportMixin:
             text_widget.insert(1.0, content)
 
         return dialog
+
+    def import_github_workflow(self, path=None):
+        """File > Import GitHub Workflow...: a workflow file (.github/workflows/*.yml) opens in a new tab as Python nodes,
+        one per job, with `needs` as calls (wires) and each `run:` step as a shell command (see workflow_import)."""
+        if path is None:
+            path = filedialog.askopenfilename(title="Import GitHub Workflow",
+                                              filetypes=[("Workflow files", "*.yml *.yaml"), ("All files", "*.*")])
+        if not path:
+            return None
+        if "python" not in self.get_available_languages():
+            messagebox.showerror("Can't Import", "Workflows open as Python nodes, and the Python language isn't set up.")
+            return None
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            marked, notes = workflow_import.workflow_to_marked_text(text, self.get_comment_token("python") or "#")
+        except (OSError, workflow_import.YamlError) as e:
+            messagebox.showerror("Can't Import Workflow", str(e))
+            return None
+        diag = self.load_portable_text(marked, title=os.path.splitext(os.path.basename(path))[0], language="python")
+        lines = [f"Opened as Python nodes: one per job; 'needs' are calls, 'run:' steps run in a shell."] + notes + (diag or [])
+        messagebox.showinfo("Workflow imported", "\n".join("\u2022 " + n for n in lines[:14]))
+        return lines
 
     def _read_sidecar(self, content):
         """Text of <last picked file>.blockliner.json, or None if absent."""

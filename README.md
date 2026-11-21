@@ -76,9 +76,11 @@ It exists to fix one problem: **remembering exact syntax**. Most block tools are
 
 ## Download
 
-Prebuilt binaries (Windows `.exe`, Linux `.AppImage`, macOS binary) are attached to each version on the
+Prebuilt downloads (Windows `.exe`, Linux `.AppImage`, `.deb` for Debian/Ubuntu and `.rpm` for Fedora/RHEL, macOS zips for Apple Silicon and Intel) are attached to each version on the
 **[Releases page](https://github.com/somore100/Blockliner/releases)** once the automated build for that version has finished.
 If there is no download for your system yet, [run it from source](#quick-start); it takes a few minutes.
+
+Linux packages: `sudo apt install ./blockliner_*.deb` (Debian, Ubuntu) or `sudo dnf install ./blockliner-*.rpm` (Fedora).
 
 ## Quick start
 
@@ -128,7 +130,7 @@ Blockliner has four layers, switched from the bar at the top right. Each one is 
 
 **Organising.** Nodes have a visible run order. You can *Ignore* a node (leave it out of the output) or *Skip* it (bypass it: its code and every call to it appear as `##` comments). **Categories** open like folders; **groups** are labelled coloured regions on the canvas. **Node templates** let you save a node and reuse it.
 
-**Code in, code out.** Export real source files. Edit the generated code and the blocks follow. Import an existing file: Blockliner recognises what it can and keeps the rest as editable raw code. In Python, typing an expression into a block's slot converts recognised patterns (such as a function call) into structured sub-blocks, and leaves anything else as plain text.
+**Code in, code out.** Export real source files. Edit the generated code and the blocks follow. Import an existing file: Blockliner recognises what it can and keeps the rest as editable raw code. **File > Open Code File...** and **Paste Code as Nodes...** can turn code into blocks in the current node, or open it in a new tab as nodes, split at blank lines and top-level definitions (in Python a class becomes a class node with one node per method). **File > Import GitHub Workflow...** opens a workflow as one node per job, with `needs` as wires. In Python, typing an expression into a block's slot converts recognised patterns (such as a function call) into structured sub-blocks, and leaves anything else as plain text.
 
 ## Architecture
 
@@ -185,6 +187,8 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [x] Nine language packs: Python, C, C++, C#, Java, JavaScript, Rust, Go, HTML
 - [x] Custom block builder
 - [x] Code-to-blocks import and live sync from the code panel
+- [x] Import as nodes: blank-line groups, Python class methods, multi-line statements, GitHub workflows
+- [x] Menu bar widgets in the UI builder
 - [x] Smart slots for Python (typed code snaps into structured blocks)
 - [x] Node-and-wire canvas: drag-to-wire, wires derived from code, run order, zoom and pan
 - [x] Ports (inputs and outputs from function parameters, returns and variables), drag a port onto a node or input
@@ -194,7 +198,7 @@ Each language is a folder of JSON files under `languages/` (one file per block),
 - [x] Projects: save and reopen workspaces, open a whole folder
 - [x] Zoom level-of-detail (compact boxes when zoomed out)
 - [x] About window, top-bar menus, settings
-- [x] Automated release builds (Windows, macOS Apple Silicon and Intel, Linux), gated by the tests
+- [x] Automated release builds (Windows, macOS Apple Silicon and Intel, Linux AppImage, `.deb` and `.rpm`), gated by the tests
 - [x] Guided tour, a "How it fits" explainer, Node Input/Output blocks and *Make this node a function*
 - [x] Run in its own process with Stop and an input box
 - [x] Safer saving: Ctrl+S, all-or-nothing writes with a .bak, recovery copies after a crash

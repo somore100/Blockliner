@@ -545,18 +545,21 @@ class ImportMixin:
         update_right_panel_visibility) without losing the 'Open Code
         File' / 'Code -> Blocks' workflow at the other two layers."""
         dialog = tk.Toplevel(self)
-        dialog.title("Code \u2192 Blocks")
-        dialog.geometry("640x480")
+        dialog.title("Import Code")
+        dialog.geometry("700x520")
+        dialog.minsize(480, 300)
         dialog.configure(bg=DARK_BG)
         dialog.transient(self)
 
         header = tk.Frame(dialog, bg=DARK_BG)
         header.pack(fill=tk.X, padx=10, pady=(10, 4))
         tk.Label(
-            header, text="Paste or open code below, then Convert.",
+            header, text="Paste or open code below, then choose how to import it.",
             bg=DARK_BG, fg="#888888", font=("Segoe UI", 9)
         ).pack(side=tk.LEFT)
 
+        btn_row = tk.Frame(dialog, bg=DARK_BG)
+        btn_row.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(4, 10))   # packed first: never clipped
         text_widget = tk.Text(
             dialog, bg=BLOCK_BG, fg=DARK_FG, insertbackground=DARK_FG,
             relief=tk.FLAT, wrap=tk.NONE, font=("Consolas", 10)
@@ -573,8 +576,15 @@ class ImportMixin:
         def _convert():
             self._convert_code_string_to_blocks(text_widget.get(1.0, tk.END), dialog=dialog)
 
-        btn_row = tk.Frame(dialog, bg=DARK_BG)
-        btn_row.pack(fill=tk.X, padx=10, pady=(4, 10))
+        def _as_nodes():
+            content = text_widget.get(1.0, tk.END)
+            if not content.strip():
+                return
+            dialog.destroy()
+            self.open_text_as_nodes(content)
+
+        # Files layer: the whole text as a new file of nodes is the natural choice; otherwise blocks in this node
+        nodes_first = getattr(self, "view_mode", "") in ("files", "file")
         tk.Button(
             btn_row, text="\U0001F4C4 Open File", bg="#3a3a3a", fg=DARK_FG,
             relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), command=_open_file
@@ -583,10 +593,12 @@ class ImportMixin:
             btn_row, text="Cancel", bg="#3a3a3a", fg=DARK_FG,
             relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9), command=dialog.destroy
         ).pack(side=tk.RIGHT)
-        tk.Button(
-            btn_row, text="\U0001F504 Convert", bg=DARK_ACCENT, fg="#ffffff",
-            relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9, "bold"), command=_convert
-        ).pack(side=tk.RIGHT, padx=(0, 8))
+        for label, cmd, primary in ((("Convert to blocks (this node)", _convert, not nodes_first)),
+                                    ("Open as nodes (new tab)", _as_nodes, nodes_first)):
+            tk.Button(
+                btn_row, text=label, bg=DARK_ACCENT if primary else "#3a3a3a", fg="#ffffff" if primary else DARK_FG,
+                relief=tk.FLAT, cursor="hand2", font=("Segoe UI", 9, "bold" if primary else "normal"), command=cmd
+            ).pack(side=tk.RIGHT, padx=(0, 8))
 
         if prefill_from_file:
             content = self._pick_code_file_content()
@@ -659,12 +671,17 @@ class ImportMixin:
                 "\n\nNo = import it as plain code."):
             return False
         dialog.destroy()
+        self.open_text_as_nodes(content, chunks)
+        return True
+
+    def open_text_as_nodes(self, content, chunks=None):
+        """Open plain code in a NEW tab as nodes: split by top-level code (and, in Python, a class's methods)."""
+        chunks = chunks or portable.split_top_level(content) or [("main", content)]
         token = self.get_comment_token(self.current_language) or "#"
         marked = portable.wrap_with_classes(chunks, token, self.current_language)
         notes = self.load_portable_text(marked)
-        notes = [f"Split into {len(chunks)} nodes - names come from the code; layout is a default grid."] + (notes or [])
+        notes = [f"Opened as nodes (split by top-level code) - names come from the code; layout is a default grid."] + (notes or [])
         messagebox.showinfo("Opened with notes", "\n".join("\u2022 " + n for n in notes[:12]))
-        return True
 
     def load_and_merge_custom_blocks(self):
         """

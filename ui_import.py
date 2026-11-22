@@ -583,6 +583,10 @@ class ImportMixin:
             dialog.destroy()
             self.open_text_as_nodes(content)
 
+        tk.Button(
+            btn_row, text="AI changes...", bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+            font=("Segoe UI", 9), command=lambda: (dialog.destroy(), self.open_changes_dialog())
+        ).pack(side=tk.LEFT, padx=(8, 0))
         # Files layer: the whole text as a new file of nodes is the natural choice; otherwise blocks in this node
         nodes_first = getattr(self, "view_mode", "") in ("files", "file")
         tk.Button(

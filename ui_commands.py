@@ -28,6 +28,7 @@ CORE = [
     ("file.open_code", "Open Code File...", "File", 1,
      lambda a: a.open_code_to_blocks_dialog(prefill_from_file=True), "", "import source"),
     ("file.paste_code", "Paste Code as Nodes...", "File", 1, lambda a: a.open_code_to_blocks_dialog(), "", "import text"),
+    ("file.apply_changes", "Apply AI Changes...", "File", 1, lambda a: a.open_changes_dialog(), "", "ai chatgpt suggested edit patch"),
     ("file.import_workflow", "Import GitHub Workflow...", "File", 1, lambda a: a.import_github_workflow(), "", "actions yml ci jobs"),
     ("file.export", "Export", "File", 1, lambda a: a.export_code(), "", "save code file"),
     ("file.clean", "Clean Project...", "File", 2, lambda a: a.clean_project(), "", "tidy remove unused"),

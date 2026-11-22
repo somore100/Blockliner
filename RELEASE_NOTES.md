@@ -1,3 +1,7 @@
+## Next
+
+- **File > Apply AI Changes...**: paste changes an AI chat suggested and apply them without line numbers. Each change names a function (node) and quotes the code to find (or replaces the whole function, or adds a new one); you review a before/after for each, and the ticked ones are applied as one undoable step. *Copy instructions for AI* gives the chat the format to use. See docs/ai-changes.md.
+
 ## What's new in 2.8.0
 
 **Import**

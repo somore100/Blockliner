@@ -31,6 +31,7 @@ from ui_importmanager import ImportManagerMixin
 from ui_extensions import ExtensionsMixin
 from ui_projectundo import ProjectUndoMixin
 from ui_changes import ChangesMixin
+from ui_importui import UIImportMixin
 from ui_control import ControlMixin
 from ui_commands import CommandsMixin
 from ui_depot import DepotMixin
@@ -75,7 +76,7 @@ def _small_logo(path, size=64):
         return None
 
 
-class BlocklinerUI(ChangesMixin, TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, FollowMixin, PresenceMixin, UINodeMixin, NodeWidgetsMixin, WidgetBoxMixin, CullMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, ZoomPreviewMixin, tk.Tk):
+class BlocklinerUI(UIImportMixin, ChangesMixin, TabsMixin, ImportMixin, PaletteMixin, CustomBlocksMixin, BlockEditMixin, LayersMixin, NodeOpsMixin, MenusMixin, CanvasMixin, CodegenMixin, RunWindowMixin, CodeSyncMixin, LineCheckMixin, LibrariesMixin, ImportManagerMixin, ExtensionsMixin, ProjectUndoMixin, ControlMixin, CommandsMixin, DepotMixin, NodeTemplatesMixin, TopBarMixin, CanvasViewMixin, GroupsMixin, MultiOpenMixin, OpenProjectMixin, FollowMixin, PresenceMixin, UINodeMixin, NodeWidgetsMixin, WidgetBoxMixin, CullMixin, DesignerMixin, TourMixin, StructureMixin, AutosaveMixin, ZoomPreviewMixin, tk.Tk):
     def set_app_icon(self):
         """Our logo in the title bar of every window instead of the default Tk feather."""
         import os

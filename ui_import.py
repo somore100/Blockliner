@@ -587,6 +587,15 @@ class ImportMixin:
             btn_row, text="AI changes...", bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
             font=("Segoe UI", 9), command=lambda: (dialog.destroy(), self.open_changes_dialog())
         ).pack(side=tk.LEFT, padx=(8, 0))
+        def _as_ui():
+            content = text_widget.get(1.0, tk.END)
+            if content.strip() and self.open_text_as_ui(content):
+                dialog.destroy()
+
+        tk.Button(
+            btn_row, text="Open as UI window", bg="#3a3a3a", fg=DARK_FG, relief=tk.FLAT, cursor="hand2",
+            font=("Segoe UI", 9), command=_as_ui
+        ).pack(side=tk.LEFT, padx=(8, 0))
         # Files layer: the whole text as a new file of nodes is the natural choice; otherwise blocks in this node
         nodes_first = getattr(self, "view_mode", "") in ("files", "file")
         tk.Button(
@@ -664,6 +673,9 @@ class ImportMixin:
         every language). True if opened."""
         if portable.NODE_MARKER_RE.search(content):
             return False
+        if self._offer_ui_import(content):
+            dialog.destroy()
+            return True
         chunks = portable.split_top_level(content)
         if not chunks or len(chunks) < 2:
             return False
@@ -680,6 +692,8 @@ class ImportMixin:
 
     def open_text_as_nodes(self, content, chunks=None):
         """Open plain code in a NEW tab as nodes: split by top-level code (and, in Python, a class's methods)."""
+        if chunks is None and self._offer_ui_import(content):       # a window in the code: the designer
+            return
         chunks = chunks or portable.split_top_level(content) or [("main", content)]
         token = self.get_comment_token(self.current_language) or "#"
         marked = portable.wrap_with_classes(chunks, token, self.current_language)

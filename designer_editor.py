@@ -920,6 +920,9 @@ class UIDesignerEditor:
         self._dz_field(frame, "Variable name", widget["name"], lambda text, w=wid: self._dz_rename(w, text))
         for p in wdef["props"]:
             self._dz_prop_row(frame, tree, wid, widget, p)
+        if wid != tree.root["id"] and (widget.get("extra") or self._dz_state_has_extra_ui()):
+            self._dz_field(frame, "Other options", ", ".join(f"{k}={v}" for k, v in widget.get("extra", {}).items()),
+                           lambda text, w=wid: self._dz_set_extra(w, text))
         parent = tree.parent_of(wid)
         if wdef["container"] and parent is not None and parent["id"] == tree.root["id"]:
             var = tk.BooleanVar(value=bool(widget.get("screen")))
@@ -1131,6 +1134,28 @@ class UIDesignerEditor:
             self._dz_apply(lambda t: t.clear_prop(wid, p["key"]))
         else:
             self._dz_apply(lambda t: t.set_prop(wid, p["key"], value))
+
+    def _dz_state_has_extra_ui(self):
+        """The 'Other options' row is always offered for widgets of a code-imported window (see ui_import_reader)."""
+        tree = self.port.load_tree() if hasattr(self.port, "load_tree") else None
+        return bool(tree is not None and tree.extra.get("expose_globals"))
+
+    def _dz_set_extra(self, wid, text):
+        """Other options typed as `bd=2, relief='flat'`: kept exactly as written."""
+        import ast
+        extra = {}
+        text = text.strip()
+        if text:
+            try:
+                call = ast.parse(f"f({text})", mode="eval").body
+                if call.args or any(k.arg is None for k in call.keywords):
+                    raise SyntaxError
+                extra = {k.arg: ast.unparse(k.value) for k in call.keywords}
+            except SyntaxError:
+                self.host.bell()
+                self.host.after_idle(lambda: self._dz_update(code=False))
+                return
+        self._dz_apply(lambda t: t.set_extra(wid, extra))
 
     def _dz_set_layout(self, wid, **values):
         def change(t):

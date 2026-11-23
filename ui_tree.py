@@ -230,6 +230,15 @@ class UITree:
         self._checkpoint(("prop", widget_id, key))
         node["props"][key] = value
 
+    def set_extra(self, widget_id, extra):
+        """The widget's other options (arguments the pack has no prop for), {name: source text}; {} clears them."""
+        node = self._get(widget_id)
+        self._checkpoint(("extra", widget_id))
+        if extra:
+            node["extra"] = dict(extra)
+        else:
+            node.pop("extra", None)
+
     def set_screen(self, widget_id, on=True):
         """Mark a container that sits directly in the window as a screen (only one screen shows at a time), or
         unmark it. Screens are generated as show_screen('name') on the UI's namespace."""

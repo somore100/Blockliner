@@ -85,9 +85,16 @@ def _prop_values(props_schema, node_values, quote):
     return out
 
 
-def _args(props_schema, node_values, quote):
+def extra_args(extra):
+    """['key=source', ...] for a widget's (or layout's) `extra` options: arguments the pack has no prop for, kept
+    exactly as written (code imported from a hand-written UI, or typed in the settings panel)."""
+    return [f"{k}={v}" for k, v in extra.items() if isinstance(k, str) and k.isidentifier() and isinstance(v, str) and v.strip()] \
+        if isinstance(extra, dict) else []
+
+
+def _args(props_schema, node_values, quote, extra=None):
     """`key=value` for every set prop, schema order, skipping inline props,
-    unset (None) props and values equal to the prop's omit_when."""
+    unset (None) props and values equal to the prop's omit_when; then the `extra` options."""
     parts = []
     for p in props_schema:
         if p["inline"] or p["key"] not in node_values:
@@ -96,11 +103,12 @@ def _args(props_schema, node_values, quote):
         if value is None or (p["omit_when"] is not None and value == p["omit_when"]):
             continue
         parts.append(f"{p['arg']}={literal(p['kind'], value, quote)}")
+    parts.extend(extra_args(extra))
     return ", ".join(parts)
 
 
-def _template_values(name, parent, handler, props_schema, node_values, quote):
-    args = _args(props_schema, node_values, quote)
+def _template_values(name, parent, handler, props_schema, node_values, quote, extra=None):
+    args = _args(props_schema, node_values, quote, extra)
     values = {"name": (name, name), "parent": (parent or "", parent or ""),
               "handler": (handler or "", handler or ""),
               "args": (args, args), "opts": ((", " + args) if args else "",) * 2}
@@ -126,7 +134,7 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
             return                                  # reported by tree_problems
         name = node["name"]
         names.append(name)
-        values = _template_values(name, parent_name, None, w["props"], node["props"], quote)
+        values = _template_values(name, parent_name, None, w["props"], node["props"], quote, node.get("extra"))
         if w["code_raw"] is not None:
             body.extend(w["code_raw"].replace("{name}", name).replace("{parent}", parent_name or "").split("\n"))
         else:
@@ -140,8 +148,8 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
         if parent_name is not None:
             spec = pack.layouts.get(manager)
             if spec is not None:
-                set_values = {k: v for k, v in node["layout"].items() if k != "manager"}
-                lvals = _template_values(name, parent_name, None, spec["props"], set_values, quote)
+                set_values = {k: v for k, v in node["layout"].items() if k not in ("manager", "extra")}
+                lvals = _template_values(name, parent_name, None, spec["props"], set_values, quote, node["layout"].get("extra"))
                 body.extend(fill(line, lvals) for line in spec["code"])
             elif manager is None and not w.get("no_layout"):
                 problems.append(f"'{name}' has no layout manager, so it won't be placed")
@@ -154,14 +162,17 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
             if not handler:
                 problems.append(f"'{name}': the {ev['key']} event points at a function that can't be found")
                 continue
-            evals = _template_values(name, parent_name, handler, w["props"], node["props"], quote)
+            evals = _template_values(name, parent_name, handler, w["props"], node["props"], quote, node.get("extra"))
             body.extend(fill(line, evals) for line in ev["code"])
+        if parent_name is None:
+            body.extend(_code_lines(tree, "pre_code"))      # statements the author wrote right after the window
 
         for child in node["children"]:
             emit(child, name)
 
     emit(tree.root, None)
     body.extend(late)
+    body.extend(_code_lines(tree, "post_code"))
     indent = fn["indent"]
     helpers = _visibility_lines(tree, pack)
     if helpers:
@@ -173,6 +184,8 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
         body.extend(actions)
         names = names + [m.group(1) for ln in actions if (m := re.match(r"def (\w+)\(", ln)) and m.group(1) not in names]
     pairs = ", ".join(fill(fn["pair"], {"name": (n, n)}) for n in names)
+    if tree.extra.get("expose_globals") is True:
+        body.extend(["", "globals().update(locals())    # the code around this window uses its widgets by name"])
     function = [fill(fn["def"], {"fname": (fname, fname)})]
     function += [indent + line if line else line for line in body]
     function.append(indent + fill(fn["ret"], {"pairs": (pairs, pairs)}))
@@ -188,6 +201,18 @@ def generate(tree, pack, handler_name=None, function_name=None, ui_name="ui"):
     return {"imports": imports, "function": function,
             "call": [] if standalone else call, "run": [] if standalone else run,
             "preview_tail": call + run, "problems": problems}
+
+
+def _code_lines(tree, key):
+    """The lines kept verbatim in the build function (tree.extra[key], a list of strings; see ui_import_reader)."""
+    lines = tree.extra.get(key)
+    if not isinstance(lines, list):
+        return []
+    out = []
+    for item in lines:
+        if isinstance(item, str):
+            out.extend(item.split("\n"))
+    return out
 
 
 def _visibility_lines(tree, pack):

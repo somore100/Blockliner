@@ -89,7 +89,8 @@ def pure():
     check("load_all: the same real folder is only read once", len(e2) == 4)
 
     # ---- save
-    root = tempfile.mkdtemp()
+    root = os.path.join(tempfile.mkdtemp(), "root")      # its own parent, so a stray /tmp/x can't fail the escape check
+    os.makedirs(root)
     p1 = N.save_custom(root, "python", tpl(name="My Login!"))
     p2 = N.save_custom(root, "python", tpl(name="My Login!"))
     check("save: slugged file in <scope>/custom, never overwrites", p1.endswith(os.path.join("python", "custom", "my_login.json")) and p2.endswith("my_login_2.json") and os.path.exists(p1) and os.path.exists(p2))

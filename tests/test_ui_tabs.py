@@ -58,7 +58,7 @@ check("dropped on the tabs it becomes a tab page", ch.get(outside, {}).get("pare
 # other libraries are untouched
 for lib in ("customtkinter", "kivy"):
     other, _ = ui_pack.load_pack(os.path.join(ROOT, lib))
-    check(f"{lib}: layouts_for gives every layout", other.layouts_for("frame") == list(other.layouts))
+    check(f"{lib}: layouts_for gives every layout", other.layouts_for("frame") == [m for m, spec in other.layouts.items() if not spec.get("child_only")])
 
 print("ALL OK" if not FAILURES else f"FAILURES: {FAILURES}")
 sys.exit(1 if FAILURES else 0)

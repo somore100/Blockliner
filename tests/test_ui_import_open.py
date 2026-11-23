@@ -37,6 +37,25 @@ one.grid(row=1, column=1)
 root.mainloop()
 '''
 
+CLS = '''import tkinter as tk
+
+class Counter(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Counter")
+        self.n = 0
+        self.label = tk.Label(self, text="0")
+        self.label.grid(row=0, column=0)
+        self.up = tk.Button(self, text="+", command=self.bump)
+        self.up.grid(row=1, column=0)
+
+    def bump(self):
+        self.n += 1
+        self.label.config(text=str(self.n))
+
+Counter().mainloop()
+'''
+
 def main():
     asked = []
     messagebox.showinfo = lambda *a, **k: asked.append(a)
@@ -66,6 +85,16 @@ def main():
         check("a handler that uses a widget by name still works", ns["ui"].display.cget("text") == "7")
         ns["ui"].clr.invoke()
         check("a linked button runs its function", ns["ui"].display.cget("text") == "0")
+        ns["ui"].root.destroy()
+        check("a class-based window opens too", app.open_text_as_ui(CLS) is True)
+        tab = app.tabs[app.active_tab_index]
+        code = app.generate_code_for_tab(tab, "python")
+        ns = {}
+        exec(compile(code.replace("ui.root.mainloop()", "ui.root.update()"), "gen", "exec"), ns)
+        ns["ui"].up.invoke()
+        ns["ui"].up.invoke()
+        ns["ui"].root.update()
+        check("its method runs and keeps its state", ns["ui"].label.cget("text") == "2")
         ns["ui"].root.destroy()
         n_tabs = len(app.tabs)
         check("a program with no window is not taken", app.open_text_as_ui("x = 1\n", show_problems=False) is False and len(app.tabs) == n_tabs)

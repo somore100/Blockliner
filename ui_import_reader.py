@@ -22,6 +22,7 @@ import re
 import textwrap
 from dataclasses import dataclass, field
 
+import ui_import_class
 from ui_tree import UITree, is_valid_name
 
 ROOT_CLASSES = {"Tk", "CTk"}
@@ -88,8 +89,16 @@ def read(source, pack):
         return res
     classes = class_map(pack)
     body = _flatten(module.body, pack, res)
+    flat, why = ui_import_class.flatten(source)             # class App(tk.Tk): ... written out as plain code
+    if flat is not None:
+        again = read(flat, pack)
+        again.report = why + again.report
+        return again
     root_i = next((i for i, st in enumerate(body) if _root_name(st, pack)), None)
     if root_i is None:
+        if why:
+            res.problems.append("the window is made inside a class that can't be turned into plain code: " + "; ".join(why))
+            return res
         in_class = any(isinstance(st, ast.ClassDef) and any(_callee_name(b) in ROOT_CLASSES for b in st.bases) for st in body)
         res.problems.append(
             "the window is made inside a class (class App(tk.Tk)), which isn't read yet" if in_class else

@@ -231,10 +231,16 @@ def parse_portable(text, ignore_lines=()):
 
     nodes, node_lines, open_id, outside_chars = [], [], None, 0
     seen = set()
+    all_ids = {m.group(1) for ln in lines for m in [NODE_MARKER_RE.search(ln)] if m}
 
     def close(node_id):
-        if node_id in seen:
-            diagnostics.append(f"node '{node_id}' appears more than once - keeping the first")
+        if node_id in seen:                      # a copied marker block: keep it as its own node, not lost
+            new_id, n = f"{node_id}_copy", 2
+            while new_id in seen or new_id in all_ids:
+                new_id, n = f"{node_id}_copy_{n}", n + 1
+            seen.add(new_id)
+            nodes.append({"id": new_id, "code": "".join(node_lines), "copy_of": node_id})
+            diagnostics.append(f"node '{node_id}' appears more than once - the later one was kept as a new node '{new_id}'")
         else:
             seen.add(node_id)
             nodes.append({"id": node_id, "code": "".join(node_lines)})
@@ -299,6 +305,7 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
     if meta is None and meta_override is not None:
         meta = meta_override  # sidecar data; a valid block inside the file wins
     code_by_id = {n["id"]: dedent_code(n["code"], wrapper_indent) for n in marked}
+    copy_of = {n["id"]: n["copy_of"] for n in marked if n.get("copy_of")}
     file_order = [n["id"] for n in marked]
     active = None
 
@@ -355,9 +362,17 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
     # markers the metadata doesn't know about: flat extra function nodes
     for node_id in file_order:
         if node_id not in flat:
-            if meta:
-                diagnostics.append(f"node '{node_id}' is in the file but not in the metadata - added as a plain node")
-            flat[node_id] = new_node(node_id, {})
+            if node_id in copy_of:               # a copied block: the original's settings, its own name, no position
+                src = entries.get(copy_of[node_id])
+                src = src if isinstance(src, dict) else {}
+                entry = {k: v for k, v in src.items() if k in ("kind", "category", "parent", "index", "indent", "node_type_id")}
+                entry["name"] = f"{src.get('name') or copy_of[node_id]} (copy)"
+                flat[node_id] = new_node(node_id, entry)
+                entries = dict(entries, **{node_id: entry})
+            else:
+                if meta:
+                    diagnostics.append(f"node '{node_id}' is in the file but not in the metadata - added as a plain node")
+                flat[node_id] = new_node(node_id, {})
 
     # nesting: only what the metadata states; an unknown/self/cyclic parent
     # means "unrecovered", so the node stays top-level
@@ -400,6 +415,17 @@ def rebuild_nodes(text, language, wrapper_indent="", wrapper_text="", meta_overr
         if "order" not in n:
             n["order"] = nxt
             nxt += 1
+
+    # a copy runs right after the node it was copied from (when there is metadata, which holds the order numbers)
+    if meta:
+        for cid, oid in copy_of.items():
+            anchor, node = flat.get(oid), flat.get(cid)
+            if node and anchor and isinstance(anchor.get("order"), int) and node["kind"] == "function":
+                at = anchor["order"] + 1
+                for other in flat.values():
+                    if other is not node and isinstance(other.get("order"), int) and other["order"] >= at:
+                        other["order"] += 1
+                node["order"] = at
 
     # fallback grid for anything without a saved position (flat, deterministic)
     def place(level):

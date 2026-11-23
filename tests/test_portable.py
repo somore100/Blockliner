@@ -113,7 +113,19 @@ def main():
     # mismatched / duplicate markers never raise
     messy = "# $$$blockliner:node:a$$$ start\n1\n# $$$blockliner:node:b$$$ start\n2\n# $$$blockliner:node:b$$$ end\n# $$$blockliner:node:a$$$ end\n# $$$blockliner:node:b$$$ start\n3\n# $$$blockliner:node:b$$$ end\n"
     got, _, diag = P.parse_portable(messy)
-    check("overlap/duplicates: no crash, notes, first duplicate kept", [n["id"] for n in got] == ["a", "b"] and len(diag) >= 2)
+    check("overlap/duplicates: no crash, notes, the repeat is kept under a new id", [n["id"] for n in got] == ["a", "b", "b_copy"] and got[2]["code"] == "3\n" and len(diag) >= 2)
+
+    # a copied node: its own id and name, run right after the original, nothing lost
+    def tn(i, n, o): return node(i, n, order=o)
+    cm = P.build_metadata([tn("a", "first", 1), tn("b", "second", 2), tn("c", "third", 3)], "python")
+    mk = lambda i, code: "".join(P.node_marker_lines(i, "#")[:1]) + "\n" + code + P.node_marker_lines(i, "#")[1] + "\n"
+    ctext = mk("a", "x = 1\n") + mk("b", "y = 2\n") + mk("c", "z = 3\n") + mk("a", "x = 1\n") + "\n" + P.render_meta_block(cm, "#")
+    top, _, diag = P.rebuild_nodes(ctext, "python")
+    byid = {n["id"]: n for n in top}
+    check("copy: a new node keeps the pasted code", set(byid) == {"a", "b", "c", "a_copy"} and byid["a_copy"]["code"] == "x = 1\n" and byid["a"]["code"] == "x = 1\n")
+    check("copy: named '(copy)' and told to the user", byid["a_copy"]["name"] == "first (copy)" and any("a_copy" in d for d in diag))
+    check("copy: runs right after the original, the rest move back", [byid[i]["order"] for i in ("a", "a_copy", "b", "c")] == [1, 2, 3, 4])
+    check("copy: gets no saved position of its own", byid["a_copy"].get("_auto_pos") is not None)
     check("stray end marker ignored", P.parse_portable("# $$$blockliner:node:x$$$ end\ncode\n")[0] == [])
     check("outside text is reported not turned into nodes", any("outside any node" in d for d in P.parse_portable("hello\n# $$$blockliner:node:x$$$ start\n1\n# $$$blockliner:node:x$$$ end\n")[2]))
 

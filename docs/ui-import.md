@@ -8,7 +8,7 @@
 - `command=handler` becomes a link to the node of that function (File > Nodes layer shows it as an event).
 
 ## What is understood (`ui_import_reader.py`, pure)
-- `root = tk.Tk()` (or `ctk.CTk()`), `root.title("..")`, `root.geometry("..")`.
+- `root = tk.Tk()` (or `ctk.CTk()`), `root.title("..")`, `root.geometry("..")`; at the top of the file, in a `main()` without parameters, or under `if __name__ == "__main__":` (the code is then taken out to the top, and the call of `main()` dropped).
 - `name = tk.Button(parent, text=.., bg=.., fg=.., width=.., command=handler)`: the pack's own templates say which class is which
   widget (tk and ttk classes both work; `bg`/`fg` are read as background/foreground).
 - `name.grid(...)` and `name.place(...)` as the widget's layout.
@@ -25,6 +25,6 @@
 - Code before the window that doesn't need it runs before it; code after `mainloop()` runs after.
 
 ## Not yet
-Windows inside classes (`class App(tk.Tk)`), code inside `main()` or `if __name__ == "__main__":`, Kivy (Python or `.kv`),
+Windows inside classes (`class App(tk.Tk)`; the import says so), Kivy (Python or `.kv`),
 `.pack()` as a real layout, widgets created in loops as designer widgets, and reading the extras back after
 detach / "Back to designer" (that reader still expects generated code).

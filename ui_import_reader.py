@@ -19,6 +19,7 @@ name keep working.
 """
 import ast
 import re
+import textwrap
 from dataclasses import dataclass, field
 
 from ui_tree import UITree, is_valid_name
@@ -86,18 +87,20 @@ def read(source, pack):
         res.problems.append(f"the code has a syntax error (line {e.lineno})")
         return res
     classes = class_map(pack)
-    body = module.body
+    body = _flatten(module.body, pack, res)
     root_i = next((i for i, st in enumerate(body) if _root_name(st, pack)), None)
     if root_i is None:
-        res.problems.append("no window was found (a line like  root = tk.Tk()  at the top level of the code)")
+        in_class = any(isinstance(st, ast.ClassDef) and any(_callee_name(b) in ROOT_CLASSES for b in st.bases) for st in body)
+        res.problems.append(
+            "the window is made inside a class (class App(tk.Tk)), which isn't read yet" if in_class else
+            "no window was found (a line like  root = tk.Tk()  at the top level of the code, in main(), or under if __name__ == '__main__')")
         return res
     root_name = _root_name(body[root_i], pack)
     root_type = pack.root_types[0]
     main_i = next((i for i in range(root_i + 1, len(body)) if _is_call_on(body[i], root_name, "mainloop")), len(body))
 
     def text(st):
-        seg = ast.get_source_segment(source, st, padded=True) or ""
-        return seg
+        return textwrap.dedent(ast.get_source_segment(source, st, padded=True) or "")
 
     props = pack.defaults(root_type)
     tree = UITree.new(pack.id, root_type=root_type, root_name=root_name, props=props, is_container=pack.is_container)
@@ -144,6 +147,35 @@ def read(source, pack):
     if pre or post:
         notes.append(f"{len(pre) + len(post)} statement(s) around the widgets are kept as code inside the window's function")
     return res
+
+
+def _callee_name(node):
+    return node.attr if isinstance(node, ast.Attribute) else getattr(node, "id", None)
+
+
+def _has_root(stmts, pack):
+    return any(_root_name(st, pack) for st in stmts)
+
+
+def _flatten(body, pack, res):
+    """The statements to read: the module's, or - when the window is made inside `if __name__ == "__main__":` or a
+    function without parameters - that block's, taken out as if written at the top (a call of that function is dropped)."""
+    if _has_root(body, pack):
+        return body
+    for i, st in enumerate(body):
+        guard = (isinstance(st, ast.If) and isinstance(st.test, ast.Compare) and isinstance(st.test.left, ast.Name)
+                 and st.test.left.id == "__name__")
+        func = (isinstance(st, ast.FunctionDef) and not st.args.args and not st.args.vararg and not st.args.kwonlyargs)
+        if (guard or func) and _has_root(st.body, pack):
+            def calls_it(x):
+                return (isinstance(x, ast.Expr) and isinstance(x.value, ast.Call) and isinstance(x.value.func, ast.Name)
+                        and x.value.func.id == st.name)
+            rest = [x for x in body[i + 1:] if not (func and (calls_it(x) or (
+                isinstance(x, ast.If) and x.body and all(calls_it(y) for y in x.body) and not x.orelse)))]
+            res.report.append(f"the window was made inside {'`if __name__ == \'__main__\'`' if guard else 'main()'}; "
+                              "its code now runs at the top of the file")
+            return body[:i] + list(st.body) + rest
+    return body
 
 
 def _root_name(st, pack):

@@ -82,5 +82,12 @@ CTK = PACKS.get("python/customtkinter")
 if CTK:
     c = r.read("import customtkinter as ctk\napp = ctk.CTk()\nb = ctk.CTkButton(app, text='Hi', command=go)\nb.pack()\napp.mainloop()\n", CTK)
     check("customtkinter reads the same way", c.tree is not None and [n["name"] for n in c.tree.walk()] == ["app", "b"] and c.links == [("b", "command", "go")])
+M = "import tkinter as tk\ndef go():\n    print('x')\ndef main():\n    root = tk.Tk()\n    b = tk.Button(root, text='Go', command=go)\n    b.grid(row=0, column=0)\n    root.mainloop()\nif __name__ == '__main__':\n    main()\n"
+m = r.read(M, TK)
+check("a window made in main() is read", m.tree is not None and [n["name"] for n in m.tree.walk()] == ["root", "b"] and "def go" in m.before and "main()" not in m.after)
+G = "import tkinter as tk\nif __name__ == '__main__':\n    root = tk.Tk()\n    root.mainloop()\n"
+check("a window under the __main__ guard is read", r.read(G, TK).tree is not None)
+C = "import tkinter as tk\nclass App(tk.Tk):\n    def __init__(self):\n        super().__init__()\nApp().mainloop()\n"
+check("a window made in a class says so", "class" in " ".join(r.read(C, TK).problems))
 print("\nFAILED: " + ", ".join(FAILURES) if FAILURES else "\nALL PASS")
 sys.exit(1 if FAILURES else 0)

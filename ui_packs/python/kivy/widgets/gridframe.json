@@ -1,0 +1,44 @@
+{
+  "category": "Containers",
+  "container": true,
+  "default_size": [
+    240,
+    140
+  ],
+  "child_layout": "cell",
+  "events": [],
+  "type": "gridframe",
+  "label": "Grid box",
+  "description": "Lays its widgets out in rows and columns, filling left to right then down (Kivy GridLayout).",
+  "icon": "▦",
+  "props": [
+    {
+      "key": "cols",
+      "label": "Columns",
+      "kind": "int",
+      "default": 2
+    },
+    {
+      "key": "rows",
+      "label": "Rows",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "spacing",
+      "label": "Spacing",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "padding",
+      "label": "Padding",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "code": [
+    "{name} = GridLayout({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

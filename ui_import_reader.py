@@ -97,6 +97,9 @@ def _fit(kind, value):
 
 def read(source, pack):
     """Read `source` with `pack` (a ui_pack.Pack). Always returns a Result; `tree` is None when no window was found."""
+    if pack.id == "python/kivy":
+        import ui_import_kivy
+        return ui_import_kivy.read(source, pack, Result)
     res = Result()
     try:
         module = ast.parse(source)

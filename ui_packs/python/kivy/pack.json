@@ -10,6 +10,8 @@
     "from kivy.app import App",
     "from kivy.core.window import Window",
     "from kivy.uix.relativelayout import RelativeLayout",
+    "from kivy.uix.gridlayout import GridLayout",
+    "from kivy.uix.boxlayout import BoxLayout",
     "from kivy.uix.label import Label",
     "from kivy.uix.button import Button",
     "from kivy.uix.togglebutton import ToggleButton",
@@ -44,7 +46,15 @@
     "        widget.pos = (widget.place_xy[0], parent.height - widget.place_xy[1] - widget.height)",
     "    widget.place_fit = fit",
     "    fit()",
-    "    parent.bind(height=fit)"
+    "    parent.bind(height=fit)",
+    "",
+    "def cell(widget, width=None, height=None):",
+    "    if width is not None:",
+    "        widget.size_hint_x = None",
+    "        widget.width = width",
+    "    if height is not None:",
+    "        widget.size_hint_y = None",
+    "        widget.height = height"
   ],
   "root_types": [
     "window"
@@ -80,11 +90,31 @@
         }
       ],
       "code": "place({parent}, {name}, {args})"
+    },
+    "cell": {
+      "child_only": true,
+      "props": [
+        {
+          "key": "width",
+          "label": "Width (blank = share the space)",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "height",
+          "label": "Height (blank = share the space)",
+          "kind": "int",
+          "optional": true
+        }
+      ],
+      "code": "cell({name}, {args})"
     }
   },
   "order": [
     "window",
     "frame",
+    "gridframe",
+    "boxframe",
     "label",
     "button",
     "togglebutton",

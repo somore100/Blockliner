@@ -20,7 +20,7 @@ def stub_kivy():
         def run(self): App.ran = self
     mod("kivy"); mod("kivy.app", App=App); mod("kivy.core"); mod("kivy.core.window", Window=types.SimpleNamespace(size=(0, 0)))
     mod("kivy.uix")
-    for path, cls in (("relativelayout", "RelativeLayout"), ("label", "Label"), ("button", "Button"), ("togglebutton", "ToggleButton"),
+    for path, cls in (("relativelayout", "RelativeLayout"), ("gridlayout", "GridLayout"), ("boxlayout", "BoxLayout"), ("label", "Label"), ("button", "Button"), ("togglebutton", "ToggleButton"),
                       ("checkbox", "CheckBox"), ("switch", "Switch"), ("textinput", "TextInput"), ("spinner", "Spinner"),
                       ("slider", "Slider"), ("progressbar", "ProgressBar"), ("image", "Image")):
         mod("kivy.uix." + path, **{cls: type(cls, (Widget,), {})})

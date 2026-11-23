@@ -24,7 +24,7 @@
 - Code before the window that doesn't need it runs before it; code after `mainloop()` runs after.
 
 ## Not yet
-Class windows that can't be rewritten safely (the import says why), Kivy (Python or `.kv`),
+Class windows that can't be rewritten safely (the import says why), Kivy `.kv` files,
 widgets created in loops as designer widgets, and reading the extras back after
 detach / "Back to designer" (that reader still expects generated code).
 
@@ -32,3 +32,20 @@ detach / "Back to designer" (that reader still expects generated code).
 `class App(tk.Tk)` (the class is the window) and `class App: def __init__(self, master)` with `root = tk.Tk(); App(root)` are rewritten first (`ui_import_class.py`): `self.x` becomes `x`, methods become functions (a `global` line where they assign), and a method that only builds widgets and is called from `__init__` is written out in place. It refuses, with the reason, when it could change what the program does: class attributes or decorators, other base classes, a name used both as `self.x` and as a local, the instance used afterwards.
 
 The `.pack` layout is in the tkinter and customtkinter packs; the designer paper draws it roughly (top/bottom stack, left/right side by side).
+
+## Kivy
+
+A Python Kivy program is read when its code mentions `kivy`: a class that extends `App` whose `build(self)` makes the layout with
+`Class(...)` calls, `parent.add_widget(child)` (a child made inline in the call is fine) and `widget.bind(on_press=handler)`, then
+`return layout`.
+
+- `GridLayout` / `BoxLayout` become the pack's **Grid box** / **Box**; `RelativeLayout` / `FloatLayout` become a frame (or the window).
+  If `build()` returns a BoxLayout or GridLayout, it sits in a plain window of the same size (it won't resize with the window).
+- A widget in a box or grid uses the *cell* layout: `size_hint_x=None, width=...` / `size_hint_y=None, height=...` become fixed
+  width / height; otherwise it shares the space. A widget in a RelativeLayout is placed at 0, 0 (its `pos` is kept as an option but
+  not used by the designer's placement).
+- `TextInput(multiline=False)` is an entry, otherwise a text box. `on_press=self.go` and `.bind(...)` with a method or function name
+  become event links; the App class's methods are written out as plain functions (`self.x` becomes `x`).
+- Anything else in `build()` (loops that add widgets, `lbl.text = ...`) stays as code in the window's function, after the widgets,
+  so the order of widgets added by a loop can differ from the original.
+- Refused with a reason: classes with other members (`on_start`, properties, decorators), `.kv` files / `Builder.load_string`.

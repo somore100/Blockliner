@@ -13,7 +13,7 @@ class UIImportMixin:
     def read_ui_code(self, content):
         """(Result, pack): the first reading of `content` as a window with the UI library its imports point at."""
         packs = self.ui_packs_for("python")
-        wanted = "python/customtkinter" if "customtkinter" in content else "python/tkinter"
+        wanted = "python/kivy" if "kivy" in content else "python/customtkinter" if "customtkinter" in content else "python/tkinter"
         pack = next((p for p in packs if p.id == wanted), None)
         if pack is None:
             return ui_import_reader.Result(problems=[f"there is no UI library '{wanted}'"]), None
@@ -21,7 +21,7 @@ class UIImportMixin:
 
     def _offer_ui_import(self, content):
         """Python code that builds a window: offer to open it in the designer. True if it was opened."""
-        if self.current_language != "python" or not ("tkinter" in content or "customtkinter" in content):
+        if self.current_language != "python" or not ("tkinter" in content or "customtkinter" in content or "kivy" in content):
             return False
         res, pack = self.read_ui_code(content)
         if res.tree is None:
@@ -39,7 +39,7 @@ class UIImportMixin:
         (in the place the window had in the code). True when done."""
         if self.current_language != "python":
             if show_problems:
-                messagebox.showinfo("UI designer", "Importing a window works for Python (tkinter, customtkinter) so far.")
+                messagebox.showinfo("UI designer", "Importing a window works for Python (tkinter, customtkinter, Kivy) so far.")
             return False
         res, pack = self.read_ui_code(content)
         if res.tree is None:

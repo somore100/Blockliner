@@ -1,6 +1,7 @@
 ## Next
 
 - **Hand-written UI into the designer**: when you import Python code that builds a tkinter or customtkinter window, Blockliner offers to open the window in the UI designer (or use *Open as UI window* in the Import Code dialog). Widgets, layout (grid/place), title and size are read; handlers become links to their function nodes; options the designer has no field for stay as an **Other options** line you can edit; anything else around the window is kept as code. See docs/ui-import.md.
+- **UI import, more shapes**: class-based tkinter windows (`class App(tk.Tk)` or `class App: __init__(self, master)`), `.pack()` (new *pack* layout: side, fill, expand, padding, anchor) and **hand-written Kivy** (`class MyApp(App)` with `build()` and `add_widget`) are read too. The Kivy pack gained **Grid box** (GridLayout) and **Box** (BoxLayout) containers, whose widgets use a *cell* layout (fixed width/height or share the space). `.kv` files are not read yet.
 - **File > Apply AI Changes...**: paste changes an AI chat suggested and apply them without line numbers. Each change names a function (node) and quotes the code to find (or replaces the whole function, or adds a new one); you review a before/after for each, and the ticked ones are applied as one undoable step. *Copy instructions for AI* gives the chat the format to use. See docs/ai-changes.md.
 
 ## What's new in 2.8.0

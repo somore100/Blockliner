@@ -1,0 +1,42 @@
+{
+  "category": "Containers",
+  "container": true,
+  "default_size": [
+    240,
+    140
+  ],
+  "child_layout": "cell",
+  "events": [],
+  "type": "boxframe",
+  "label": "Box",
+  "description": "Lines its widgets up in one row or one column (Kivy BoxLayout).",
+  "icon": "☰",
+  "props": [
+    {
+      "key": "orientation",
+      "label": "Direction",
+      "kind": "enum",
+      "options": [
+        "vertical",
+        "horizontal"
+      ],
+      "default": "vertical"
+    },
+    {
+      "key": "spacing",
+      "label": "Spacing",
+      "kind": "int",
+      "optional": true
+    },
+    {
+      "key": "padding",
+      "label": "Padding",
+      "kind": "int",
+      "optional": true
+    }
+  ],
+  "code": [
+    "{name} = BoxLayout({args})",
+    "{parent}.add_widget({name})"
+  ]
+}

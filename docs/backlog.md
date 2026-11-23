@@ -228,3 +228,21 @@ Collected from testing; none of this is started.
 - Round 3: Rust 32, Go 32, Java 44, C# 44, C 29 blocks (all were 19). Go gets `strings`/`math` libraries; C blocks ask for `string.h`/`math.h`/`stdlib.h`. `tests/test_more_blocks_langs.py` now covers all seven brace languages.
 - Rust has no range-loop block: `for i in 0..10` already reads as the existing loop_for. Go: no try/catch (it has none), C: no lists that grow (fixed arrays), no text split/join.
 - Not done anywhere: switch/match, lambdas, enums/structs, file reading, async. Java/C# `class` blocks are only tested as containers, not as a place for functions.
+
+## Code → designer: import a hand-written UI (idea, 2026-11-23, not started)
+Wish: load an existing app (say a Kivy or tkinter calculator) and have Blockliner turn its UI into a designer window automatically.
+
+State today: "Back to designer" (ui_parse.py) only reads the exact shape the generator writes (a build function whose lines match the pack's
+templates run backwards, then generated again and compared character for character). A hand-written script is refused: module-level code gives
+"no function was found", and even inside a function a line with options the pack doesn't know (`bg=`, `fg=`, `command=name, height=2`) is refused.
+Importing code (Code → Blocks / as nodes) therefore leaves UI code as raw code or ordinary blocks, never as a designer.
+
+Sketch:
+- Read with `ast`, not the reverse-regex: find constructor calls whose callee is a pack widget (`tk.Button`, `ttk.Button`, kivy `Button`), take the
+  keywords that map to the widget's props (a prop's `arg` is the library's name for it), and the geometry calls (`.grid/.pack/.place`, kivy
+  `add_widget` inside a layout) as layout. `command=handler` / `bind(on_press=handler)` link events to the function nodes.
+- Contract change: not "regenerate must equal the text" but "import what is understood, keep the rest". Unknown keywords need a pass-through bag on the
+  widget (`extra` options written back as they were), and statements around the UI stay as code in the file. Show a report of what was and wasn't taken.
+- Order of work: (1) hand-written tkinter/ttk and customtkinter (same shape), (2) Kivy built in Python (needs GridLayout/BoxLayout in the Kivy pack,
+  which only has a `place` layout today), (3) Kivy `.kv` files (a separate small parser), (4) other toolkits as packs appear.
+- Related: an auto pack generator (draft a pack's widget files from a library's classes with `inspect`) would make new toolkits cheap to add.

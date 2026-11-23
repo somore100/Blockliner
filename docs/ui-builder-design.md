@@ -243,13 +243,13 @@ Parsing arbitrary UI code back into a tree; pack-style layout (`pack`); styling/
 
 ## UI libraries and widget descriptions (added 2026-11-05)
 
-A UI library is a pack folder: `ui_packs/<language>/<name>/pack.json` plus `widgets/*.json`. Nothing about a library lives in the program; to add one (kivy, a web framework, ...) add a folder. Shipped for Python: `tkinter` (default, nothing to install) and `customtkinter` (needs `pip install customtkinter`).
+A UI library is a pack folder: `ui_packs/<language>/<name>/pack.json` plus `widgets/*.json`. Nothing about a library lives in the program; to add one (kivy, a web framework, ...) add a folder. Shipped for Python: `tkinter` (default, nothing to install), `customtkinter` (needs `pip install customtkinter`) and `kivy` (needs `pip install kivy`).
 
 - `pack.json` has `label`, `description` (one sentence, shown in the chooser and under the palette) and `priority` (lower first; the first pack is the default).
 - Each widget has a `description` in plain words. The designer shows it when you hover a palette row and under the title of the selected widget's settings.
 - A UI node remembers its library (`node["ui"]["pack"]`) and always generates and edits with that one. A new UI node uses the library the file's other UI nodes already use; the first one in a file asks (`ui_pack.pick_pack`), unless only one library exists for the language.
 - How a pack builds a component: each widget's `code` is a template (`{name} = ctk.CTkButton({parent}{opts})`), its props say which arguments exist (`arg` renames a prop to the library's own name, `omit_when` leaves out defaults), its events say how a handler is attached. Same widget `type` names across libraries (button, label, ...) keep the door open for converting between them later.
-- Not built: converting a window from one library to another, a library chooser in settings, kivy (its structure, a class plus layout tree, needs `function`/`run` templates the format doesn't have yet).
+- Not built: converting a window from one library to another, a library chooser in settings. (Kivy was added later: its class plus layout tree uses the pack's `function`/`run` templates.) Reading a hand-written UI into the designer: see docs/backlog.md.
 
 ## The designer camera (added 2026-11-07)
 

@@ -72,11 +72,27 @@ def _names(node):
     return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
 
 
+_CONSTS = {"LEFT": "left", "RIGHT": "right", "TOP": "top", "BOTTOM": "bottom", "X": "x", "Y": "y", "BOTH": "both",
+           "NONE": "none", "HORIZONTAL": "horizontal", "VERTICAL": "vertical", "YES": True, "NO": False,
+           "NORMAL": "normal", "DISABLED": "disabled", "WORD": "word", "CHAR": "char", "CENTER": "center",
+           "FLAT": "flat", "RAISED": "raised", "SUNKEN": "sunken", "GROOVE": "groove", "RIDGE": "ridge"}
+_CONST_RE = re.compile(r"(?:tk|tkinter)\.([A-Z]+)\Z")
+
+
 def _literal(source):
+    """(ok, value): a literal, or a tkinter constant (tk.LEFT -> 'left'; the generated code uses the plain text)."""
     try:
         return True, ast.literal_eval(source)
     except (ValueError, SyntaxError):
+        m = _CONST_RE.match(source)
+        if m and m.group(1) in _CONSTS:
+            return True, _CONSTS[m.group(1)]
         return False, None
+
+
+def _fit(kind, value):
+    """A bool setting written as 1/0 (expand=1) is a bool."""
+    return bool(value) if kind == "bool" and value in (0, 1) and not isinstance(value, bool) else value
 
 
 def read(source, pack):
@@ -254,7 +270,7 @@ def _widget(st, tree, pack, classes, known, types, res):
         if p is not None:
             ok, val = _literal(src)
             if ok and not isinstance(val, (set, dict)):
-                props[p["key"]] = val
+                props[p["key"]] = _fit(p["kind"], val)
                 continue
         extra[arg] = src
     if module == "ttk" and mod != "ttk":
@@ -310,7 +326,7 @@ def _layout_call(st, tree, pack, known, types, res):
         src = _src(kw.value)
         ok, val = _literal(src)
         if p is not None and ok:
-            values[p["key"]] = val
+            values[p["key"]] = _fit(p["kind"], val)
         else:
             extra[kw.arg] = src
     if extra:

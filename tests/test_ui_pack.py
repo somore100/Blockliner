@@ -38,7 +38,7 @@ def main():
     check("palette follows 'order' and leaves out the window", [c for c, _ in pack.palette()][0] == "Containers" and all(w["type"] != "window" for _c, ws in pack.palette() for w in ws))
     check("containers", pack.is_container("window") and pack.is_container("frame") and not pack.is_container("button") and not pack.is_container("nope"))
     check("defaults only include props that have one", pack.defaults("button") == {"text": "Button", "state": "normal"})
-    check("layouts: grid, place and the child-only tab and cascade", set(pack.layouts) == {"grid", "place", "tab", "cascade"} and pack.layouts_for("frame") == ["grid", "place"] and pack.layouts_for("notebook") == ["tab"])
+    check("layouts: grid, place, pack and the child-only tab and cascade", set(pack.layouts) == {"grid", "place", "pack", "tab", "cascade"} and pack.layouts_for("frame") == ["grid", "place", "pack"] and pack.layouts_for("notebook") == ["tab"])
     check("window title/geometry are inline props", all(p["inline"] for p in pack.widget("window")["props"]))
 
     # ---- tree fit

@@ -102,7 +102,9 @@ def _groups(node):
     for c in _kids(node):
         lay = c["layout"]
         manager = lay.get("manager")
-        if manager == "grid" or (manager is None and ("row" in lay or "column" in lay)):
+        if manager == "pack":
+            stack.append(c)                    # arranged by side in _arrange
+        elif manager == "grid" or (manager is None and ("row" in lay or "column" in lay)):
             grid.append(c)
         elif manager == "place" or (manager is None and ("x" in lay or "y" in lay)):
             place.append(c)
@@ -170,8 +172,18 @@ class Paper:
             rel[c["id"]] = (0, TAB_STRIP, w, h)
             right, bottom = max(right, w), max(bottom, TAB_STRIP + h)
         y = bottom + GAP if bottom else PAD
+        x_left, row_h = PAD, 0                 # pack: top/bottom stack down; left/right sit side by side in the row below
         for c in stack:
             w, h = self.measure(c)
+            lay = c["layout"]
+            if lay.get("manager") == "pack" and lay.get("side") in ("left", "right"):
+                rel[c["id"]] = (x_left, y, w, h)
+                x_left += w + GAP
+                row_h = max(row_h, h)
+                right, bottom = max(right, x_left), max(bottom, y + row_h)
+                continue
+            if row_h:                           # a row of left/right widgets ends before the next top/bottom one
+                y, x_left, row_h = y + row_h + GAP, PAD, 0
             rel[c["id"]] = (PAD, y, w, h)
             right, bottom, y = max(right, PAD + w), y + h, y + h + GAP
         return rel, right, bottom

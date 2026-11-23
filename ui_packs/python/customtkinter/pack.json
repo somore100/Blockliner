@@ -119,6 +119,62 @@
         }
       ],
       "code": "{name}.place({args})"
+    },
+    "pack": {
+      "props": [
+        {
+          "key": "side",
+          "label": "Side",
+          "kind": "enum",
+          "options": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ],
+          "default": "top",
+          "omit_when": "top"
+        },
+        {
+          "key": "fill",
+          "label": "Fill",
+          "kind": "enum",
+          "options": [
+            "none",
+            "x",
+            "y",
+            "both"
+          ],
+          "default": "none",
+          "omit_when": "none"
+        },
+        {
+          "key": "expand",
+          "label": "Expand",
+          "kind": "bool",
+          "default": false,
+          "omit_when": false
+        },
+        {
+          "key": "padx",
+          "label": "Pad X",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "pady",
+          "label": "Pad Y",
+          "kind": "int",
+          "optional": true
+        },
+        {
+          "key": "anchor",
+          "label": "Anchor",
+          "kind": "string",
+          "optional": true
+        }
+      ],
+      "code": "{name}.pack({args})"
     }
   },
   "visibility": [

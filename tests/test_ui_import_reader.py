@@ -63,7 +63,7 @@ check("an unknown option stays as written", e["extra"] == {"height": "2"})
 check("command=name is a link to resolve", res.links == [("equal", "command", "equalpress")])
 check("a tk widget that a themed one can't copy stays code", "fancy" not in names and any("fancy" in x for x in res.report))
 check("variables that need the window are kept inside", "var = tk.StringVar()" in t.extra["pre_code"] and "root.resizable(0, 0)" in t.extra["pre_code"])
-check("loops and .pack() are kept inside, in order", t.extra["post_code"][-1] == "entry.focus()" and any(x.startswith("for i in range") for x in t.extra["post_code"]) and "other.pack()" in t.extra["post_code"])
+check("loops are kept inside in order, and .pack() is a layout", t.extra["post_code"][-1] == "entry.focus()" and any(x.startswith("for i in range") for x in t.extra["post_code"]) and next(n for n in t.walk() if n["name"] == "other")["layout"] == {"manager": "pack"})
 check("functions and variables stay outside", "def press" in res.before and "expression" in res.before and res.after == 'print("bye")')
 
 text = ui_gen.render(ui_gen.generate(t, TK, handler_name=lambda i: i))
@@ -152,5 +152,18 @@ for bad, why in (("class A(tk.Frame):\n    def __init__(self, m):\n        pass\
                  ("import tkinter as tk\nclass A(tk.Tk):\n    def __init__(self):\n        super().__init__()\n        self.t = 1\n    def f(self):\n        t = 2\nA().mainloop()\n", "local")):
     got = r.read(bad, TK)
     check(f"a class that can't be rewritten is refused ({why})", got.tree is None and got.problems)
+
+PK = "import tkinter as tk\nroot = tk.Tk()\nf = tk.Frame(root)\nf.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)\nl = tk.Label(root, text='x')\nl.pack()\nroot.mainloop()\n"
+pk = r.read(PK, TK)
+fw = next((n for n in pk.tree.walk() if n["name"] == "f"), None) if pk.tree else None
+check(".pack() is a real layout now", fw is not None and fw["layout"] == {"manager": "pack", "side": "left", "fill": "both", "expand": True, "padx": 5})
+check("a bare .pack() is kept as a layout too", pk.tree is not None and next(n for n in pk.tree.walk() if n["name"] == "l")["layout"] == {"manager": "pack"})
+check("nothing stays as code for it", pk.tree is not None and not pk.tree.extra["post_code"])
+gen = ui_gen.render(ui_gen.generate(pk.tree, TK, handler_name=lambda i: i))
+check("it is written back", "f.pack(side='left', fill='both', expand=True, padx=5)" in gen and "l.pack()" in gen)
+import ui_paper
+boxes = {b["id"]: b for b in ui_paper.Paper(pk.tree, TK).boxes(400, 300)}
+bf, bl = boxes[fw["id"]], boxes[next(n["id"] for n in pk.tree.walk() if n["name"] == "l")]
+check("the paper puts a side-by-side widget beside and a top one below", bl["y"] >= bf["y"] + bf["h"])
 print("\nFAILED: " + ", ".join(FAILURES) if FAILURES else "\nALL PASS")
 sys.exit(1 if FAILURES else 0)
